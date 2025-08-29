@@ -22,7 +22,7 @@ from app.core.monitoring import setup_monitoring, MetricsCollector
 from app.core.exceptions import setup_exception_handlers
 from app.api.v1 import learning, agents, workflows, scenarios, foundry
 from app.services.database.cosmos_service import CosmosService
-from app.services.database.redis_service import RedisService
+
 
 # Configure structured logging
 structlog.configure(
@@ -64,12 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.cosmos = cosmos_service
         logger.info("CosmosDB service initialized")
         
-        # Initialize Redis cache
-        redis_service = RedisService()
-        await redis_service.initialize()
-        app.state.redis = redis_service
-        logger.info("Redis service initialized")
-        
+
         # Initialize metrics collector
         metrics_collector = MetricsCollector()
         app.state.metrics = metrics_collector
@@ -86,8 +81,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Shutting down application")
         if hasattr(app.state, 'cosmos'):
             await app.state.cosmos.close()
-        if hasattr(app.state, 'redis'):
-            await app.state.redis.close()
+
         logger.info("Application shutdown completed")
 
 

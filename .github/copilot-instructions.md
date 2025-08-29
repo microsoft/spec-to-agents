@@ -1,39 +1,54 @@
 # Copilot instructions for spec-to-agents
 
-Purpose: make AI coding agents productive in this FastAPI reference app that teaches agent orchestration through an event-planning domain.
+Purpose: make AI coding agents productive in this spec-to-agent sample that demonstrates Microsoft Agent Framework through event planning orchestration.
 
 Big picture
-- Backend FastAPI app under `src/backend/app`. API is a 6-level learning progression: `basic_agents → agent_tools → multi_agent → workflows → orchestration → human_loop` wired in `app/api/v1/learning/router.py` and mounted in `app/main.py`.
-- App startup (`app/main.py`) sets up CORS/trusted hosts, structured logging (structlog), metrics (`core/monitoring.py`), and services (Cosmos/Redis) in `lifespan`; services are on `app.state`.
+- **Spec-to-Agent Sample**: Hero sample for Microsoft Agent Framework showcasing agent generation from specifications
+- **Event Planning Domain**: Comprehensive event planning with multiple collaborating agents and group chat coordination
+- Backend FastAPI app under `src/backend/app` with TypeScript frontend under `src/frontend` (to be built)
+- **Microsoft Agent Framework**: Converged framework combining Semantic Kernel + AutoGen patterns
+- **Agent Framework Integration**: Follow tier-based import patterns (Tier 0: core, Tier 1: advanced, Tier 2: connectors)
 - Config via Pydantic Settings in `app/core/config.py` (reads `.env`). Shared enums/models in `app/core/models.py`. Central errors/handlers in `app/core/exceptions.py`.
-- Agents are scaffolded with placeholders where `agent_framework` may be missing; see `app/api/v1/learning/*` and `app/agents/specialists/event_planner.py`.
 
 Day-to-day workflow
-- From `src/backend/`: install deps with `pip install -r requirements.txt`. Quick smoke test: `python test_startup.py`. Run dev server: `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` (docs at `/docs`, health at `/health`).
-- Tests under `src/backend/tests/` (pytest, pytest-asyncio). Run from `src/backend/`: `pytest -q`.
+- From `src/backend/`: install deps with `uv sync`. Run dev server: `uv run python app/main.py` (docs at `/docs`, health at `/health`).
+- Tests under `src/backend/tests/` (pytest, pytest-asyncio). Run from `src/backend/`: `uv run pytest`.
+- Code quality: Use `ruff` for linting/formatting, `mypy` for type checking (configured in `pyproject.toml`)
 - Settings: keep features resilient to missing Azure creds. Use `get_settings()` for config; prefer mocking external calls in tests.
 
 Conventions to follow
-- Routers: add endpoints in the right area folder (e.g., `app/api/v1/learning/*.py`) and include via that area’s `router.py`. Use tags consistent with existing levels.
-- Models: prefer types in `core/models.py` (`LearningLevel`, `DifficultyLevel`, `AgentType`, `CodeExample`, etc.). Keep Level endpoints returning educational fields like `explanation`, `learning_notes`, and a `CodeExample` (see `basic_agents.py`).
-- Errors/logging/metrics: raise `AgentFrameworkException` subclasses from `core/exceptions.py`; structured log with `structlog.get_logger(__name__)`; track via `MetricsCollector` on `app.state.metrics` and Prometheus helpers in `core/monitoring.py`.
-- State/services: access Cosmos/Redis through `request.app.state`. If adding a new service, initialize/close it in `lifespan` like existing ones.
-- Agent fallbacks: wrap `agent_framework` imports in try/except ImportError and provide mock behavior (see `basic_agents.py`, `agent_tools.py`). Keep code runnable without the framework.
+- **Agent Framework Patterns**: Follow Microsoft Agent Framework design principles with tier-based imports
+  - Tier 0 (core): `from agent_framework import Agent, ai_function`
+  - Tier 1 (advanced): `from agent_framework.workflows import WorkflowBuilder`
+  - Tier 2 (connectors): `from agent_framework.azure import AzureChatClient`
+- **Logging**: Use Agent Framework logging patterns with `get_logger()` instead of direct `logging.getLogger(__name__)`
+- **Tools**: Create tools with `@ai_function` decorator and proper type annotations with `Annotated`
+- Models: prefer types in `core/models.py` (`AgentType`, `CodeExample`, etc.). Focus on spec-to-agent generation patterns.
+- Errors/logging/metrics: raise `AgentFrameworkException` subclasses from `core/exceptions.py`; use structured logging; track via `MetricsCollector` on `app.state.metrics`.
+- State/services: access CosmosDB through `request.app.state`. If adding a new service, initialize/close it in `lifespan` like existing ones.
+- Agent fallbacks: wrap `agent_framework` imports in try/except ImportError and provide mock behavior. Keep code runnable without the framework.
 
 Integration points (be cautious)
-- Azure OpenAI/Foundry: config fields in `core/config.py`; the Foundry router is a stub (`api/v1/foundry/router.py`). Guard calls behind config and provide stubs in tests.
-- Tools (Level 2): expose native functions with `@ai_function`, typed parameters, and Field metadata (`agent_tools.py`). Keep hosted/MCP tools feature-flagged via settings.
+- **Azure AI Services**: Use `azure-ai-projects` and `azure-ai-agents` packages instead of `azure-openai`
+- **Agent Framework**: Follow tier-based import patterns and lazy loading where appropriate
+- **Spec-to-Agent Generation**: Focus on generating agents from specifications and demonstrating group chat coordination
+- Tools: expose native functions with `@ai_function`, typed parameters with `Annotated`, and proper descriptions
 
 Representative files
-- `app/api/v1/learning/basic_agents.py`: single-agent pattern, instruction templates, custom instructions endpoint.
-- `app/api/v1/learning/agent_tools.py`: tool functions, explanation and code example generation.
-- `app/agents/specialists/event_planner.py`: specialist scaffold with `DifficultyLevel` instruction sets and simple tool stubs.
-- `app/core/*`: config, models, exceptions, monitoring.
+- `app/agents/`: Agent generation and orchestration logic, following Agent Framework patterns
+- `app/api/`: REST API endpoints for spec-to-agent functionality and event planning orchestration
+- `app/core/*`: config, models, exceptions, monitoring following Agent Framework conventions
+- `pyproject.toml`: Modern Python packaging with ruff, mypy, and pytest configuration
 
 Gotchas
-- Run from `src/backend/` so `import app...` resolves and `.env` is picked up.
-- Keep endpoints async; avoid blocking I/O in handlers.
-- Maintain enum values from `core/models.py` in public APIs.
+- Run from `src/backend/` so `import app...` resolves and `.env` is picked up
+- Use `uv sync` and `uv run` commands for dependency management and execution
+- Keep endpoints async; avoid blocking I/O in handlers
+- Follow Agent Framework logging patterns with `get_logger()` instead of direct logging imports
+- Use proper type annotations with `Annotated` for tool parameters
 
-Open questions (confirm and update here)
-- Package workflow: repo includes `pyproject.toml` (uv) and `src/backend/requirements.txt` (pip). Current guidance favors `src/backend` + pip for the FastAPI app; align if you standardize on `uv`.
+Development focus
+- **Spec-to-Agent**: Demonstrate generating specialized agents from specifications
+- **Group Chat**: Showcase multi-agent coordination and real-time collaboration
+- **Event Planning**: Use relatable domain to demonstrate complex orchestration patterns
+- **Agent Framework Integration**: Follow Microsoft Agent Framework design principles and patterns

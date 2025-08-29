@@ -1,0 +1,126 @@
+[project]
+name = "spec2agent-backend"
+version = "0.1.0"
+description = "Backend for Spec-to-Agent sample demonstrating Microsoft Agent Framework"
+authors = [
+    { name = "Microsoft", email = "opensource@microsoft.com" }
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # Web framework
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    
+    # Data validation and settings
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    
+    # HTTP and file handling
+    "python-multipart>=0.0.6",
+    "aiofiles>=23.2.1",
+    "httpx>=0.25.2",
+    "websockets>=12.0",
+    
+    # Authentication and security
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    
+    # Azure AI
+    "azure-ai-projects>=1.1.0b3",
+    "azure-ai-agents>=1.2.0b3",
+    
+    # Azure SDK
+    "azure-identity>=1.15.0",
+    "azure-cosmos>=4.5.1",
+    "azure-keyvault-secrets>=4.7.0",
+    "azure-servicebus>=7.11.4",
+    "azure-monitor-opentelemetry>=1.2.0",
+    "azure-communication-email>=1.0.0",
+    
+    # OpenAI
+    "openai>=1.6.1",
+    
+    # Database
+    "motor>=3.3.2",
+    
+    # Monitoring and logging
+    "structlog>=23.2.0",
+    "prometheus-client>=0.19.0",
+    
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "Jinja2>=3.1.2",
+    "reportlab>=4.0.7",
+    "celery>=5.3.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Development and testing
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-mock>=3.12.0",
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.1",
+]
+agent-framework = [
+    "agent-framework-project",
+]
+
+[tool.uv.sources]
+agent-framework-project = { path = "../../../../../oss/orchestration/agent-framework/python", editable = true }
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+unfixable = []
+select = [
+    "ASYNC", # async checks
+    "B", # bugbear checks
+    "E", # error checks
+    "F", # pyflakes checks
+    "I", # isort
+    "Q", # flake8-quotes checks
+    "RET", # flake8-return check
+    "RUF", # RUF specific rules
+    "SIM", # flake8-simplify check
+    "T100", # Debugger
+    "W", # pycodestyle warning checks
+]
+ignore = [
+    "D100", # allow missing docstring in public module
+    "D104", # allow missing docstring in public package
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "RUF"]
+"*_test.py" = ["D"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
