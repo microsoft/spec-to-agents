@@ -10,7 +10,7 @@ This is a **Microsoft Agent Framework Reference Implementation** that serves as 
 - **FastAPI Backend**: Modern Python web framework with async support
 - **Learning Progression System**: 6 structured levels from beginner to advanced
 - **Agent Specialists**: Specialized agents for event planning, venue research, budget analysis
-- **Azure Integration**: CosmosDB, Redis, Azure AI Foundry, monitoring
+- **Azure Integration**: CosmosDB, Azure AI Foundry, monitoring
 - **Real-time Features**: WebSocket streaming, live workflow monitoring
 
 ### Learning Levels (Progressive Complexity)
@@ -25,10 +25,19 @@ This is a **Microsoft Agent Framework Reference Implementation** that serves as 
 
 ### Code Style & Standards
 - **Python 3.13+**: Use modern Python features and type hints
+- **Agent Framework Patterns**: Follow Microsoft Agent Framework design principles
+- **Import Structure**: Use tier-based imports (Tier 0: core, Tier 1: advanced, Tier 2: connectors)
 - **Async/Await**: Prefer async patterns for I/O operations
-- **Structured Logging**: Use `structlog` for consistent logging
-- **Type Safety**: Use Pydantic models and type hints throughout
+- **Structured Logging**: Use Agent Framework logging patterns with `get_logger()`
+- **Type Safety**: Use Pydantic models and comprehensive type hints
 - **Error Handling**: Implement proper exception handling with custom exception classes
+
+### Agent Framework Integration
+- **Tier 0 Components**: Import core components directly from `agent_framework`
+- **Tier 1 Components**: Import advanced features from `agent_framework.<component>`
+- **Tier 2 Components**: Import connectors from `agent_framework.<service>`
+- **Lazy Loading**: Use lazy imports to avoid loading unnecessary dependencies
+- **Namespace Packages**: Follow namespace package patterns for extensibility
 
 ### Project Structure
 ```
@@ -46,7 +55,7 @@ src/backend/
 ### Key Technologies
 - **FastAPI**: Web framework with automatic OpenAPI generation
 - **Pydantic**: Data validation and settings management
-- **Azure SDK**: CosmosDB, Redis, Key Vault, Service Bus
+- **Azure SDK**: CosmosDB, Key Vault, Service Bus
 - **OpenAI/Azure OpenAI**: AI model integration
 - **uv**: Modern Python package management
 
@@ -72,9 +81,38 @@ src/backend/
 
 ### Agent Implementation
 - Use placeholder agents during development (see `event_planner.py`)
-- Implement proper error handling and logging
+- Follow Agent Framework patterns for agent creation and tools
+- Implement proper error handling and logging with `get_logger()`
 - Follow the instruction-based configuration pattern
 - Support multiple difficulty levels (Beginner, Intermediate, Advanced)
+
+### Recommended Agent Framework Usage
+```python
+from typing import Annotated
+from agent_framework import Agent, ai_function
+from agent_framework.azure import AzureChatClient
+
+@ai_function(description="Calculate event budget breakdown")
+async def calculate_budget(
+    total_budget: Annotated[float, "Total event budget"],
+    venue_percentage: Annotated[float, "Percentage for venue"] = 30.0
+) -> dict:
+    """Calculate event budget breakdown by category."""
+    return {
+        "venue": total_budget * (venue_percentage / 100),
+        "catering": total_budget * 0.25,
+        "entertainment": total_budget * 0.15,
+        "logistics": total_budget * 0.30
+    }
+
+# Create agent with tools
+event_planner = Agent(
+    name="EventPlannerAgent",
+    model_client=AzureChatClient(),
+    tools=[calculate_budget],
+    description="Specialized agent for event planning coordination"
+)
+```
 
 ### API Design
 - RESTful endpoints with clear naming conventions

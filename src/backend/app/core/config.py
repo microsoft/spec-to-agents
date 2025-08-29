@@ -45,11 +45,7 @@ class Settings(BaseSettings):
     COSMOS_KEY: str = Field(default="", description="CosmosDB primary key")
     COSMOS_DATABASE_NAME: str = Field(default="agent_framework_reference")
     
-    # Redis Configuration
-    REDIS_CONNECTION_STRING: str = Field(default="redis://localhost:6379", description="Redis connection string")
-    REDIS_KEY_PREFIX: str = Field(default="agent_framework:")
-    REDIS_DEFAULT_TTL: int = Field(default=3600, description="Default TTL in seconds")
-    
+
     # Azure Key Vault Configuration
     KEY_VAULT_ENDPOINT: str = Field(default="", description="Azure Key Vault endpoint")
     
