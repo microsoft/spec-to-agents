@@ -26,6 +26,9 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     
+    # Agent Framework
+    "agent-framework[azure,workflow]",
+    
     # Azure AI
     "azure-ai-projects>=1.1.0b3",
     "azure-ai-agents>=1.2.0b3",
@@ -66,12 +69,15 @@ dev = [
     "flake8>=6.1.0",
     "mypy>=1.7.1",
 ]
-agent-framework = [
-    "agent-framework-project",
-]
+
+[tool.uv]
+prerelease = "if-necessary-or-explicit"
 
 [tool.uv.sources]
-agent-framework-project = { path = "../../../../../oss/orchestration/agent-framework/python", editable = true }
+"agent-framework" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/main" }
+"agent-framework-azure" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/azure" }
+"agent-framework-foundry" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/foundry" }
+"agent-framework-workflow" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/workflow" }
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
