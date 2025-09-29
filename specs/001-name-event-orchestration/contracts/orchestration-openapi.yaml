@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  title: EODS Orchestration API
+  version: 0.1.0
+paths:
+  /events:
+    post:
+      summary: Create an EventBrief and start orchestration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventBrief'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+  /events/{eventId}/actions/start:
+    post:
+      summary: Start lifecycle for an Event
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Accepted
+
+components:
+  schemas:
+    EventBrief:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        date_range:
+          type: object
+        audience_size:
+          type: integer
+        event_type:
+          type: string
+        objectives:
+          type: object
+      required: [title, date_range]
+
+    EventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+

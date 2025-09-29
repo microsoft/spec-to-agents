@@ -9,7 +9,7 @@ infra:
 
 services:
   backend:
-    project: ./src/backend
+    project: ./backend
     language: python
     host: containerapp
     env:
@@ -43,13 +43,13 @@ hooks:
       shell: pwsh
       run: |
         echo "Seeding database with learning scenarios..."
-        cd src/backend
+        cd backend
         python scripts/seed_database.py
     posix:
       shell: sh
       run: |
         echo "Seeding database with learning scenarios..."
-        cd src/backend
+        cd backend
         python scripts/seed_database.py
 
   postdeploy:
@@ -57,11 +57,11 @@ hooks:
       shell: pwsh
       run: |
         echo "Running deployment validation..."
-        cd src/backend
+        cd backend
         python scripts/validate_deployment.py
     posix:
       shell: sh
       run: |
         echo "Running deployment validation..."
-        cd src/backend
+        cd backend
         python scripts/validate_deployment.py

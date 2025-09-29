@@ -1,1 +1,0 @@
-# Microsoft Agent Framework Reference Sample Implementation
