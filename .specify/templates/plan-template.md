@@ -1,3 +1,4 @@
+
 # Implementation Plan: [FEATURE]
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
@@ -46,9 +47,7 @@
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-The plan MUST include a "Constitution Check" section that explicitly documents how the plan complies with the current constitution principles: Code Quality, Testing Standards, User Experience Consistency, Performance Requirements, and Observability & Versioning. For each applicable principle, the plan MUST state:
-- Which items in the plan satisfy the principle (files, tests, metrics), and
-- Any deviations with a written, timeboxed mitigation or justification.
+[Gates determined based on constitution file]
 
 ## Project Structure
 
@@ -193,10 +192,10 @@ directories captured above]
 ## Complexity Tracking
 *Fill ONLY if Constitution Check has violations that must be justified*
 
-| Violation                  | Why Needed         | Simpler Alternative Rejected Because |
-| -------------------------- | ------------------ | ------------------------------------ |
-| [e.g., 4th project]        | [current need]     | [why 3 projects insufficient]        |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient]  |
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
 
 
 ## Progress Tracking

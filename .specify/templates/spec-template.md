@@ -84,19 +84,6 @@ When creating this spec from a user prompt:
 
 ---
 
-## Non-Functional Requirements *(mandatory when applicable)*
-Each spec MUST include a Non-Functional Requirements section when behavior has observable, performance, security, or operational impact. At minimum specify:
-- Performance targets (p95/p99 latency, throughput, concurrency expectations) or a clear "N/A" when not applicable.
-- Observability needs: logs, metrics, traces required for validating feature health.
-- Security considerations: data handling, secrets, and compliance boundaries.
-
----
-
-## Constitution Check *(mandatory)*
-Every spec MUST include a short "Constitution Check" that explicitly states how the proposed feature meets each applicable principle from the constitution: Code Quality, Testing Standards, User Experience Consistency, Performance Requirements, and Observability & Versioning. If an item cannot be met, the spec MUST include a mitigation plan or a NEEDS CLARIFICATION marker.
-
----
-
 ## Review & Acceptance Checklist
 *GATE: Automated checks run during main() execution*
 

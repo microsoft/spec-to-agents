@@ -76,13 +76,6 @@
 - [ ] T022 Remove duplication
 - [ ] T023 Run manual-testing.md
 
-## Constitution Check *(mandatory for generated tasks)*
-When tasks are generated, the top-level tasks.md MUST include a brief "Constitution Check" that maps task groups to the constitution principles they satisfy (Code Quality, Testing Standards, UX Consistency, Performance, Observability & Versioning). Any deviation MUST include a mitigation task.
-
-## Performance & Observability Tasks
-- Performance verification MUST be included for features that declare performance targets. Add benchmark or smoke test tasks under Phase 3.5.
-- Observability tasks (metrics, logging, tracing) MUST be included in Phase 3.4 Integration for services and critical flows.
-
 ## Dependencies
 - Tests (T004-T007) before implementation (T008-T014)
 - T008 blocks T009, T015
