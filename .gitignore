@@ -396,14 +396,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# VS Code files for those working on multiple tools
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-
 # Local History for Visual Studio Code
 .history/
 
@@ -430,6 +422,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib
 lib64/
 parts/
 sdist/
@@ -584,8 +577,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Editor directories and files
-.vscode/
-!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

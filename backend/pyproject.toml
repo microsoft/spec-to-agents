@@ -6,67 +6,19 @@ authors = [{ name = "Microsoft", email = "opensource@microsoft.com" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    # Web framework
-    "fastapi[standard]>=0.104.1",
-    "uvicorn[standard]>=0.24.0",
-
-    # Data validation and settings
-    "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
-
-    # HTTP and file handling
-    "python-multipart>=0.0.6",
-    "aiofiles>=23.2.1",
-    "httpx>=0.25.2",
-    "websockets>=12.0",
-
-    # Authentication and security
-    "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
-
-    # Agent Framework
     "agent-framework-core",
     "agent-framework-azure-ai",
-
-    # Azure AI
-    "azure-ai-projects>=1.1.0b3",
-    "azure-ai-agents>=1.2.0b3",
-
-    # Azure SDK
-    "azure-identity>=1.15.0",
-    "azure-cosmos>=4.5.1",
-    "azure-keyvault-secrets>=4.7.0",
-    "azure-servicebus>=7.11.4",
-    "azure-monitor-opentelemetry>=1.2.0",
-    "azure-communication-email>=1.0.0",
-
-    # OpenAI
-    "openai>=1.6.1",
-
-    # Database
-    "motor>=3.3.2",
-
-    # Monitoring and logging
-    "structlog>=23.2.0",
-    "prometheus-client>=0.19.0",
-
-    # Utilities
-    "python-dotenv>=1.0.0",
-    "Jinja2>=3.1.2",
-    "reportlab>=4.0.7",
-    "celery>=5.3.4",
+    "azure-identity",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn[standard]",
 ]
 
 [project.optional-dependencies]
 dev = [
     # Development and testing
-    "pytest>=7.4.3",
-    "pytest-asyncio>=0.21.1",
-    "pytest-mock>=3.12.0",
-    "black>=23.11.0",
-    "isort>=5.12.0",
-    "flake8>=6.1.0",
-    "mypy>=1.7.1",
+    "pytest",
+    "ruff",
 ]
 
 [tool.uv]
@@ -119,3 +71,7 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"
