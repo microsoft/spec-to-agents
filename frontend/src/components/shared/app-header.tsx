@@ -61,7 +61,7 @@ export function AppHeader({
         </svg>
         Dev UI
       </div>
-      {/* <EntitySelector
+      <EntitySelector
         agents={agents}
         workflows={workflows}
         selectedItem={selectedItem}
@@ -69,7 +69,7 @@ export function AppHeader({
         onRemove={onRemove}
         onBrowseGallery={onBrowseGallery}
         isLoading={isLoading}
-      /> */}
+      />
 
       <div className="flex items-center gap-2 ml-auto">
         <ModeToggle />

@@ -67,7 +67,7 @@ interface ThreadApiObject {
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL !== undefined
     ? import.meta.env.VITE_API_BASE_URL
-    : ""; // Empty string uses relative URLs, proxied by Vite dev server
+    : "http://localhost:8080";
 
 // Get backend URL from localStorage or default
 function getBackendUrl(): string {

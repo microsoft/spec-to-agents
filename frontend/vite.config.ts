@@ -11,22 +11,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      // Proxy API requests to backend
-      "/v1": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-      },
-      "/health": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-      },
-    },
-  },
   build: {
-    outDir: "dist",
+    outDir: "../agent_framework_devui/ui",
     emptyOutDir: true,
     rollupOptions: {
       output: {
