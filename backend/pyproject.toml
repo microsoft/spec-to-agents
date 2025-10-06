@@ -6,13 +6,13 @@ authors = [{ name = "Microsoft", email = "opensource@microsoft.com" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "agent-framework-core",
-    "agent-framework-azure-ai",
-    "agent-framework-devui",
-    "azure-identity",
-    "python-dotenv",
-    "fastapi",
-    "uvicorn[standard]",
+    "agent-framework-azure-ai>=1.0.0b251001",
+    "agent-framework-core>=1.0.0b251001",
+    "agent-framework-devui>=1.0.0b251001",
+    "azure-identity>=1.25.0",
+    "fastapi>=0.118.0",
+    "python-dotenv>=1.1.1",
+    "uvicorn[standard]>=0.37.0",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +23,7 @@ dev = [
 ]
 
 [tool.uv]
-prerelease = "if-necessary-or-explicit"
+prerelease = "allow"
 
 [tool.ruff]
 target-version = "py313"
@@ -72,6 +72,16 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+
+[tool.uv.sources]
+"agent-framework-core" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/core" }
+"agent-framework-azure-ai" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/azure-ai" }
+"agent-framework-a2a" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/a2a" }
+"agent-framework-copilotstudio" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/copilotstudio" }
+"agent-framework-mem0" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/mem0" }
+"agent-framework-redis" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/redis" }
+"agent-framework-devui" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/devui" }
+"agent-framework-lab" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/lab" }
 
 # [build-system]
 # requires = ["uv_build>=0.8.22,<0.9.0"]

@@ -12,7 +12,7 @@ async def to_reverse(text: str, ctx: WorkflowContext[str]):
 
 
 event_planner_workflow = (
-    WorkflowBuilder().set_start_executor(to_upper).add_edge(to_upper, to_reverse)
+    WorkflowBuilder(name="event_planner_workflow")
+    .set_start_executor(to_upper)
+    .add_edge(to_upper, to_reverse)
 ).build()
-
-event_planner_workflow.name = "event_planner_workflow"  # type: ignore
