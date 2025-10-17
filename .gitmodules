@@ -1,0 +1,3 @@
+[submodule "third_party/agent-framework"]
+	path = third_party/agent-framework
+	url = git@github.com:lavaman131/agent-framework.git
