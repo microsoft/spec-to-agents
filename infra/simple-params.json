@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "spec-to-agents-ai"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "appRegistrationClientId": {
+      "value": ""
+    },
+    "aiFoundryName": {
+      "value": "foundry"
+    },
+    "foundryProjectName": {
+      "value": "project"
+    },
+    "aiSearchName": {
+      "value": ""
+    }
+  }
+}
