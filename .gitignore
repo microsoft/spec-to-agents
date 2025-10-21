@@ -607,6 +607,5 @@ temp/
 .claude
 
 # Azure Developer CLI
-.azure/*
-!.azure/config.json
-main.json
+.azure/
+infra/main.json
