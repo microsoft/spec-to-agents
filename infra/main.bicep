@@ -76,6 +76,7 @@ module aiDependencies 'modules-standard/standard-dependent-resources.bicep' = {
     azureStorageName: aiStorageName
     aiSearchName: aiSearchActualName
     cosmosDBName: aiCosmosDBName
+    tags: tags
     // We are creating new resources, so 'Exists' flags are false
     aiSearchExists: false
     azureStorageExists: false
@@ -95,9 +96,6 @@ module aiAccount 'modules-standard/ai-account-identity.bicep' = {
     accountName: aiAccountName
     location: location
   }
-  dependsOn: [
-    aiDependencies
-  ]
 }
 
 // Module to create the AI Project under the AI Account
@@ -112,14 +110,14 @@ module aiProject 'modules-standard/ai-project-identity.bicep' = {
     location: location
     // Wire up the dependencies created in the previous step
     aiSearchName: aiDependencies.outputs.aiSearchName
-    aiSearchServiceResourceGroupName: rg.name
-    aiSearchServiceSubscriptionId: subscription().id
+    aiSearchServiceResourceGroupName: aiDependencies.outputs.aiSearchServiceResourceGroupName
+    aiSearchServiceSubscriptionId: aiDependencies.outputs.aiSearchServiceSubscriptionId
     cosmosDBName: aiDependencies.outputs.cosmosDBName
-    cosmosDBSubscriptionId: subscription().id
-    cosmosDBResourceGroupName: rg.name
+    cosmosDBSubscriptionId: aiDependencies.outputs.cosmosDBSubscriptionId
+    cosmosDBResourceGroupName: aiDependencies.outputs.cosmosDBResourceGroupName
     azureStorageName: aiDependencies.outputs.azureStorageName
-    azureStorageSubscriptionId: subscription().id
-    azureStorageResourceGroupName: rg.name
+    azureStorageSubscriptionId: aiDependencies.outputs.azureStorageSubscriptionId
+    azureStorageResourceGroupName: aiDependencies.outputs.azureStorageResourceGroupName
     // We are not bringing an existing AOAI resource in this setup
     aoaiPassedIn: false
     existingAoaiName: ''
@@ -192,36 +190,41 @@ module aiSearchRoleAssignments 'modules-standard/ai-search-role-assignments.bice
 //   ]
 // }
 
-// More granular role assignments needed after capability host is configured
-module storageContainersRoleAssignment 'modules-standard/blob-storage-container-role-assignments.bicep' = {
-  name: 'storage-containers-role-assignment'
-  scope: rg
-  params: {
-    aiProjectPrincipalId: aiProject.outputs.projectPrincipalId
-    storageName: aiDependencies.outputs.azureStorageName
-    workspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
-  }
-  dependsOn: [
-    aiSearchRoleAssignments
-    cosmosAccountRoleAssignments
-    storageAccountRoleAssignment
-  ]
-}
+// NOTE: Container-level role assignments are commented out because the containers
+// (enterprise_memory database and agent-specific containers) are created automatically
+// by the Azure AI Agent Service when you first use it, not during infrastructure deployment.
+// The account-level roles assigned above are sufficient for the service to function.
+// These can be added later if needed after the containers exist.
 
-module cosmosContainerRoleAssignments 'modules-standard/cosmos-container-role-assignments.bicep' = {
-  name: 'cosmos-container-role-assignment'
-  scope: rg
-  params: {
-    cosmosAccountName: aiDependencies.outputs.cosmosDBName
-    projectWorkspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
-    projectPrincipalId: aiProject.outputs.projectPrincipalId
-  }
-  dependsOn: [
-    aiSearchRoleAssignments
-    cosmosAccountRoleAssignments
-    storageAccountRoleAssignment
-  ]
-}
+// module storageContainersRoleAssignment 'modules-standard/blob-storage-container-role-assignments.bicep' = {
+//   name: 'storage-containers-role-assignment'
+//   scope: rg
+//   params: {
+//     aiProjectPrincipalId: aiProject.outputs.projectPrincipalId
+//     storageName: aiDependencies.outputs.azureStorageName
+//     workspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
+//   }
+//   dependsOn: [
+//     aiSearchRoleAssignments
+//     cosmosAccountRoleAssignments
+//     storageAccountRoleAssignment
+//   ]
+// }
+
+// module cosmosContainerRoleAssignments 'modules-standard/cosmos-container-role-assignments.bicep' = {
+//   name: 'cosmos-container-role-assignment'
+//   scope: rg
+//   params: {
+//     cosmosAccountName: aiDependencies.outputs.cosmosDBName
+//     projectWorkspaceId: formatProjectWorkspaceId.outputs.projectWorkspaceIdGuid
+//     projectPrincipalId: aiProject.outputs.projectPrincipalId
+//   }
+//   dependsOn: [
+//     aiSearchRoleAssignments
+//     cosmosAccountRoleAssignments
+//     storageAccountRoleAssignment
+//   ]
+// }
 
 // =================================================================
 // STEP 2: DEPLOY YOUR EXISTING APPLICATION INFRASTRUCTURE
