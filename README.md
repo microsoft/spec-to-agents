@@ -42,36 +42,63 @@ Plan a comprehensive event using multiple specialized agents working together.
 ## Prerequisites
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Azure CLI with AZD extension
-- Azure subscription
+- [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
+- Azure subscription with appropriate permissions
+- Node.js 18+ and npm
 
-## Quick Start
+## Quick Start with Azure Developer CLI
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/microsoft/spec-to-agents.git
-   ```
+The easiest way to deploy this sample is using `azd`:
 
-2. **Deploy to Azure (Recommended)**
-   ```bash
-   azd up
-   ```
-   This will provision all Azure resources and deploy both backend and frontend.
+```bash
+# Clone the repository
+git clone https://github.com/microsoft/spec-to-agents.git
+cd spec-to-agents
 
-3. **Or run locally**
-   ```bash
-   # Terminal 1 - Start backend
-   cd backend
-   uv sync  # Install dependencies (first time only)
-   uv run app/main.py
+# Initialize azd environment
+azd init
 
-   # Terminal 2 - Start frontend
-   cd frontend
-   npm install
-   npm run dev
-   ```
+# Deploy everything (provision infrastructure + deploy apps)
+azd up
+```
 
-   Then open your browser to `http://localhost:5173`
+**What `azd up` does:**
+- Provisions Azure resources (AI Foundry, Cosmos DB, Storage, App Services, etc.)
+- Builds and deploys the backend API
+- Builds and deploys the frontend application
+- Configures all connections and settings
+
+**Alternative commands:**
+```bash
+# Just provision infrastructure
+azd provision
+
+# Just deploy apps (after provisioning)
+azd deploy
+
+# View deployed endpoints
+azd show
+```
+
+## Running Locally
+
+For local development:
+
+```bash
+# Terminal 1 - Start backend
+cd backend
+uv sync
+uv run app/main.py
+
+# Terminal 2 - Start frontend
+cd frontend
+npm install
+npm run dev
+```
+
+Open your browser to `http://localhost:5173`
+
+**Note:** Local development requires an Azure AI Foundry project and Azure OpenAI deployment. Update `backend/.env` with your Azure credentials.
 
 
 # 🛠️ Development
@@ -105,12 +132,18 @@ npm install
 npm run test
 ```
 
-# 🚀 Deployment
+# 📦 Infrastructure
 
-## One-Click Azure Deployment
-```bash
-azd up
-```
+The infrastructure is defined in the `infra/` directory using Azure Bicep templates. It includes:
+
+- **Azure AI Foundry**: AI Account and Project for agent orchestration
+- **Azure Cosmos DB**: NoSQL database for agent state and memory
+- **Azure Storage**: Blob storage for artifacts and data
+- **Azure AI Search**: Vector search capabilities
+- **Azure App Services**: Hosting for backend API and frontend
+- **Azure Application Insights**: Monitoring and telemetry
+
+All resources are provisioned automatically when you run `azd provision` or `azd up`.
 
 # 🤝 Contributing
 
