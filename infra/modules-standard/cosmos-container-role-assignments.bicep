@@ -1,81 +1,82 @@
-@description('The name of the Cosmos DB account.')
+// Assigns the necessary roles to the AI project
+
+@description('Name of the AI Search resource')
 param cosmosAccountName string
 
-@description('The workspace ID of the AI Project.')
-param projectWorkspaceId string
-
-@description('The principal ID of the AI Project.')
+@description('Project name')
 param projectPrincipalId string
 
-// Cosmos DB Built-in Data Contributor role
-var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
+param projectWorkspaceId string
 
-// Get the Cosmos DB account resource
-resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2023-09-15' existing = {
+
+var userThreadName = '${projectWorkspaceId}-thread-message-store'
+var systemThreadName = '${projectWorkspaceId}-system-thread-message-store'
+var entityStoreName = '${projectWorkspaceId}-agent-entity-store'
+
+
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' existing = {
   name: cosmosAccountName
+  scope: resourceGroup()
 }
 
-// Create database for the AI Project
-resource aiProjectDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-09-15' = {
+// Reference existing database
+resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-12-01-preview' existing = {
   parent: cosmosAccount
-  name: 'ai-project-${projectWorkspaceId}'
-  properties: {
-    resource: {
-      id: 'ai-project-${projectWorkspaceId}'
-    }
-  }
+  name: 'enterprise_memory'
 }
 
-// Create container for the AI Project
-resource aiProjectContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-09-15' = {
-  parent: aiProjectDatabase
-  name: 'ai-agent-data'
-  properties: {
-    resource: {
-      id: 'ai-agent-data'
-      indexingPolicy: {
-        indexingMode: 'consistent'
-        automatic: true
-        includedPaths: [
-          {
-            path: '/*'
-          }
-        ]
-        excludedPaths: [
-          {
-            path: '/"_etag"/?'
-          }
-        ]
-      }
-      partitionKey: {
-        paths: [
-          '/id'
-        ]
-        kind: 'Hash'
-      }
-      defaultTtl: -1
-      uniqueKeyPolicy: {
-        uniqueKeys: []
-      }
-      conflictResolutionPolicy: {
-        mode: 'LastWriterWins'
-        conflictResolutionPath: '/_ts'
-      }
-    }
-  }
+resource containerUserMessageStore  'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-12-01-preview' existing = {
+  parent: database
+  name: userThreadName
 }
 
-// Assign Cosmos DB Built-in Data Contributor role to the project principal
-resource cosmosRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(cosmosAccountName, projectPrincipalId, cosmosDataContributorRoleId)
-  scope: cosmosAccount
+resource containerSystemMessageStore 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-12-01-preview' existing = {
+  parent: database
+  name: systemThreadName
+}
+
+resource containerEntityStore 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-12-01-preview' existing = {
+  parent: database
+  name: entityStoreName
+}
+
+
+var roleDefinitionId = resourceId(
+  'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions',
+  cosmosAccountName,
+  '00000000-0000-0000-0000-000000000002'
+)
+
+var scopeSystemContainer = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosAccountName}/dbs/enterprise_memory/colls/${systemThreadName}'
+var scopeUserContainer = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosAccountName}/dbs/enterprise_memory/colls/${userThreadName}'
+var scopeEntityContainer = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosAccountName}/dbs/enterprise_memory/colls/${entityStoreName}'
+
+resource containerRoleAssignmentUserContainer 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-05-15' = {
+  parent: cosmosAccount
+  name: guid(projectWorkspaceId, containerUserMessageStore.id, roleDefinitionId, projectPrincipalId)
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cosmosDataContributorRoleId)
     principalId: projectPrincipalId
-    principalType: 'ServicePrincipal'
+    roleDefinitionId: roleDefinitionId
+    scope: scopeUserContainer
   }
 }
 
-output databaseName string = aiProjectDatabase.name
-output containerName string = aiProjectContainer.name
-output roleAssignmentId string = cosmosRoleAssignment.id
+resource containerRoleAssignmentSystemContainer 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-05-15' = {
+  parent: cosmosAccount
+  name: guid(projectWorkspaceId, containerSystemMessageStore.id, roleDefinitionId, projectPrincipalId)
+  properties: {
+    principalId: projectPrincipalId
+    roleDefinitionId: roleDefinitionId
+    scope: scopeSystemContainer
+  }
+}
+
+  resource containerRoleAssignmentEntityContainer 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-05-15' = {
+    parent: cosmosAccount
+    name: guid(projectWorkspaceId, containerEntityStore.id, roleDefinitionId, projectPrincipalId)
+    properties: {
+      principalId: projectPrincipalId
+      roleDefinitionId: roleDefinitionId
+      scope: scopeEntityContainer
+    }
+  }

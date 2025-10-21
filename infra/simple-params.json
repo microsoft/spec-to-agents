@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "environmentName": {
-      "value": "spec-to-agents-ai"
+      "value": "spec-to-agents-ai-1"
     },
     "location": {
       "value": "eastus2"

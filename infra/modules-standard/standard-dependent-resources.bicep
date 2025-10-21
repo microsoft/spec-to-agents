@@ -31,74 +31,92 @@ param cosmosDBResourceId string = ''
 @description('The tags to apply to resources.')
 param tags object = {}
 
-// Create Azure Storage Account if it doesn't exist
-resource azureStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = if (!azureStorageExists) {
+var cosmosParts = split(cosmosDBResourceId, '/')
+
+var canaryRegions = ['eastus2euap', 'centraluseuap']
+var cosmosDbRegion = contains(canaryRegions, location) ? 'westus' : location
+
+var acsParts = split(aiSearchResourceId, '/')
+
+var azureStorageParts = split(azureStorageAccountResourceId, '/')
+
+resource existingCosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = if (cosmosDBExists) {
+  name: cosmosParts[8]
+  scope: resourceGroup(cosmosParts[2], cosmosParts[4])
+}
+
+resource existingSearchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = if (aiSearchExists) {
+  name: acsParts[8]
+  scope: resourceGroup(acsParts[2], acsParts[4])
+}
+
+resource existingAzureStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = if (azureStorageExists) {
+  name: azureStorageParts[8]
+  scope: resourceGroup(azureStorageParts[2], azureStorageParts[4])
+}
+
+// Some regions doesn't support Standard Zone-Redundant storage, need to use Geo-redundant storage
+param noZRSRegions array = ['southindia', 'westus']
+param sku object = contains(noZRSRegions, location) ? { name: 'Standard_GRS' } : { name: 'Standard_ZRS' }
+
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = if(!azureStorageExists) {
   name: azureStorageName
   location: location
-  tags: tags
-  sku: {
-    name: 'Standard_LRS'
-  }
   kind: 'StorageV2'
+  sku: sku
+  tags: tags
   properties: {
-    accessTier: 'Hot'
-    allowBlobPublicAccess: false
-    allowSharedKeyAccess: true
     minimumTlsVersion: 'TLS1_2'
-    supportsHttpsTrafficOnly: true
-    encryption: {
-      services: {
-        blob: {
-          enabled: true
-          keyType: 'Account'
-        }
-        file: {
-          enabled: true
-          keyType: 'Account'
-        }
-      }
-      keySource: 'Microsoft.Storage'
+    allowBlobPublicAccess: false
+    publicNetworkAccess: 'Enabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Allow'
+      virtualNetworkRules: []
     }
+    allowSharedKeyAccess: false
   }
 }
 
 // Create Azure AI Search service if it doesn't exist
-resource aiSearch 'Microsoft.Search/searchServices@2023-11-01' = if (!aiSearchExists) {
+resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = if(!aiSearchExists) {
   name: aiSearchName
   location: location
   tags: tags
-  sku: {
-    name: 'standard'
+  identity: {
+    type: 'SystemAssigned'
   }
   properties: {
-    replicaCount: 1
-    partitionCount: 1
-    hostingMode: 'default'
-    publicNetworkAccess: 'enabled'
-    networkRuleSet: {
-      ipRules: []
-    }
+    disableLocalAuth: false
+    authOptions: { aadOrApiKey: { aadAuthFailureMode: 'http401WithBearerChallenge'}}
     encryptionWithCmk: {
       enforcement: 'Unspecified'
     }
-    disableLocalAuth: false
-    authOptions: {
-      apiKeyOnly: {}
-    }
+    hostingMode: 'default'
+    partitionCount: 1
+    publicNetworkAccess: 'enabled'
+    replicaCount: 1
     semanticSearch: 'disabled'
+  }
+  sku: {
+    name: 'standard'
   }
 }
 
 // Create Cosmos DB account if it doesn't exist
-resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2023-09-15' = if (!cosmosDBExists) {
+resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = if(!cosmosDBExists) {
   name: cosmosDBName
-  location: location
+  location: cosmosDbRegion
   tags: tags
   kind: 'GlobalDocumentDB'
   properties: {
     consistencyPolicy: {
       defaultConsistencyLevel: 'Session'
     }
+    disableLocalAuth: true
+    enableAutomaticFailover: false
+    enableMultipleWriteLocations: false
+    enableFreeTier: false
     locations: [
       {
         locationName: location
@@ -107,32 +125,6 @@ resource cosmosDB 'Microsoft.DocumentDB/databaseAccounts@2023-09-15' = if (!cosm
       }
     ]
     databaseAccountOfferType: 'Standard'
-    enableAutomaticFailover: false
-    enableMultipleWriteLocations: false
-    isVirtualNetworkFilterEnabled: false
-    virtualNetworkRules: []
-    enableCassandraConnector: false
-    disableKeyBasedMetadataWriteAccess: false
-    keyVaultKeyUri: ''
-    enableFreeTier: false
-    apiProperties: {
-      serverVersion: '3.2'
-    }
-    enableAnalyticalStorage: false
-    analyticalStorageConfiguration: {
-      schemaType: 'WellDefined'
-    }
-    createMode: 'Default'
-    backupPolicy: {
-      type: 'Periodic'
-      periodicModeProperties: {
-        backupIntervalInMinutes: 240
-        backupRetentionIntervalInHours: 8
-        backupStorageRedundancy: 'Geo'
-      }
-    }
-    cors: []
-    capabilities: []
   }
 }
 
@@ -186,9 +178,17 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
   }
 }
 
-output azureStorageName string = azureStorageExists ? last(split(azureStorageAccountResourceId, '/')) : azureStorage.name
-output azureStorageId string = azureStorageExists ? azureStorageAccountResourceId : azureStorage.id
-output aiSearchName string = aiSearchExists ? last(split(aiSearchResourceId, '/')) : aiSearch.name
-output aiSearchId string = aiSearchExists ? aiSearchResourceId : aiSearch.id
-output cosmosDBName string = cosmosDBExists ? last(split(cosmosDBResourceId, '/')) : cosmosDB.name
-output cosmosDBId string = cosmosDBExists ? cosmosDBResourceId : cosmosDB.id
+output aiSearchName string = aiSearchExists ? existingSearchService.name : aiSearch.name
+output aiSearchID string = aiSearchExists ? existingSearchService.id : aiSearch.id
+output aiSearchServiceResourceGroupName string = aiSearchExists ? acsParts[4] : resourceGroup().name
+output aiSearchServiceSubscriptionId string = aiSearchExists ? acsParts[2] : subscription().subscriptionId
+
+output azureStorageName string = azureStorageExists ? existingAzureStorageAccount.name : storage.name
+output azureStorageId string = azureStorageExists ? existingAzureStorageAccount.id : storage.id
+output azureStorageResourceGroupName string = azureStorageExists ? azureStorageParts[4] : resourceGroup().name
+output azureStorageSubscriptionId string = azureStorageExists ? azureStorageParts[2] : subscription().subscriptionId
+
+output cosmosDBName string = cosmosDBExists ? existingCosmosDB.name : cosmosDB.name
+output cosmosDBId string = cosmosDBExists ? existingCosmosDB.id : cosmosDB.id
+output cosmosDBResourceGroupName string = cosmosDBExists ? cosmosParts[4] : resourceGroup().name
+output cosmosDBSubscriptionId string = cosmosDBExists ? cosmosParts[2] : subscription().subscriptionId

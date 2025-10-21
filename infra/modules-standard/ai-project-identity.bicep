@@ -1,132 +1,131 @@
-@description('The name of the Azure AI Account.')
 param accountName string
-
-@description('The name of the AI Project.')
+param location string
 param projectName string
-
-@description('The description of the AI Project.')
 param projectDescription string
-
-@description('The display name of the AI Project.')
 param displayName string
 
-@description('The location where the AI Project will be created.')
-param location string
-
-@description('The tags to apply to the AI Project.')
-param tags object = {}
-
-@description('The name of the Azure AI Search service.')
 param aiSearchName string
-
-@description('The resource group name of the AI Search service.')
 param aiSearchServiceResourceGroupName string
-
-@description('The subscription ID of the AI Search service.')
 param aiSearchServiceSubscriptionId string
 
-@description('The name of the Cosmos DB account.')
 param cosmosDBName string
-
-@description('The subscription ID of the Cosmos DB account.')
 param cosmosDBSubscriptionId string
-
-@description('The resource group name of the Cosmos DB account.')
 param cosmosDBResourceGroupName string
 
-@description('The name of the Azure Storage account.')
 param azureStorageName string
-
-@description('The subscription ID of the Azure Storage account.')
 param azureStorageSubscriptionId string
-
-@description('The resource group name of the Azure Storage account.')
 param azureStorageResourceGroupName string
 
-@description('Whether an existing Azure OpenAI resource is being used.')
-param aoaiPassedIn bool = false
+param aoaiPassedIn bool
+param existingAoaiName string
+param existingAoaiSubscriptionId string
+param existingAoaiResourceGroupName string
 
-@description('The name of the existing Azure OpenAI resource.')
-param existingAoaiName string = ''
+resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = {
+  name: aiSearchName
+  scope: resourceGroup(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName)
+}
+resource cosmosDBAccount 'Microsoft.DocumentDB/databaseAccounts@2024-12-01-preview' existing = {
+  name: cosmosDBName
+  scope: resourceGroup(cosmosDBSubscriptionId, cosmosDBResourceGroupName)
+}
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: azureStorageName
+  scope: resourceGroup(azureStorageSubscriptionId, azureStorageResourceGroupName)
+}
 
-@description('The subscription ID of the existing Azure OpenAI resource.')
-param existingAoaiSubscriptionId string = ''
+resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+  name: accountName
+  scope: resourceGroup()
+}
 
-@description('The resource group name of the existing Azure OpenAI resource.')
-param existingAoaiResourceGroupName string = ''
+// NOTE: This is optional
+// Get the existing Azure OpenAI resource if it is passed in by the user
+resource existingAoaiResource 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = if (aoaiPassedIn) {
+  name: existingAoaiName
+  scope: resourceGroup(existingAoaiSubscriptionId, existingAoaiResourceGroupName)
+}
 
-// Create the AI Project
-resource aiProject 'Microsoft.MachineLearningServices/workspaces@2024-04-01' = {
+resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
+  parent: account
   name: projectName
   location: location
-  tags: tags
-  kind: 'Project'
-  properties: {
-    description: projectDescription
-    friendlyName: displayName
-    keyVault: ''
-    storageAccount: ''
-    applicationInsights: ''
-    containerRegistry: ''
-    hbiWorkspace: false
-    allowPublicAccessWhenBehindVnet: false
-    imageBuildCompute: ''
-    primaryUserAssignedIdentity: ''
-    managedNetwork: {
-      isolationMode: 'Disabled'
-    }
-    hubResourceId: resourceId('Microsoft.MachineLearningServices/workspaces', accountName)
-  }
   identity: {
     type: 'SystemAssigned'
   }
-}
-
-// Create connections to dependencies
-resource aiSearchConnection 'Microsoft.MachineLearningServices/workspaces/connections@2024-04-01' = {
-  parent: aiProject
-  name: 'ai-search-connection'
   properties: {
-    category: 'AzureCognitiveSearch'
-    target: resourceId(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName, 'Microsoft.Search/searchServices', aiSearchName)
-    authType: 'ManagedIdentity'
+    description: projectDescription
+    displayName: displayName
+  }
+
+  resource project_connection_cosmosdb_account 'connections@2025-04-01-preview' = {
+    name: cosmosDBName
+    properties: {
+      category: 'CosmosDB'
+      target: cosmosDBAccount.properties.documentEndpoint
+      authType: 'AAD'
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: cosmosDBAccount.id
+        location: cosmosDBAccount.location
+      }
+    }
+  }
+
+  resource project_connection_azure_storage 'connections@2025-04-01-preview' = {
+    name: azureStorageName
+    properties: {
+      category: 'AzureStorageAccount'
+      target: storageAccount.properties.primaryEndpoints.blob
+      authType: 'AAD'
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: storageAccount.id
+        location: storageAccount.location
+      }
+    }
+  }
+
+  resource project_connection_azureai_search 'connections@2025-04-01-preview' = {
+    name: aiSearchName
+    properties: {
+      category: 'CognitiveSearch'
+      target: 'https://${aiSearchName}.search.windows.net'
+      authType: 'AAD'
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: searchService.id
+        location: searchService.location
+      }
+    }
+  }
+
+  // Note: This is optional and only done if the user has passed in an existing Azure OpenAI resource
+  // Create a project connection to the existing Azure OpenAI resource
+  resource project_connection_existing_azureopenai 'connections@2025-04-01-preview' = if(aoaiPassedIn) {
+    name: existingAoaiName
+    properties: {
+      category: 'AzureOpenAI'
+      target: aoaiPassedIn ? existingAoaiResource.properties.endpoint : ''
+      authType: 'AAD'
+      metadata: {
+        ApiType: 'Azure'
+        ResourceId: aoaiPassedIn ? existingAoaiResource.id : ''
+        location: aoaiPassedIn ? existingAoaiResource.location : ''
+      }
+    }
   }
 }
 
-resource cosmosConnection 'Microsoft.MachineLearningServices/workspaces/connections@2024-04-01' = {
-  parent: aiProject
-  name: 'cosmos-connection'
-  properties: {
-    category: 'AzureCosmosDb'
-    target: resourceId(cosmosDBSubscriptionId, cosmosDBResourceGroupName, 'Microsoft.DocumentDB/databaseAccounts', cosmosDBName)
-    authType: 'ManagedIdentity'
-  }
-}
+output projectName string = project.name
+output projectId string = project.id
+output projectPrincipalId string = project.identity.principalId
 
-resource storageConnection 'Microsoft.MachineLearningServices/workspaces/connections@2024-04-01' = {
-  parent: aiProject
-  name: 'storage-connection'
-  properties: {
-    category: 'AzureBlob'
-    target: resourceId(azureStorageSubscriptionId, azureStorageResourceGroupName, 'Microsoft.Storage/storageAccounts', azureStorageName)
-    authType: 'ManagedIdentity'
-  }
-}
+#disable-next-line BCP053
+output projectWorkspaceId string = project.properties.internalId
 
-resource openaiConnection 'Microsoft.MachineLearningServices/workspaces/connections@2024-04-01' = if (aoaiPassedIn) {
-  parent: aiProject
-  name: 'openai-connection'
-  properties: {
-    category: 'AzureOpenAI'
-    target: resourceId(existingAoaiSubscriptionId, existingAoaiResourceGroupName, 'Microsoft.CognitiveServices/accounts', existingAoaiName)
-    authType: 'ManagedIdentity'
-  }
-}
-
-output projectName string = aiProject.name
-output projectId string = aiProject.id
-output projectWorkspaceId string = aiProject.properties.workspaceId
-output projectPrincipalId string = aiProject.identity.principalId
-output aiSearchConnection string = aiSearchConnection.id
-output cosmosDBConnection string = cosmosConnection.id
-output azureStorageConnection string = storageConnection.id
+// BYO connection names
+output cosmosDBConnection string = cosmosDBName
+output azureStorageConnection string = azureStorageName
+output aiSearchConnection string = aiSearchName
+output existingAoaiConnection string = existingAoaiName

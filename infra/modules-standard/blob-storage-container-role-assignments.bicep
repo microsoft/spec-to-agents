@@ -1,48 +1,36 @@
-@description('The principal ID of the AI Project.')
-param aiProjectPrincipalId string
-
-@description('The name of the storage account.')
+@description('Name of the storage account')
 param storageName string
 
-@description('The workspace ID of the AI Project.')
+@description('Principal ID of the AI Project')
+param aiProjectPrincipalId string
+
+@description('Workspace Id of the AI Project')
 param workspaceId string
 
-// Storage Blob Data Owner role
-var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
 
-// Get the storage account resource
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing = {
+// Reference existing storage account
+resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' existing = {
   name: storageName
+  scope: resourceGroup()
 }
 
-// Get the blob service
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' existing = {
-  parent: storageAccount
-  name: 'default'
+// Storage Blob Data Owner Role
+resource storageBlobDataOwner 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  name: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'  // Built-in role ID
+  scope: resourceGroup()
 }
 
-// Create containers for the AI Project
-resource aiProjectContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
-  parent: blobService
-  name: 'ai-project-${workspaceId}'
+var conditionStr= '((!(ActionMatches{\'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/read\'})  AND  !(ActionMatches{\'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/filter/action\'}) AND  !(ActionMatches{\'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags/write\'}) ) OR (@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringStartsWithIgnoreCase \'${workspaceId}\' AND @Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringLikeIgnoreCase \'*-azureml-agent\'))'
+
+// Assign Storage Blob Data Owner role
+resource storageBlobDataOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storage
+  name: guid(storage.id, aiProjectPrincipalId, storageBlobDataOwner.id, workspaceId)
   properties: {
-    publicAccess: 'None'
-    metadata: {
-      'ai-project': 'true'
-    }
-  }
-}
-
-// Assign Storage Blob Data Owner role to the project principal
-resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageName, aiProjectPrincipalId, storageBlobDataOwnerRoleId)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwnerRoleId)
     principalId: aiProjectPrincipalId
+    roleDefinitionId: storageBlobDataOwner.id
     principalType: 'ServicePrincipal'
+    conditionVersion: '2.0'
+    condition: conditionStr
   }
 }
-
-output containerName string = aiProjectContainer.name
-output roleAssignmentId string = storageRoleAssignment.id
