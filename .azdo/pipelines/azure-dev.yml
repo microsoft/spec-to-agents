@@ -1,0 +1,45 @@
+# Azure Developer CLI pipeline for CI/CD
+# This pipeline will provision and deploy your application using azd
+
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  AZURE_DEV_USER_AGENT: azdo
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.11'
+    displayName: 'Use Python 3.11'
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '18.x'
+    displayName: 'Use Node.js 18.x'
+
+  - script: |
+      curl -fsSL https://aka.ms/install-azd.sh | bash
+    displayName: 'Install Azure Developer CLI'
+
+  - script: |
+      azd auth login --client-id $(AZURE_CLIENT_ID) --client-secret $(AZURE_CLIENT_SECRET) --tenant-id $(AZURE_TENANT_ID)
+    displayName: 'Login to Azure'
+
+  - script: |
+      azd provision --no-prompt
+    displayName: 'Provision Infrastructure'
+    env:
+      AZURE_ENV_NAME: $(Build.SourceBranchName)
+      AZURE_LOCATION: $(AZURE_LOCATION)
+      AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+
+  - script: |
+      azd deploy --no-prompt
+    displayName: 'Deploy Application'
+    env:
+      AZURE_ENV_NAME: $(Build.SourceBranchName)
+
