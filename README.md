@@ -55,12 +55,17 @@ The easiest way to deploy this sample is using `azd`:
 git clone https://github.com/microsoft/spec-to-agents.git
 cd spec-to-agents
 
-# Initialize azd environment
-azd init
+# Authenticate with Azure
+azd auth login
 
-# Deploy everything (provision infrastructure + deploy apps)
+# Initialize and deploy everything
 azd up
 ```
+
+When prompted:
+- **Environment name**: Choose a name (e.g., `dev`, `prod`)
+- **Azure location**: Choose from `eastus2`, `westus`, `westus2`, `westus3`, `eastus`, `uksouth`, `swedencentral`, `australiaeast`, or `japaneast`
+- **Azure subscription**: Select your subscription
 
 **What `azd up` does:**
 - Provisions Azure resources (AI Foundry, Cosmos DB, Storage, App Services, etc.)
@@ -78,6 +83,9 @@ azd deploy
 
 # View deployed endpoints
 azd show
+
+# Set environment variables
+azd env set AZURE_LOCATION eastus2
 ```
 
 ## Running Locally

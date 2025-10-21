@@ -17,7 +17,9 @@ param location string
 
 // Parameters for your existing application resources
 param apiServiceName string = ''
+param frontendServiceName string = ''
 param apiUserAssignedIdentityName string = ''
+param frontendUserAssignedIdentityName string = ''
 param applicationInsightsName string = ''
 param logAnalyticsName string = ''
 param resourceGroupName string = ''
@@ -243,6 +245,16 @@ module apiUserAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned
   }
 }
 
+module frontendUserAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
+  name: 'frontendUserAssignedIdentity'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    name: !empty(frontendUserAssignedIdentityName) ? frontendUserAssignedIdentityName : '${abbrs.managedIdentityUserAssignedIdentities}frontend-${resourceToken}'
+  }
+}
+
 // Backing storage for Azure Functions api (no change)
 module storage 'br/public:avm/res/storage/storage-account:0.8.3' = {
   name: 'storage'
@@ -285,6 +297,22 @@ module monitoring 'app/monitoring.bicep' = {
   }
 }
 
+// App Service Plan for Frontend (API uses its own Flex Consumption plan)
+module frontendAppServicePlan 'br/public:avm/res/web/serverfarm:0.1.1' = {
+  name: 'frontend-appserviceplan'
+  scope: rg
+  params: {
+    name: '${abbrs.webServerFarms}frontend-${resourceToken}'
+    location: location
+    tags: tags
+    sku: {
+      name: 'B1'
+      tier: 'Basic'
+    }
+    reserved: true
+  }
+}
+
 // Durable Task Service (moved before API to resolve dependencies)
 module dts './app/dts.bicep' = {
   scope: rg
@@ -308,6 +336,7 @@ module api './app/api.bicep' = {
     name: !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesFunctions}api-${resourceToken}'
     location: location // You may want to use your region selector here
     tags: tags
+    serviceName: 'backend' // azd service name
     resourceToken: resourceToken
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     storageAccountName: storage.outputs.name
@@ -340,6 +369,26 @@ module api './app/api.bicep' = {
   ]
 }
 
+// Frontend Web App
+module frontend './app/frontend.bicep' = {
+  name: 'frontend'
+  scope: rg
+  params: {
+    name: !empty(frontendServiceName) ? frontendServiceName : '${abbrs.webSitesAppService}frontend-${resourceToken}'
+    location: location
+    tags: tags
+    serviceName: 'frontend' // azd service name
+    resourceToken: resourceToken
+    applicationInsightsName: monitoring.outputs.applicationInsightsName
+    identityId: frontendUserAssignedIdentity.outputs.resourceId
+    identityClientId: frontendUserAssignedIdentity.outputs.clientId
+    appServicePlanId: frontendAppServicePlan.outputs.resourceId
+    appSettings: {
+      VITE_API_URL: 'https://${api.outputs.SERVICE_API_NAME}.azurewebsites.net'
+    }
+  }
+}
+
 // API Management service (no change)
 module apim './app/apim.bicep' = {
   name: 'apim'
@@ -369,6 +418,12 @@ output AZURE_AI_ENDPOINT string = aiAccount.outputs.accountTarget
 
 @description('Name of the deployed Azure Function App.')
 output AZURE_FUNCTION_NAME string = api.outputs.SERVICE_API_NAME
+
+@description('Name of the deployed frontend web app.')
+output AZURE_FRONTEND_NAME string = frontend.outputs.SERVICE_FRONTEND_NAME
+
+@description('URL of the deployed frontend web app.')
+output AZURE_FRONTEND_URI string = frontend.outputs.SERVICE_FRONTEND_URI
 
 @description('API Management gateway URL for external API access.')
 output APIM_GATEWAY_URL string = apim.outputs.gatewayUrl
