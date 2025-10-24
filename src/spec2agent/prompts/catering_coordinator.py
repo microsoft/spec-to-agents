@@ -2,4 +2,4 @@
 
 from typing import Final
 
-SYSTEM_PROMPT: Final[str] = """PROMPT GOES HERE"""
+SYSTEM_PROMPT: Final[str] = """You are a helpful assistant."""

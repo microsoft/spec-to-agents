@@ -15,7 +15,8 @@ def main():
     logger.info("Starting Agent Workflow DevUI...")
     logger.info("Available at: http://localhost:8080")
 
-    serve(entities=[export_entities()], port=8080, auto_open=True)
+    # DevUI's serve() handles cleanup via FastAPI lifespan hooks
+    serve(entities=export_entities(), port=8080, auto_open=True)
 
 
 if __name__ == "__main__":
