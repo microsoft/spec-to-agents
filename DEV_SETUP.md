@@ -15,28 +15,12 @@ uv run pre-commit install
 
 ## Configuration
 
-Add a `.env` file in the `backend/app` directory with the necessary environment variables.
+Add a `.env` file in the `src/spec2agent/agents` directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
 
-```env
-AZURE_OPENAI_BASE_URL="https://<myresource>.openai.azure.com/openai/v1/"
-AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME=""
-AZURE_OPENAI_API_VERSION="preview"
-```
+## Starting DevUI
 
-## Starting Backend Server
+Visualize and interact with the agents using DevUI:
 
 ```bash
-cd app
-
-devui ./agents --port 8080
-```
-
-# Frontend
-
-## Starting Frontend Server
-
-```bash
-cd frontend
-npm i
-npm run dev
+uv run devui
 ```
