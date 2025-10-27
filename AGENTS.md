@@ -49,21 +49,11 @@ spec-to-agents/
 │       ├── clients.py # contains shared client code for AI Foundry
 │       ├── agents/ # contains core agent/workflow definitions
 │       │   ├── __init__.py
-│       │   ├── event_coordinator/
-│       │   │   ├── __init__.py
-│       │   │   └── workflow.py
-│       │   ├── venue_specialist/
-│       │   │   ├── __init__.py
-│       │   │   └── workflow.py
-│       │   ├── budget_analyst/
-│       │   │   ├── __init__.py
-│       │   │   └── workflow.py
-│       │   ├── catering_coordinator/
-│       │   │   ├── __init__.py
-│       │   │   └── workflow.py
-│       │   └── logistics_manager/
-│       │       ├── __init__.py
-│       │       └── workflow.py
+│       │   ├── budget_analyst.py
+│       │   ├── catering_coordinator.py
+│       │   ├── event_coordinator.py
+│       │   ├── logistics_manager.py
+│       │   └── venue_specialist.py
 │       ├── prompts/ # contains system prompts for each agent
 │       │   ├── __init__.py
 │       │   ├── budget_analyst.py
@@ -76,7 +66,6 @@ spec-to-agents/
 ├── tests/ # contains units tests for agents and tools
 ├── .env  
 └── pyproject.toml
-
 ```
 
 # Development Guidelines

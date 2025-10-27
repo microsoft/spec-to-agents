@@ -1,11 +1,11 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework import ChatAgent, Workflow
 
-from spec2agent.agents.budget_analyst.agent import agent as budget_analyst_agent
-from spec2agent.agents.catering_coordinator.agent import agent as catering_coordinator_agent
-from spec2agent.agents.event_coordinator.agent import agent as event_coordinator_agent
-from spec2agent.agents.logistics_manager.agent import agent as logistics_manager_agent
-from spec2agent.agents.venue_specialist.agent import agent as venue_specialist_agent
+from spec2agent.agents.budget_analyst import agent as budget_analyst_agent
+from spec2agent.agents.catering_coordinator import agent as catering_coordinator_agent
+from spec2agent.agents.event_coordinator import agent as event_coordinator_agent
+from spec2agent.agents.logistics_manager import agent as logistics_manager_agent
+from spec2agent.agents.venue_specialist import agent as venue_specialist_agent
 
 
 def export_entities() -> list[Workflow | ChatAgent]:

@@ -6,4 +6,5 @@ This document outlines the specifications for the unified components of the proj
 
 ## Specs
 
+- [Workflow Skeleton](workflow-skeleton.md) - Multi-agent event planning workflow architecture and implementation specification
 - [Sample Spec 1](sample-spec-1.md)
