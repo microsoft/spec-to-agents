@@ -1,41 +1,26 @@
 # Development Setup Instructions
 
+## Prerequisites
+
+```bash
+git submodule update --init --recursive
+
+uv sync --extra dev
+
+# Install pre-commit hooks
+uv run pre-commit install
+```
+
 # Backend
 
 ## Configuration
 
-Add a `.env` file in the `backend/app` directory with the necessary environment variables.
+Add a `.env` file in the `src/spec2agent/agents` directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
 
-```env
-AZURE_OPENAI_BASE_URL="https://<myresource>.openai.azure.com/openai/v1/"
-AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME=""
-AZURE_OPENAI_API_VERSION="preview"
-```
+## Starting DevUI
 
-## Starting Backend Server
+Visualize and interact with the agents using DevUI:
 
 ```bash
-# For Windows (PowerShell)
-$env:GIT_LFS_SKIP_SMUDGE="1"; uv sync --frozen
-
-# For macOS/Linux
-GIT_LFS_SKIP_SMUDGE=1 uv sync --frozen
-
-cd backend/app
-
-# For Windows (PowerShell)
-$env:DEBUG="true"; uv run main.py
-
-# For macOS/Linux
-DEBUG=true uv run main.py
-```
-
-# Frontend
-
-## Starting Frontend Server
-
-```bash
-cd frontend
-npm i
-npm run dev
+uv run devui
 ```

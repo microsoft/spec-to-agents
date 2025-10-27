@@ -1,0 +1,4 @@
+[submodule "third_party/agent-framework"]
+	path = third_party/agent-framework
+	url = https://github.com/lavaman131/agent-framework.git
+	branch = alexlavaee/feature/devui-workflow-chat
