@@ -45,8 +45,9 @@ IMPORTANT: For your agents to be discovered by the DevUI, they must be organized
 spec-to-agents/
 ├── src/
 │   └── spec2agent/
+│       ├── __init__.py
+│       ├── clients.py # contains shared client code for AI Foundry
 │       ├── agents/ # contains core agent/workflow definitions
-│       │   ├── .env
 │       │   ├── __init__.py
 │       │   ├── event_coordinator/
 │       │   │   ├── __init__.py
@@ -72,8 +73,10 @@ spec-to-agents/
 │       │   └── venue_specialist.py
 │       └── tools/ # contains reusable tool definitions for agents
 │           └── __init__.py
-├── tests/
+├── tests/ # contains units tests for agents and tools
+├── .env  
 └── pyproject.toml
+
 ```
 
 # Development Guidelines
