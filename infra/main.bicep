@@ -44,6 +44,9 @@ param foundryProjectName string = 'project'
 @description('A short name for the new AI Search service that will be created.')
 param aiSearchName string = ''
 
+@description('Name for the Bing Grounding resource.')
+param bingGroundingName string = 'mafbing'
+
 // --- Load abbreviations and generate unique names ---
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
@@ -67,6 +70,7 @@ var aiProjectName = toLower('${foundryProjectName}${resourceToken}')
 var aiCosmosDBName = toLower('${resourceToken}aicosmosdb')
 var aiSearchActualName = !empty(aiSearchName) ? aiSearchName : toLower('${resourceToken}aisearch')
 var aiStorageName = toLower('${resourceToken}aistorage')
+var bingActualName = toLower('${bingGroundingName}${resourceToken}')
 
 // Module to create the core dependencies for the AI Project (Storage, Cosmos, AI Search)
 // We are creating new resources here, but this module supports bringing your own.
@@ -164,6 +168,23 @@ module aiSearchRoleAssignments 'modules-standard/ai-search-role-assignments.bice
     aiSearchName: aiDependencies.outputs.aiSearchName
     projectPrincipalId: aiProject.outputs.projectPrincipalId
   }
+}
+
+// Deploy Bing Grounding resource and connection for real-time web search
+module bingGrounding 'app/bing-grounding.bicep' = {
+  name: 'bing-grounding'
+  scope: rg
+  params: {
+    aiFoundryAccountName: aiAccount.outputs.accountName
+    bingResourceName: bingActualName
+    location: 'global' // Bing resources are deployed globally
+    tags: tags
+    newOrExisting: 'new'
+  }
+  dependsOn: [
+    aiAccount
+    aiProject
+  ]
 }
 
 // Note: Capability hosts are commented out due to Bicep type definition issues
@@ -427,3 +448,9 @@ output AZURE_FRONTEND_URI string = frontend.outputs.SERVICE_FRONTEND_URI
 
 @description('API Management gateway URL for external API access.')
 output APIM_GATEWAY_URL string = apim.outputs.gatewayUrl
+
+@description('The resource ID of the Bing Grounding resource.')
+output BING_GROUNDING_RESOURCE_ID string = bingGrounding.outputs.bingResourceId
+
+@description('The connection ID for Bing Grounding to use in agent configurations.')
+output BING_GROUNDING_CONNECTION_ID string = bingGrounding.outputs.bingConnectionId

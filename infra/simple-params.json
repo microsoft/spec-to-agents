@@ -19,6 +19,9 @@
     },
     "aiSearchName": {
       "value": ""
+    },
+    "bingGroundingName": {
+      "value": "mafbing"
     }
   }
 }

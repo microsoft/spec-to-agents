@@ -1,5 +1,8 @@
 # Spec-to-Agent
 
+> [!WARNING]
+> **Work in Progress**: This project is under active development and subject to heavy changes. It is not recommended for testing or production use at this time.
+
 This sample showcases how to generate and orchestrate agents (aided by [spec-kit](https://github.com/github/spec-kit/tree/main)) using **Microsoft Agent Framework**--the new unified orchestration framework that combines the best of:
 
 - **Semantic Kernel**: Enterprise-ready AI orchestration
