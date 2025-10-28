@@ -103,7 +103,10 @@ def build_event_planning_workflow() -> Workflow:
 
     # Build workflow with HITL integration
     return (
-        WorkflowBuilder()
+        WorkflowBuilder(
+            name="Event Planning Workflow",
+            description="Multi-agent event planning workflow",
+        )
         # Set starting point
         .set_start_executor(coordinator_exec)
         # Sequential flow: Agent → HITL Wrapper → Next Agent
