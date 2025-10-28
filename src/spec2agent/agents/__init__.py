@@ -1,19 +1,15 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework import ChatAgent, Workflow
 
-from spec2agent.agents.budget_analyst import agent as budget_analyst_agent
-from spec2agent.agents.catering_coordinator import agent as catering_coordinator_agent
-from spec2agent.agents.event_coordinator import agent as event_coordinator_agent
-from spec2agent.agents.logistics_manager import agent as logistics_manager_agent
-from spec2agent.agents.venue_specialist import agent as venue_specialist_agent
+from spec2agent.workflow.core import workflow as event_planning_workflow
 
 
 def export_entities() -> list[Workflow | ChatAgent]:
-    """Export all agents/workflows for registration in DevUI."""
+    """Export all agents/workflows for registration in DevUI.
+
+    Note: Only the workflow is exported. Individual agents are internal
+    to the workflow and not meant to be used standalone in DevUI.
+    """
     return [
-        budget_analyst_agent,
-        catering_coordinator_agent,
-        event_coordinator_agent,
-        logistics_manager_agent,
-        venue_specialist_agent,
+        event_planning_workflow,
     ]
