@@ -102,10 +102,13 @@ def build_event_planning_workflow() -> Workflow:
     logistics_hitl = HumanInLoopAgentExecutor(agent_id="logistics", request_info_id="user_input")
 
     # Build workflow with HITL integration
-    return (
+    workflow = (
         WorkflowBuilder(
             name="Event Planning Workflow",
-            description="Multi-agent event planning workflow",
+            description=(
+                "Multi-agent event planning workflow with venue selection, budgeting, "
+                "catering, and logistics coordination"
+            ),
         )
         # Set starting point
         .set_start_executor(coordinator_exec)
@@ -130,6 +133,10 @@ def build_event_planning_workflow() -> Workflow:
         .add_edge(request_info, logistics_hitl)
         .build()
     )
+
+    # Set stable ID to prevent URL issues on restart
+    workflow.id = "event-planning-workflow"
+    return workflow
 
 
 # Export workflow instance for DevUI discovery
