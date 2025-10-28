@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-devui = "spec2agent:main.main"
+app = "spec2agent:main.main"
 
 
 [project.optional-dependencies]
@@ -47,11 +47,7 @@ python_functions = ["test_*"]
 asyncio_mode = "auto"
 
 [dependency-groups]
-dev = [
-    "mypy>=1.18.2",
-    "pyright>=1.1.406",
-    "pytest-asyncio>=1.2.0",
-]
+dev = ["mypy>=1.18.2", "pyright>=1.1.406", "pytest-asyncio>=1.2.0"]
 
 [tool.uv.sources]
 "agent-framework-core" = { path = "third_party/agent-framework/python/packages/core", editable = true }

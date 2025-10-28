@@ -22,5 +22,5 @@ Add a `.env` file in the `src/spec2agent/agents` directory with the necessary en
 Visualize and interact with the agents using DevUI:
 
 ```bash
-uv run devui
+uv run app
 ```

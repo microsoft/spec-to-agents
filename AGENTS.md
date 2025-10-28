@@ -100,7 +100,7 @@ spec-to-agents/
 - `uv run mypy .` - Run type checking
 
 **Project-specific Commands:**
-- `uv run devui` - Start the Agent Framework DevUI for testing and debugging agents/workflows
+- `uv run app` - Start the Agent Framework DevUI for testing and debugging agents/workflows
 
 ### Technology Stack Focus
 - **Python 3.11+**: Latest stable version with modern features

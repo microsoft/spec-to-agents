@@ -9,7 +9,7 @@ This document must be maintained in accordance with `specs/PLANS.md`.
 This specification defines the implementation of a multi-agent workflow skeleton for event planning using the Microsoft Agent Framework. The workflow orchestrates five specialized agents (Event Coordinator, Venue Specialist, Budget Analyst, Catering Coordinator, and Logistics Manager) to collaboratively plan events.
 
 After implementation, users will be able to:
-1. Start the DevUI (`uv run devui`) and interact with the event planning workflow
+1. Start the DevUI (`uv run app`) and interact with the event planning workflow
 2. Submit an event planning request (e.g., "Plan a corporate holiday party for 50 people with a budget of $5000")
 3. Observe the workflow as it coordinates between agents to develop a comprehensive event plan
 4. Receive a final, integrated event plan that includes venue recommendations, budget allocation, catering options, and logistics coordination
@@ -498,7 +498,7 @@ Create tests and validation for the workflow.
 - Test error handling and edge cases
 
 **DevUI Validation**:
-- Start DevUI: `uv run devui`
+- Start DevUI: `uv run app`
 - Navigate to Event Coordinator workflow
 - Submit test requests
 - Validate agent interactions and final outputs
@@ -868,7 +868,7 @@ Expected output: All tests pass, confirming workflow construction and execution.
 
 Start the DevUI:
 
-    uv run devui
+    uv run app
 
 Expected output:
 
@@ -1103,7 +1103,7 @@ Expected output: Tests pass, confirming workflow handles scenarios with and with
 
 Start DevUI and test user handoff:
 
-    uv run devui
+    uv run app
 
 Test scenarios:
 1. **Ambiguous request that may require user input**:
@@ -1148,7 +1148,7 @@ Expected behavior:
 **If DevUI doesn't show workflow**:
 - Verify `src/spec2agent/agents/event_coordinator/__init__.py` exports `workflow`
 - Check for Python syntax errors: `uv run ruff check src/`
-- Restart DevUI: `uv run devui`
+- Restart DevUI: `uv run app`
 - Check DevUI console for discovery errors
 
 ### Rollback Strategy
