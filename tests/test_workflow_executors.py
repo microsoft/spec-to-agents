@@ -22,7 +22,7 @@ def test_extract_user_request_detects_tool_call():
     tool_call.arguments = json.dumps({
         "prompt": "Which venue?",
         "context": {"venues": ["A", "B"]},
-        "request_type": "selection"
+        "request_type": "selection",
     })
 
     mock_message.contents = [tool_call]

@@ -2,8 +2,8 @@
 
 """Custom message types for workflow human-in-the-loop interactions."""
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from agent_framework import RequestInfoMessage
 
@@ -22,21 +22,21 @@ class UserElicitationRequest(RequestInfoMessage):
         Clear question or instruction for the user
     context : dict[str, Any]
         Contextual information such as options, data, constraints
-    request_type : str
-        Category of request: "clarification", "selection", or "approval"
+    request_type : Literal["clarification", "selection", "approval"]
+        Category of request
 
     Examples
     --------
     >>> UserElicitationRequest(
     ...     prompt="Which venue do you prefer?",
     ...     context={"venues": [{"name": "Venue A", "capacity": 50}]},
-    ...     request_type="selection"
+    ...     request_type="selection",
     ... )
     """
 
     prompt: str
     context: dict[str, Any]
-    request_type: str
+    request_type: Literal["clarification", "selection", "approval"]
 
 
 __all__ = ["UserElicitationRequest"]

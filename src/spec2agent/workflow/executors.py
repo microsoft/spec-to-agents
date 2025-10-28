@@ -49,9 +49,7 @@ class HumanInLoopAgentExecutor(Executor):
         self._current_response: AgentExecutorResponse | None = None
 
     @handler
-    async def on_agent_response(
-        self, response: AgentExecutorResponse, ctx: WorkflowContext
-    ) -> None:
+    async def on_agent_response(self, response: AgentExecutorResponse, ctx: WorkflowContext) -> None:
         """
         Handle agent response and check for request_user_input tool calls.
 
@@ -79,9 +77,7 @@ class HumanInLoopAgentExecutor(Executor):
             await ctx.send_message(response)
 
     @handler
-    async def on_user_response(
-        self, response: RequestResponse, ctx: WorkflowContext
-    ) -> None:
+    async def on_user_response(self, response: RequestResponse, ctx: WorkflowContext) -> None:
         """
         Handle user response and continue workflow.
 

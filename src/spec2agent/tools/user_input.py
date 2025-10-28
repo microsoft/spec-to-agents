@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """User input request tool for human-in-the-loop workflows."""
 
 from typing import Any, Literal
