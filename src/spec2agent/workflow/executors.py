@@ -3,6 +3,7 @@
 """Custom executors for human-in-the-loop workflow interactions."""
 
 import json
+from typing import Any
 
 from agent_framework import (
     AgentExecutorResponse,
@@ -49,7 +50,9 @@ class HumanInLoopAgentExecutor(Executor):
         self._current_response: AgentExecutorResponse | None = None
 
     @handler
-    async def on_agent_response(self, response: AgentExecutorResponse, ctx: WorkflowContext) -> None:
+    async def from_response(
+        self, response: AgentExecutorResponse, ctx: WorkflowContext[UserElicitationRequest | AgentExecutorResponse]
+    ) -> None:
         """
         Handle agent response and check for request_user_input tool calls.
 
@@ -65,9 +68,9 @@ class HumanInLoopAgentExecutor(Executor):
             # Agent needs user input - emit request to RequestInfoExecutor
             await ctx.send_message(
                 UserElicitationRequest(
-                    prompt=user_request["prompt"],
-                    context=user_request["context"],
-                    request_type=user_request["request_type"],
+                    prompt=user_request.get("prompt", ""),
+                    context=user_request.get("context", {}),
+                    request_type=user_request.get("request_type", "clarification"),
                 ),
                 target_id=self._request_info_id,
             )
@@ -77,9 +80,11 @@ class HumanInLoopAgentExecutor(Executor):
             await ctx.send_message(response)
 
     @handler
-    async def on_user_response(self, response: RequestResponse, ctx: WorkflowContext) -> None:
+    async def accept_human_response(
+        self, response: RequestResponse[UserElicitationRequest, str], ctx: WorkflowContext[AgentExecutorResponse]
+    ) -> None:
         """
-        Handle user response and continue workflow.
+        Handle user response from RequestInfoExecutor and continue workflow.
 
         User provided input via DevUI, which was routed back as RequestResponse.
         Forward the original agent response to continue workflow.
@@ -89,12 +94,12 @@ class HumanInLoopAgentExecutor(Executor):
         if self._current_response:
             await ctx.send_message(self._current_response)
 
-    def _extract_user_request(self, response: AgentExecutorResponse) -> dict | None:
+    def _extract_user_request(self, response: AgentExecutorResponse) -> dict[str, Any] | None:
         """
         Extract request_user_input tool call arguments from agent response.
 
         Iterates through agent response messages looking for FunctionCallContent
-        with name="request_user_input" and parses JSON arguments.
+        with name="request_user_input" and parses arguments (string or dict).
 
         Parameters
         ----------
@@ -109,11 +114,15 @@ class HumanInLoopAgentExecutor(Executor):
         for message in response.agent_run_response.messages:
             for content in message.contents:
                 if isinstance(content, FunctionCallContent) and content.name == "request_user_input":
-                    try:
-                        return json.loads(content.arguments)
-                    except json.JSONDecodeError:
-                        # Arguments not valid JSON, skip
-                        continue
+                    args = content.arguments
+                    # Arguments can be string (JSON) or already a dict
+                    if isinstance(args, str):
+                        try:
+                            return json.loads(args)
+                        except json.JSONDecodeError:
+                            continue
+                    elif isinstance(args, dict):
+                        return args  # type: ignore
         return None
 
 

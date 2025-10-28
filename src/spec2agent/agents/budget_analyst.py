@@ -7,4 +7,5 @@ agent = get_chat_client().create_agent(
     name="BudgetAnalystAgent",
     instructions=SYSTEM_PROMPT,
     store=True,
+    additional_chat_options={"allow_multiple_tool_calls": False},
 )

@@ -2,13 +2,13 @@
 
 """User input request tool for human-in-the-loop workflows."""
 
-from typing import Any, Literal
+from typing import Any
 
 
 def request_user_input(
     prompt: str,
-    context: dict[str, Any],
-    request_type: Literal["clarification", "selection", "approval"],
+    context: dict[str, Any] | None = None,
+    request_type: str = "clarification",
 ) -> str:
     """
     Request input from the user during workflow execution.
@@ -22,10 +22,11 @@ def request_user_input(
     ----------
     prompt : str
         Clear question to ask the user (e.g., "Which venue do you prefer?")
-    context : dict[str, Any]
+    context : dict[str, Any] | None, optional
         Supporting information such as venue options, budget breakdown, etc.
-    request_type : Literal["clarification", "selection", "approval"]
-        Category of the request:
+    request_type : str, optional
+        Category of the request (default: "clarification").
+        Valid values: "clarification", "selection", "approval"
         - "clarification": Missing or ambiguous information
         - "selection": User must choose from options
         - "approval": User must approve/reject a proposal
