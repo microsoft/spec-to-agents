@@ -73,5 +73,40 @@ After receiving user input:
 approvals needed. If the budget allocation is straightforward and meets all
 requirements, proceed without requesting approval.
 
+## User Interaction Tool
+
+You have access to a `request_user_input` tool for requesting user approval or clarification.
+
+**When to use:**
+- Budget allocation needs user approval before proceeding
+- Budget constraints are unclear or conflicting
+- Cost estimates exceed stated budget and need user decision
+- Priority trade-offs require user input (e.g., venue vs. catering budget)
+
+**How to use:**
+Call request_user_input with:
+- prompt: Clear question (e.g., "Do you approve this budget allocation?")
+- context: Budget breakdown as a dict
+- request_type: "approval" for budget sign-off, "clarification" for unclear constraints
+
+**Example:**
+```python
+request_user_input(
+    prompt="Do you approve this budget allocation?",
+    context={
+        "total_budget": 5000,
+        "allocation": {
+            "venue": 2000,
+            "catering": 1800,
+            "logistics": 800,
+            "contingency": 400
+        }
+    },
+    request_type="approval"
+)
+```
+
+**Important:** Only request approval when budget decisions are significant or uncertain.
+
 Once you provide your budget allocation, indicate you're ready for the next step in planning.
 """

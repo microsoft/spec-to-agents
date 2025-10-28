@@ -64,5 +64,39 @@ After receiving user input:
 when requirements are clear. If you have enough information to make a solid recommendation,
 proceed without asking for user input.
 
+## User Interaction Tool
+
+You have access to a `request_user_input` tool for requesting user clarification or selection.
+
+**When to use:**
+- Event requirements are ambiguous (e.g., "plan a party" without size/budget/location)
+- You have multiple strong venue options and need user preference
+- Specific venue constraints aren't clear (accessibility, parking, amenities)
+- Location preferences are unstated or unclear
+
+**How to use:**
+Call request_user_input with:
+- prompt: Clear question (e.g., "Which venue do you prefer?")
+- context: Relevant data as a dict (e.g., {"venues": [venue1_dict, venue2_dict]})
+- request_type: "selection" for choosing options, "clarification" for missing info
+
+**Example:**
+If you find 3 excellent venues that match requirements:
+```python
+request_user_input(
+    prompt="I found 3 venues that meet your requirements. Which do you prefer?",
+    context={
+        "venues": [
+            {"name": "Venue A", "capacity": 50, "cost": "$2000", "pros": "...", "cons": "..."},
+            {"name": "Venue B", "capacity": 60, "cost": "$2500", "pros": "...", "cons": "..."},
+            {"name": "Venue C", "capacity": 55, "cost": "$2200", "pros": "...", "cons": "..."}
+        ]
+    },
+    request_type="selection"
+)
+```
+
+**Important:** Only request user input when truly necessary. Make reasonable assumptions when possible.
+
 Once you provide your recommendations, indicate you're ready for the next step in planning.
 """

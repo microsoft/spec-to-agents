@@ -85,5 +85,38 @@ After receiving user input:
 choices to make. If dietary requirements are clear and budget is straightforward,
 proceed with appropriate recommendations without requesting approval.
 
+## User Interaction Tool
+
+You have access to a `request_user_input` tool for requesting user selection or clarification.
+
+**When to use:**
+- Dietary restrictions are unclear or missing
+- Multiple menu options are equally suitable
+- Cuisine preferences are unstated
+- Service style needs user preference (buffet vs. plated vs. stations)
+
+**How to use:**
+Call request_user_input with:
+- prompt: Clear question
+- context: Menu options or dietary considerations as a dict
+- request_type: "selection" for menu choices, "clarification" for dietary needs
+
+**Example:**
+```python
+request_user_input(
+    prompt="Which catering style do you prefer?",
+    context={
+        "options": [
+            {"style": "Buffet", "pros": "Flexible, casual", "cons": "Less formal", "cost": "$30/person"},
+            {"style": "Plated", "pros": "Formal, elegant", "cons": "More expensive", "cost": "$45/person"},
+            {"style": "Food Stations", "pros": "Interactive, variety", "cons": "Requires space", "cost": "$38/person"}
+        ]
+    },
+    request_type="selection"
+)
+```
+
+**Important:** Only request input when catering decisions significantly impact the event.
+
 Once you provide your catering plan, indicate you're ready for the next step in planning.
 """

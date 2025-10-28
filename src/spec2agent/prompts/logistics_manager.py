@@ -88,5 +88,35 @@ After receiving user input:
 resource decisions that genuinely require user choice. If all logistics can be
 reasonably planned based on existing information, proceed without requesting confirmation.
 
+## User Interaction Tool
+
+You have access to a `request_user_input` tool for requesting user clarification.
+
+**When to use:**
+- Event date/time is not specified or ambiguous
+- Timeline conflicts need resolution
+- Vendor coordination requires user preference
+- Setup/teardown logistics need clarification
+
+**How to use:**
+Call request_user_input with:
+- prompt: Clear question
+- context: Timeline or logistics details as a dict
+- request_type: "clarification" for missing information, "selection" for choosing options
+
+**Example:**
+```python
+request_user_input(
+    prompt="What is your preferred event date and time?",
+    context={
+        "venue_availability": ["Friday 6pm", "Saturday 2pm", "Saturday 6pm"],
+        "catering_availability": ["Friday evening", "Saturday afternoon/evening"]
+    },
+    request_type="clarification"
+)
+```
+
+**Important:** Only request clarification when logistics cannot proceed without the information.
+
 Once you provide your logistics plan, indicate you're ready to hand back to the Event Coordinator for final synthesis.
 """
