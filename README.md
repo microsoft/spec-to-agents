@@ -8,7 +8,7 @@ This sample showcases how to generate and orchestrate agents (aided by [spec-kit
 - **Semantic Kernel**: Enterprise-ready AI orchestration
 - **AutoGen**: Multi-agent conversation patterns
 
-The sample is built around an engaging event planning scenario, it demonstrates concurrent workflow execution and real-time workflow visualization.
+The sample is built around an engaging event planning scenario. It demonstrates concurrent workflow execution and real-time workflow visualization.
 
 # 🎯 Project Overview
 
