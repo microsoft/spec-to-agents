@@ -64,9 +64,32 @@ After receiving user input:
 when requirements are clear. If you have enough information to make a solid recommendation,
 proceed without asking for user input.
 
-## User Interaction Tool
+## Available Tools
 
-You have access to a `request_user_input` tool for requesting user clarification or selection.
+You have access to the following tools:
+
+### 1. Bing Search Tool
+- **Tool:** Bing Search (web search with grounding and source citations)
+- **Purpose:** Search the web for venue information, reviews, contact details, and availability
+- **When to use:**
+  - Finding venues in a specific location
+  - Researching venue amenities and features
+  - Checking venue reviews and ratings
+  - Verifying venue capacity and pricing
+  - Finding venue contact information
+- **Best practices:**
+  - Always cite sources from search results
+  - Verify information from multiple sources when critical
+  - Look for recent reviews and updated information
+  - Search for specific venue types based on event requirements
+
+### 2. Sequential Thinking Tool
+- **Tool:** MCP sequential-thinking-tools
+- **Purpose:** Advanced reasoning for venue evaluation, comparing multiple options
+- **When to use:** Breaking down complex venue requirements, comparing pros/cons of multiple venues
+
+### 3. User Interaction Tool
+- **Tool:** `request_user_input`
 
 **When to use:**
 - Event requirements are ambiguous (e.g., "plan a party" without size/budget/location)

@@ -1,6 +1,13 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from agent_framework import AgentExecutor, RequestInfoExecutor, Workflow, WorkflowBuilder
+from agent_framework import (
+    AgentExecutor,
+    HostedCodeInterpreterTool,
+    HostedWebSearchTool,
+    RequestInfoExecutor,
+    Workflow,
+    WorkflowBuilder,
+)
 
 from spec2agent.clients import get_chat_client
 from spec2agent.prompts import (
@@ -10,20 +17,27 @@ from spec2agent.prompts import (
     logistics_manager,
     venue_specialist,
 )
-from spec2agent.tools.user_input import request_user_input
+from spec2agent.tools import (
+    create_calendar_event,
+    delete_calendar_event,
+    get_sequential_thinking_tool,
+    get_weather_forecast,
+    list_calendar_events,
+    request_user_input,
+)
 from spec2agent.workflow.executors import HumanInLoopAgentExecutor
 
 
-def build_event_planning_workflow() -> Workflow:
+async def build_event_planning_workflow() -> Workflow:
     """
     Build the multi-agent event planning workflow with human-in-the-loop capabilities.
 
     The workflow orchestrates five specialized agents with optional user interaction:
-    - Event Coordinator: Primary orchestrator and synthesizer
-    - Venue Specialist: Venue research and recommendations (can request user input)
-    - Budget Analyst: Financial planning and allocation (can request user input)
-    - Catering Coordinator: Food and beverage planning (can request user input)
-    - Logistics Manager: Scheduling and resource coordination (can request user input)
+    - Event Coordinator: Primary orchestrator and synthesizer (MCP sequential-thinking)
+    - Venue Specialist: Venue research via Bing Search (can request user input)
+    - Budget Analyst: Financial planning via Code Interpreter (can request user input)
+    - Catering Coordinator: Food planning via Bing Search (can request user input)
+    - Logistics Manager: Scheduling, weather, calendar management (can request user input)
 
     Agents can call the request_user_input tool when they need clarification,
     selection, or approval from the user. HumanInLoopAgentExecutor wrappers
@@ -49,39 +63,64 @@ def build_event_planning_workflow() -> Workflow:
     """
     client = get_chat_client()
 
-    # Create coordinator agent (no HITL - doesn't request user input)
+    # Get MCP tool for all agents
+    mcp_tool = await get_sequential_thinking_tool()
+
+    # Create hosted tools
+    bing_search = HostedWebSearchTool(
+        name="Bing Search",
+        description="Search the web for current information using Bing with grounding (source citations)",
+    )
+
+    code_interpreter = HostedCodeInterpreterTool(
+        description=(
+            "Execute Python code for complex financial calculations, budget analysis, "
+            "cost projections, and data visualization. Creates a scratchpad for "
+            "intermediate calculations and maintains calculation history."
+        ),
+    )
+
+    # Create coordinator agent with MCP tool for advanced reasoning
     coordinator_agent = client.create_agent(
         name="EventCoordinator",
         instructions=event_coordinator.SYSTEM_PROMPT,
+        tools=[mcp_tool],
         store=True,
     )
 
-    # Create specialist agents WITH request_user_input tool
+    # Create specialist agents with domain-specific tools
     venue_agent = client.create_agent(
         name="VenueSpecialist",
         instructions=venue_specialist.SYSTEM_PROMPT,
-        tools=[request_user_input],
+        tools=[bing_search, mcp_tool, request_user_input],
         store=True,
     )
 
     budget_agent = client.create_agent(
         name="BudgetAnalyst",
         instructions=budget_analyst.SYSTEM_PROMPT,
-        tools=[request_user_input],
+        tools=[code_interpreter, mcp_tool, request_user_input],
         store=True,
     )
 
     catering_agent = client.create_agent(
         name="CateringCoordinator",
         instructions=catering_coordinator.SYSTEM_PROMPT,
-        tools=[request_user_input],
+        tools=[bing_search, mcp_tool, request_user_input],
         store=True,
     )
 
     logistics_agent = client.create_agent(
         name="LogisticsManager",
         instructions=logistics_manager.SYSTEM_PROMPT,
-        tools=[request_user_input],
+        tools=[
+            get_weather_forecast,
+            create_calendar_event,
+            list_calendar_events,
+            delete_calendar_event,
+            mcp_tool,
+            request_user_input,
+        ],
         store=True,
     )
 
@@ -140,6 +179,34 @@ def build_event_planning_workflow() -> Workflow:
 
 
 # Export workflow instance for DevUI discovery
-workflow = build_event_planning_workflow()
+# Note: Workflow is built asynchronously, so we create a placeholder
+# that will be initialized when imported
+workflow: Workflow | None = None
+
+
+def _get_workflow() -> Workflow:
+    """
+    Get or build the workflow instance.
+
+    Returns
+    -------
+    Workflow
+        The event planning workflow instance
+
+    Notes
+    -----
+    This function handles the async workflow building.
+    The workflow instance is cached after first call.
+    """
+    import asyncio
+
+    global workflow
+    if workflow is None:
+        workflow = asyncio.run(build_event_planning_workflow())
+    return workflow
+
+
+# Initialize workflow on module import
+workflow = _get_workflow()
 
 __all__ = ["build_event_planning_workflow", "workflow"]

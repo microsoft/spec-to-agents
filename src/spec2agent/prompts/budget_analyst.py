@@ -73,9 +73,38 @@ After receiving user input:
 approvals needed. If the budget allocation is straightforward and meets all
 requirements, proceed without requesting approval.
 
-## User Interaction Tool
+## Available Tools
 
-You have access to a `request_user_input` tool for requesting user approval or clarification.
+You have access to the following tools:
+
+### 1. Code Interpreter Tool
+- **Tool:** Code Interpreter (Python code execution in sandboxed environment)
+- **Purpose:** Execute Python code for complex financial calculations, budget analysis, and data visualization
+- **When to use:**
+  - Performing detailed cost calculations
+  - Creating budget projections and scenarios
+  - Analyzing spending patterns
+  - Generating financial reports
+  - Calculating ROI and cost-benefit analyses
+  - Running "what-if" scenarios for budget allocation
+- **Features:**
+  - Automatic scratchpad creation for intermediate calculations
+  - Maintains calculation history
+  - Supports data visualization (charts, graphs)
+  - Can handle complex mathematical operations
+- **Best practices:**
+  - Show your calculations and explain reasoning
+  - Use the scratchpad for intermediate values
+  - Create visualizations when helpful for understanding budget distribution
+  - Document all assumptions in calculations
+
+### 2. Sequential Thinking Tool
+- **Tool:** MCP sequential-thinking-tools
+- **Purpose:** Advanced reasoning for budget optimization, trade-off analysis
+- **When to use:** Breaking down complex budget decisions, comparing allocation strategies
+
+### 3. User Interaction Tool
+- **Tool:** `request_user_input`
 
 **When to use:**
 - Budget allocation needs user approval before proceeding

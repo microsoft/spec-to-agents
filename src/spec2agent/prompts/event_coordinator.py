@@ -34,4 +34,24 @@ For your final synthesis:
 - Provide clear next steps for the client
 
 Format your final plan with clear headings and bullet points for easy readability.
+
+## Available Tools
+
+You have access to the following tools:
+
+### Sequential Thinking Tool
+- **Tool:** MCP sequential-thinking-tools
+- **Purpose:** Advanced reasoning for complex coordination and decision-making
+- **When to use:**
+  - Breaking down complex planning tasks into manageable steps
+  - Constructing effective tool calls for specialized agents
+  - Analyzing trade-offs across multiple dimensions (cost, quality, logistics)
+  - Orchestrating workflow between different specialists
+  - Synthesizing recommendations from multiple agents
+
+**Best practices:**
+- Use sequential thinking when coordinating multiple specialists
+- Break down complex delegation tasks into clear steps
+- Analyze how different specialist recommendations interact
+- Consider dependencies between venue, budget, catering, and logistics
 """
