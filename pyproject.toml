@@ -52,15 +52,15 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = ["mypy>=1.18.2", "pyright>=1.1.406", "pytest-asyncio>=1.2.0"]
 
-[tool.uv.sources]
-"agent-framework-core" = { path = "third_party/agent-framework/python/packages/core", editable = true }
-"agent-framework-azure-ai" = { path = "third_party/agent-framework/python/packages/azure-ai", editable = true }
-"agent-framework-a2a" = { path = "third_party/agent-framework/python/packages/a2a", editable = true }
-"agent-framework-copilotstudio" = { path = "third_party/agent-framework/python/packages/copilotstudio", editable = true }
-"agent-framework-mem0" = { path = "third_party/agent-framework/python/packages/mem0", editable = true }
-"agent-framework-redis" = { path = "third_party/agent-framework/python/packages/redis", editable = true }
-"agent-framework-devui" = { path = "third_party/agent-framework/python/packages/devui", editable = true }
-"agent-framework-lab" = { path = "third_party/agent-framework/python/packages/lab", editable = true }
+# [tool.uv.sources]
+# "agent-framework-core" = { path = "third_party/agent-framework/python/packages/core", editable = true }
+# "agent-framework-azure-ai" = { path = "third_party/agent-framework/python/packages/azure-ai", editable = true }
+# "agent-framework-a2a" = { path = "third_party/agent-framework/python/packages/a2a", editable = true }
+# "agent-framework-copilotstudio" = { path = "third_party/agent-framework/python/packages/copilotstudio", editable = true }
+# "agent-framework-mem0" = { path = "third_party/agent-framework/python/packages/mem0", editable = true }
+# "agent-framework-redis" = { path = "third_party/agent-framework/python/packages/redis", editable = true }
+# "agent-framework-devui" = { path = "third_party/agent-framework/python/packages/devui", editable = true }
+# "agent-framework-lab" = { path = "third_party/agent-framework/python/packages/lab", editable = true }
 
 [tool.ruff]
 line-length = 120
