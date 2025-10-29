@@ -3,12 +3,12 @@
 > [!WARNING]
 > **Work in Progress**: This project is under active development and subject to heavy changes. It is not recommended for testing or production use at this time.
 
-This sample showcases how to generate and orchestrate agents (aided by [spec-kit](https://github.com/github/spec-kit/tree/main)) using **Microsoft Agent Framework**--the new unified orchestration framework that combines the best of:
+This sample showcases how to generate and orchestrate agents (aided by [spec-kit](https://github.com/github/spec-kit/tree/main)) using **[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)**. It combines the best of:
 
 - **Semantic Kernel**: Enterprise-ready AI orchestration
 - **AutoGen**: Multi-agent conversation patterns
 
-Built around an engaging event planning scenario, it demonstrates concurrent workflow execution and real-time workflow visualization.
+The sample is built around an engaging event planning scenario. It demonstrates concurrent workflow execution and real-time workflow visualization.
 
 # 🎯 Project Overview
 
@@ -29,13 +29,13 @@ Plan a comprehensive event using multiple specialized agents working together.
 1. **Spec-to-Agent Generation**: Create specialized agents by using spec-driven development with [spec-kit](https://github.com/github/spec-kit/tree/main)
 2. **Event Planning Orchestration**: Comprehensive event planning with multiple collaborating agents
 3. **Concurrent Workflows**: Agent orchestration with parallel execution paths and fan-in/fan-out patterns
-4. **Interactive Frontend**: Visual representation of agent interactions and workflows for optimizing user experience
+4. **Interactive Frontend**: Visual representation of agent interactions and workflows with [DevUI](https://github.com/microsoft/agent-framework/tree/main/python/packages/devui)
 5. **Azure Integration**: Full AZD template deployment to Azure Container Apps
 
 # 🏗️ Architecture Overview
 
 ## Core Components
-- **Agent Framework**: Showcases the converged Semantic Kernel + AutoGen framework, Microsoft Agent Framework, with integration using the Python SDK
+- **Microsoft Agent Framework**: Comprehensive multi-language framework for building, orchestrating, and deploying AI agents with support for both .NET and Python
 - **DevUI**: Interactive UI showing real-time agent orchestration inspired by DevUI in Agent Framework
 - **Concurrent Workflows**: Demonstrates the workflows functionality for orchestrating complex agentic systems
 - **Azure Deployment**: Complete AZD template for one-click deployment
@@ -93,21 +93,7 @@ azd env set AZURE_LOCATION eastus2
 
 ## Running Locally
 
-For local development:
-
-```bash
-# Terminal 1 - Start backend
-cd backend
-uv sync
-uv run app/main.py
-
-# Terminal 2 - Start frontend
-cd frontend
-npm install
-npm run dev
-```
-
-Open your browser to `http://localhost:5173`
+Follow the development setup instructions [here](./DEV_SETUP.md).
 
 **Note:** Local development requires an Azure AI Foundry project and Azure OpenAI deployment. Update `backend/.env` with your Azure credentials.
 
@@ -118,7 +104,7 @@ Open your browser to `http://localhost:5173`
 - **Backend**: Python 3.13, FastAPI for High Performance ASGI Server
 - **Frontend**: Vite frontend based on Microsoft Agent Framework DevUI
 - **Infrastructure**: Azure Container Apps, AZD template
-- **AI**: Azure OpenAI, Microsoft Agent Framework (Semantic Kernel + AutoGen)
+- **AI**: Azure OpenAI, Microsoft Agent Framework
 
 ## Development Workflow
 
@@ -133,14 +119,8 @@ Open your browser to `http://localhost:5173`
 ## Running Tests
 
 ```bash
-# Backend tests
-cd src/backend
+cd tests
 uv run pytest
-
-# Frontend tests
-cd src/frontend
-npm install
-npm run test
 ```
 
 # 📦 Infrastructure

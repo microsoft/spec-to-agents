@@ -1,11 +1,6 @@
 # Project Overview
 
-This is a Python project that uses **Microsoft Agent Framework**--the new unified orchestration framework that combines the best of:
-
-- **Semantic Kernel**: Enterprise-ready AI orchestration
-- **AutoGen**: Multi-agent conversation patterns
-
-To build a multi-agent event planning workflow.
+This is a Python project that uses **[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)** to build a multi-agent event planning workflow.
 
 # ExecPlans
 
@@ -49,21 +44,21 @@ spec-to-agents/
 │       ├── clients.py # contains shared client code for AI Foundry
 │       ├── agents/ # contains core agent/workflow definitions
 │       │   ├── __init__.py
-│       │   ├── event_coordinator/
-│       │   │   ├── __init__.py
-│       │   │   └── workflow.py
-│       │   ├── venue_specialist/
-│       │   │   ├── __init__.py
-│       │   │   └── workflow.py
 │       │   ├── budget_analyst/
 │       │   │   ├── __init__.py
-│       │   │   └── workflow.py
+│       │   │   └── agent.py
 │       │   ├── catering_coordinator/
 │       │   │   ├── __init__.py
-│       │   │   └── workflow.py
-│       │   └── logistics_manager/
+│       │   │   └── agent.py
+│       │   ├── event_coordinator/
+│       │   │   ├── __init__.py
+│       │   │   └── agent.py
+│       │   ├── logistics_manager/
+│       │   │   ├── __init__.py
+│       │   │   └── agent.py
+│       │   └── venue_specialist/
 │       │       ├── __init__.py
-│       │       └── workflow.py
+│       │       └── agent.py
 │       ├── prompts/ # contains system prompts for each agent
 │       │   ├── __init__.py
 │       │   ├── budget_analyst.py
