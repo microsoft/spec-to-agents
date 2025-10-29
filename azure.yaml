@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: spec-to-agents
+metadata:
+  template: spec-to-agents@0.0.1
+
+# Services to deploy
+services:
+  backend:
+    project: ./backend
+    language: py
+    host: appservice
+
+  frontend:
+    project: ./frontend
+    language: js
+    host: appservice
+
+# Infrastructure as Code
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+# Deployment hooks
+hooks:
+  postprovision:
+    shell: sh
+    run: |
+      echo "✓ Infrastructure provisioned successfully!"
+      echo "Run 'azd deploy' to deploy the application."
+    continueOnError: true
+
+  postdeploy:
+    shell: sh
+    run: |
+      echo "✓ Application deployed successfully!"
+      echo "Run 'azd show' to view endpoint URLs."
+    continueOnError: true

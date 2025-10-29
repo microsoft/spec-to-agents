@@ -605,3 +605,7 @@ tmp/
 temp/
 
 .claude
+
+# Azure Developer CLI
+.azure/
+infra/main.json
