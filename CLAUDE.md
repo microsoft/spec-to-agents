@@ -1,6 +1,11 @@
 # Project Overview
 
-This is a Python project that uses **[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)** to build a multi-agent event planning workflow.
+This is a Python project that uses **Microsoft Agent Framework**--the new unified orchestration framework that combines the best of:
+
+- **Semantic Kernel**: Enterprise-ready AI orchestration
+- **AutoGen**: Multi-agent conversation patterns
+
+To build a multi-agent event planning workflow.
 
 # ExecPlans
 

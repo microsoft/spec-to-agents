@@ -15,12 +15,12 @@ uv run pre-commit install
 
 ## Configuration
 
-Add a `.env` file in the `src/spec2agent/agents` directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
+Add a `.env` file in the `src/spec_to_agents/agents` directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
 
 ## Starting DevUI
 
 Visualize and interact with the agents using DevUI:
 
 ```bash
-uv run devui
+uv run app
 ```
