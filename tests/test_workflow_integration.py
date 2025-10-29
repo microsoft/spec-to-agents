@@ -4,7 +4,7 @@
 
 import pytest
 
-from spec2agent.workflow.core import build_event_planning_workflow
+from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
 @pytest.mark.asyncio

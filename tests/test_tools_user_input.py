@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from spec2agent.tools.user_input import request_user_input
+from spec_to_agents.tools.user_input import request_user_input
 
 
 def test_request_user_input_returns_placeholder():

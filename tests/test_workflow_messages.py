@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from spec2agent.workflow.messages import UserElicitationRequest
+from spec_to_agents.workflow.messages import UserElicitationRequest
 
 
 def test_user_elicitation_request_creation():

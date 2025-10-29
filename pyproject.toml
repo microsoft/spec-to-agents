@@ -1,5 +1,5 @@
 [project]
-name = "spec2agent"
+name = "spec-to-agents"
 version = "0.0.1"
 description = "Backend for Spec-to-Agent sample demonstrating Microsoft Agent Framework"
 authors = [{ name = "Microsoft", email = "opensource@microsoft.com" }]
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-app = "spec2agent:main.main"
+app = "spec_to_agents:main.main"
 
 
 [project.optional-dependencies]

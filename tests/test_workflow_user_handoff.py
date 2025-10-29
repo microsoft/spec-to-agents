@@ -8,8 +8,8 @@ from unittest.mock import Mock
 import pytest
 from agent_framework import FunctionCallContent, RequestInfoEvent
 
-from spec2agent.workflow.core import build_event_planning_workflow
-from spec2agent.workflow.executors import HumanInLoopAgentExecutor
+from spec_to_agents.workflow.core import build_event_planning_workflow
+from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
 
 
 def test_hitl_executor_detects_tool_call():

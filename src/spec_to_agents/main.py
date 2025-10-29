@@ -7,7 +7,7 @@ def main():
 
     from agent_framework.devui import serve
 
-    from spec2agent.agents import export_entities
+    from spec_to_agents.agents import export_entities
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     logger = logging.getLogger(__name__)

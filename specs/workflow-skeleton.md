@@ -175,19 +175,19 @@ The workflow follows an orchestrated sequential pattern where the Event Coordina
 ### What Was Delivered
 
 1. **System Prompts** (5 files updated)
-   - `src/spec2agent/prompts/event_coordinator.py` - Orchestrator role with delegation and synthesis guidance
-   - `src/spec2agent/prompts/venue_specialist.py` - Venue research expertise with structured recommendations
-   - `src/spec2agent/prompts/budget_analyst.py` - Financial planning with budget allocation format
-   - `src/spec2agent/prompts/catering_coordinator.py` - Food/beverage planning with menu formats
-   - `src/spec2agent/prompts/logistics_manager.py` - Scheduling and coordination with timeline format
+   - `src/spec_to_agents/prompts/event_coordinator.py` - Orchestrator role with delegation and synthesis guidance
+   - `src/spec_to_agents/prompts/venue_specialist.py` - Venue research expertise with structured recommendations
+   - `src/spec_to_agents/prompts/budget_analyst.py` - Financial planning with budget allocation format
+   - `src/spec_to_agents/prompts/catering_coordinator.py` - Food/beverage planning with menu formats
+   - `src/spec_to_agents/prompts/logistics_manager.py` - Scheduling and coordination with timeline format
 
 2. **Workflow Implementation** (1 file created)
-   - `src/spec2agent/workflow/core.py` - Complete workflow builder with all five agents in sequential orchestration
+   - `src/spec_to_agents/workflow/core.py` - Complete workflow builder with all five agents in sequential orchestration
    - Module exports `workflow` instance for DevUI discovery
    - Includes comprehensive docstring with workflow description
 
 3. **Module Exports** (1 file updated)
-   - `src/spec2agent/agents/__init__.py` - Updated `export_entities()` to include event_planning_workflow
+   - `src/spec_to_agents/agents/__init__.py` - Updated `export_entities()` to include event_planning_workflow
    - Workflow now discoverable alongside individual agents in DevUI
 
 4. **Unit Tests** (1 file created)
@@ -200,10 +200,10 @@ The workflow follows an orchestrated sequential pattern where the Event Coordina
 
 6. **Bug Fixes** (4 files corrected)
    - Fixed agent import paths to use correct prompts
-   - `src/spec2agent/agents/event_coordinator.py`
-   - `src/spec2agent/agents/venue_specialist.py`
-   - `src/spec2agent/agents/catering_coordinator.py`
-   - `src/spec2agent/agents/logistics_manager.py`
+   - `src/spec_to_agents/agents/event_coordinator.py`
+   - `src/spec_to_agents/agents/venue_specialist.py`
+   - `src/spec_to_agents/agents/catering_coordinator.py`
+   - `src/spec_to_agents/agents/logistics_manager.py`
 
 ### Validation Results
 
@@ -307,17 +307,17 @@ The implementation provides a solid foundation for future enhancements including
 ### Current State
 
 The project currently has:
-- **Five agent files** under `src/spec2agent/agents/`:
+- **Five agent files** under `src/spec_to_agents/agents/`:
   - `event_coordinator.py`
   - `venue_specialist.py`
   - `budget_analyst.py`
   - `catering_coordinator.py`
   - `logistics_manager.py`
 - **Basic agent definitions** that use `get_chat_client().create_agent()`
-- **Agent export mechanism** in `src/spec2agent/agents/__init__.py` with `export_entities()` function for DevUI discovery
-- **Placeholder system prompts** in `src/spec2agent/prompts/*.py` (all currently "You are a helpful assistant")
-- **Shared client code** in `src/spec2agent/clients.py` providing `get_chat_client()` and `get_credential()`
-- **Empty workflow module** at `src/spec2agent/workflow/core.py`
+- **Agent export mechanism** in `src/spec_to_agents/agents/__init__.py` with `export_entities()` function for DevUI discovery
+- **Placeholder system prompts** in `src/spec_to_agents/prompts/*.py` (all currently "You are a helpful assistant")
+- **Shared client code** in `src/spec_to_agents/clients.py` providing `get_chat_client()` and `get_credential()`
+- **Empty workflow module** at `src/spec_to_agents/workflow/core.py`
 
 ### Architecture Overview
 
@@ -352,28 +352,28 @@ Based on the workflow architecture diagram in AGENTS.md, the system follows this
 
 Design comprehensive, role-specific system prompts for each of the five agents that enable effective collaboration in an orchestrated workflow.
 
-**Event Coordinator Prompt** (`src/spec2agent/prompts/event_coordinator.py`):
+**Event Coordinator Prompt** (`src/spec_to_agents/prompts/event_coordinator.py`):
 - Define role as the primary orchestrator
 - Specify responsibilities: gather requirements, delegate to specialists, synthesize results
 - Include guidance on how to structure delegation messages
 - Define output format for the final integrated event plan
 
-**Venue Specialist Prompt** (`src/spec2agent/prompts/venue_specialist.py`):
+**Venue Specialist Prompt** (`src/spec_to_agents/prompts/venue_specialist.py`):
 - Define role as venue research and recommendation specialist
 - Specify considerations: capacity, location, amenities, accessibility
 - Define output format for venue recommendations (structured list with pros/cons)
 
-**Budget Analyst Prompt** (`src/spec2agent/prompts/budget_analyst.py`):
+**Budget Analyst Prompt** (`src/spec_to_agents/prompts/budget_analyst.py`):
 - Define role as financial planning and cost management specialist
 - Specify responsibilities: budget allocation, cost estimation, financial constraints
 - Define output format for budget breakdowns (categorized allocation)
 
-**Catering Coordinator Prompt** (`src/spec2agent/prompts/catering_coordinator.py`):
+**Catering Coordinator Prompt** (`src/spec_to_agents/prompts/catering_coordinator.py`):
 - Define role as food and beverage planning specialist
 - Specify considerations: dietary restrictions, cuisine types, service style
 - Define output format for catering recommendations
 
-**Logistics Manager Prompt** (`src/spec2agent/prompts/logistics_manager.py`):
+**Logistics Manager Prompt** (`src/spec_to_agents/prompts/logistics_manager.py`):
 - Define role as scheduling and resource coordination specialist
 - Specify responsibilities: timeline creation, vendor coordination, equipment needs
 - Define output format for logistics plans
@@ -406,7 +406,7 @@ The Agent Framework Python package provides two primary orchestration builders:
 - Deterministic execution order enables predictable planning process
 - Event Coordinator can synthesize all specialist outputs at the end
 
-**Workflow Structure** (`src/spec2agent/workflow/core.py`):
+**Workflow Structure** (`src/spec_to_agents/workflow/core.py`):
 - Create `build_event_planning_workflow()` function
 - Initialize all five agents using their respective system prompts
 - Use `WorkflowBuilder` to construct the workflow:
@@ -420,11 +420,11 @@ The Agent Framework Python package provides two primary orchestration builders:
 Update the agent module structure to align with DevUI discovery requirements.
 
 **Agent Export Pattern** (per AGENTS.md):
-The `src/spec2agent/agents/__init__.py` module uses an `export_entities()` function that returns a list of all agents/workflows for DevUI discovery.
+The `src/spec_to_agents/agents/__init__.py` module uses an `export_entities()` function that returns a list of all agents/workflows for DevUI discovery.
 
 **Workflow Integration**:
-- Create a workflow variable in `src/spec2agent/workflow/core.py` that builds the complete event planning workflow
-- Import and add the workflow to the `export_entities()` list in `src/spec2agent/agents/__init__.py`
+- Create a workflow variable in `src/spec_to_agents/workflow/core.py` that builds the complete event planning workflow
+- Import and add the workflow to the `export_entities()` list in `src/spec_to_agents/agents/__init__.py`
 - This makes the workflow discoverable alongside individual agents in DevUI
 
 **Individual Agent Files**:
@@ -520,7 +520,7 @@ Use **Custom Executor Wrapper Pattern** where specialist agents can conditionall
    - Add bidirectional edges between each specialist and the RequestInfoExecutor
    - This allows any agent to pause and request user input when needed
 
-2. **Create Custom RequestInfoMessage Types** (`src/spec2agent/workflow/messages.py`):
+2. **Create Custom RequestInfoMessage Types** (`src/spec_to_agents/workflow/messages.py`):
    ```python
    from dataclasses import dataclass
    from agent_framework import RequestInfoMessage
@@ -544,7 +544,7 @@ Use **Custom Executor Wrapper Pattern** where specialist agents can conditionall
        proposed_budget: dict  # Budget breakdown by category
    ```
 
-3. **Create Custom Specialist Executors** (`src/spec2agent/workflow/executors.py`):
+3. **Create Custom Specialist Executors** (`src/spec_to_agents/workflow/executors.py`):
    - Wrap AgentExecutor instances with custom logic
    - Add handlers to check agent responses for signals requiring user input
    - Send `UserElicitationRequest` to `RequestInfoExecutor` when needed
@@ -577,7 +577,7 @@ Use **Custom Executor Wrapper Pattern** where specialist agents can conditionall
                await ctx.send_message(response)
    ```
 
-4. **Update Workflow Builder** (`src/spec2agent/workflow/core.py`):
+4. **Update Workflow Builder** (`src/spec_to_agents/workflow/core.py`):
    ```python
    # Add RequestInfoExecutor
    request_info = RequestInfoExecutor(id="user_input")
@@ -677,34 +677,34 @@ Navigate to the project root and update each system prompt file:
 
     cd c:\Users\alexlavaee\source\repos\spec-to-agents
 
-Update `src/spec2agent/prompts/event_coordinator.py`:
+Update `src/spec_to_agents/prompts/event_coordinator.py`:
 - Define Event Coordinator as orchestrator role
 - Include delegation strategy
 - Specify synthesis approach for final plan
 
-Update `src/spec2agent/prompts/venue_specialist.py`:
+Update `src/spec_to_agents/prompts/venue_specialist.py`:
 - Define Venue Specialist role and expertise
 - Specify venue evaluation criteria
 - Define recommendation format
 
-Update `src/spec2agent/prompts/budget_analyst.py`:
+Update `src/spec_to_agents/prompts/budget_analyst.py`:
 - Define Budget Analyst role and expertise
 - Specify budget breakdown categories
 - Define allocation format
 
-Update `src/spec2agent/prompts/catering_coordinator.py`:
+Update `src/spec_to_agents/prompts/catering_coordinator.py`:
 - Define Catering Coordinator role and expertise
 - Specify catering considerations
 - Define recommendation format
 
-Update `src/spec2agent/prompts/logistics_manager.py`:
+Update `src/spec_to_agents/prompts/logistics_manager.py`:
 - Define Logistics Manager role and expertise
 - Specify coordination responsibilities
 - Define logistics plan format
 
 ### Step 2: Implement Workflow Builder
 
-Create the workflow builder in `src/spec2agent/workflow/core.py`.
+Create the workflow builder in `src/spec_to_agents/workflow/core.py`.
 
 **Understanding the Handoff Flow**:
 
@@ -731,8 +731,8 @@ What happens during this edge:
 **Expected Implementation Structure**:
 
     from agent_framework.core import WorkflowBuilder
-    from spec2agent.clients import get_chat_client
-    from spec2agent.prompts import (
+    from spec_to_agents.clients import get_chat_client
+    from spec_to_agents.prompts import (
         event_coordinator,
         venue_specialist,
         budget_analyst,
@@ -774,11 +774,11 @@ What happens during this edge:
 
 ### Step 3: Update Agent Module Exports
 
-Update `src/spec2agent/workflow/core.py` to export the workflow as a module-level variable:
+Update `src/spec_to_agents/workflow/core.py` to export the workflow as a module-level variable:
 
     from agent_framework.core import WorkflowBuilder, Workflow
-    from spec2agent.clients import get_chat_client
-    from spec2agent.prompts import (
+    from spec_to_agents.clients import get_chat_client
+    from spec_to_agents.prompts import (
         event_coordinator,
         venue_specialist,
         budget_analyst,
@@ -794,16 +794,16 @@ Update `src/spec2agent/workflow/core.py` to export the workflow as a module-leve
     # Export workflow instance for DevUI discovery
     workflow = build_event_planning_workflow()
 
-Update `src/spec2agent/agents/__init__.py` to include the workflow in exports:
+Update `src/spec_to_agents/agents/__init__.py` to include the workflow in exports:
 
     from agent_framework import ChatAgent, Workflow
 
-    from spec2agent.agents.budget_analyst import agent as budget_analyst_agent
-    from spec2agent.agents.catering_coordinator import agent as catering_coordinator_agent
-    from spec2agent.agents.event_coordinator import agent as event_coordinator_agent
-    from spec2agent.agents.logistics_manager import agent as logistics_manager_agent
-    from spec2agent.agents.venue_specialist import agent as venue_specialist_agent
-    from spec2agent.workflow.core import workflow as event_planning_workflow
+    from spec_to_agents.agents.budget_analyst import agent as budget_analyst_agent
+    from spec_to_agents.agents.catering_coordinator import agent as catering_coordinator_agent
+    from spec_to_agents.agents.event_coordinator import agent as event_coordinator_agent
+    from spec_to_agents.agents.logistics_manager import agent as logistics_manager_agent
+    from spec_to_agents.agents.venue_specialist import agent as venue_specialist_agent
+    from spec_to_agents.workflow.core import workflow as event_planning_workflow
 
     def export_entities() -> list[Workflow | ChatAgent]:
         """Export all agents/workflows for registration in DevUI."""
@@ -823,7 +823,7 @@ This makes the workflow discoverable by DevUI alongside individual agents.
 Create `tests/test_workflow.py`:
 
     import pytest
-    from spec2agent.workflow.core import build_event_planning_workflow
+    from spec_to_agents.workflow.core import build_event_planning_workflow
 
     def test_workflow_builds_successfully():
         """Test that the workflow can be constructed without errors."""
@@ -838,7 +838,7 @@ Create `tests/test_workflow.py`:
 Create `tests/test_workflow_integration.py`:
 
     import pytest
-    from spec2agent.workflow.core import build_event_planning_workflow
+    from spec_to_agents.workflow.core import build_event_planning_workflow
 
     @pytest.mark.asyncio
     async def test_workflow_execution():
@@ -958,7 +958,7 @@ This step adds human-in-the-loop capabilities to the workflow, allowing agents t
 
 **6.1: Create RequestInfoMessage Types**
 
-Create `src/spec2agent/workflow/messages.py`:
+Create `src/spec_to_agents/workflow/messages.py`:
 
 ```python
 # Copyright (c) Microsoft. All rights reserved.
@@ -1011,7 +1011,7 @@ Expected output: Message types are defined and can be imported by workflow and e
 
 **6.2: Update Workflow Builder with RequestInfoExecutor**
 
-Modify `src/spec2agent/workflow/core.py` to integrate RequestInfoExecutor with bidirectional edges. This allows any agent to optionally request user input while maintaining the sequential flow.
+Modify `src/spec_to_agents/workflow/core.py` to integrate RequestInfoExecutor with bidirectional edges. This allows any agent to optionally request user input while maintaining the sequential flow.
 
 Key changes:
 - Add `RequestInfoExecutor` import and instantiation
@@ -1053,7 +1053,7 @@ Add `tests/test_workflow_user_handoff.py`:
 
 ```python
 import pytest
-from spec2agent.workflow.core import build_event_planning_workflow
+from spec_to_agents.workflow.core import build_event_planning_workflow
 from agent_framework import RequestInfoEvent, WorkflowOutputEvent
 
 @pytest.mark.asyncio
@@ -1146,7 +1146,7 @@ Expected behavior:
 - Run tests with increased verbosity: `uv run pytest -vv`
 
 **If DevUI doesn't show workflow**:
-- Verify `src/spec2agent/agents/event_coordinator/__init__.py` exports `workflow`
+- Verify `src/spec_to_agents/agents/event_coordinator/__init__.py` exports `workflow`
 - Check for Python syntax errors: `uv run ruff check src/`
 - Restart DevUI: `uv run app`
 - Check DevUI console for discovery errors
@@ -1376,11 +1376,11 @@ These are NOT part of this specification but could be future work:
 
 ### Required Imports
 
-In `src/spec2agent/workflow/core.py`:
+In `src/spec_to_agents/workflow/core.py`:
 
     from agent_framework.core import WorkflowBuilder, Workflow
-    from spec2agent.clients import get_chat_client
-    from spec2agent.prompts import (
+    from spec_to_agents.clients import get_chat_client
+    from spec_to_agents.prompts import (
         event_coordinator,
         venue_specialist,
         budget_analyst,
@@ -1419,16 +1419,16 @@ In `src/spec2agent/workflow/core.py`:
 
 ### Module Exports
 
-In `src/spec2agent/workflow/core.py`:
+In `src/spec_to_agents/workflow/core.py`:
 
     # Export workflow instance for DevUI discovery
     workflow = build_event_planning_workflow()
     
     __all__ = ["build_event_planning_workflow", "workflow"]
 
-In `src/spec2agent/agents/__init__.py`:
+In `src/spec_to_agents/agents/__init__.py`:
 
-    from spec2agent.workflow.core import workflow as event_planning_workflow
+    from spec_to_agents.workflow.core import workflow as event_planning_workflow
     
     def export_entities() -> list[Workflow | ChatAgent]:
         """Export all agents/workflows for registration in DevUI."""
@@ -1443,7 +1443,7 @@ In `src/spec2agent/agents/__init__.py`:
 
 ### System Prompt Variables
 
-Each prompt file in `src/spec2agent/prompts/` must export:
+Each prompt file in `src/spec_to_agents/prompts/` must export:
 
     from typing import Final
     
@@ -1458,7 +1458,7 @@ Each prompt file in `src/spec2agent/prompts/` must export:
 In `tests/conftest.py` (if needed):
 
     import pytest
-    from spec2agent.workflow.core import build_event_planning_workflow
+    from spec_to_agents.workflow.core import build_event_planning_workflow
 
     @pytest.fixture
     def event_workflow():
@@ -1487,7 +1487,7 @@ Requires one of:
 
 After implementation, the structure should be:
 
-    src/spec2agent/
+    src/spec_to_agents/
     ├── clients.py                    (existing, no changes)
     ├── workflow/
     │   ├── __init__.py              (existing, no changes)
@@ -1575,7 +1575,7 @@ After implementation:
 - Consulted DeepWiki documentation on agent handoff patterns
 
 **Validation**:
-- Current workflow implementation in `src/spec2agent/workflow/core.py` is correct
+- Current workflow implementation in `src/spec_to_agents/workflow/core.py` is correct
 - Uses `add_edge()` which automatically triggers `from_response()` handler chaining
 - No code changes needed - spec updated to match actual framework behavior
 - Pattern validated against official framework samples

@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from agent_framework import FunctionCallContent
 
-from spec2agent.workflow.executors import HumanInLoopAgentExecutor
+from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
 
 
 def test_extract_user_request_detects_tool_call():

@@ -9,15 +9,15 @@ from agent_framework import (
     WorkflowBuilder,
 )
 
-from spec2agent.clients import get_chat_client
-from spec2agent.prompts import (
+from spec_to_agents.clients import get_chat_client
+from spec_to_agents.prompts import (
     budget_analyst,
     catering_coordinator,
     event_coordinator,
     logistics_manager,
     venue_specialist,
 )
-from spec2agent.tools import (
+from spec_to_agents.tools import (
     create_calendar_event,
     delete_calendar_event,
     get_sequential_thinking_tool,
@@ -25,7 +25,7 @@ from spec2agent.tools import (
     list_calendar_events,
     request_user_input,
 )
-from spec2agent.workflow.executors import HumanInLoopAgentExecutor
+from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
 
 
 async def build_event_planning_workflow() -> Workflow:

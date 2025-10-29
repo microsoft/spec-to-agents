@@ -4,7 +4,7 @@
 
 import pytest
 
-from spec2agent.tools.calendar import create_calendar_event, delete_calendar_event, list_calendar_events
+from spec_to_agents.tools.calendar import create_calendar_event, delete_calendar_event, list_calendar_events
 
 
 @pytest.fixture
@@ -16,9 +16,9 @@ def temp_calendar_path(tmp_path, monkeypatch):
     # Re-import the module to pick up the new environment variable
     import importlib
 
-    import spec2agent.tools.calendar
+    import spec_to_agents.tools.calendar
 
-    importlib.reload(spec2agent.tools.calendar)
+    importlib.reload(spec_to_agents.tools.calendar)
     return calendar_dir
 
 

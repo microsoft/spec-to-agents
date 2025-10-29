@@ -53,7 +53,7 @@ IMPORTANT: For your agents to be discovered by the DevUI, they must be organized
 ```
 spec-to-agents/
 ├── src/
-│   └── spec2agent/
+│   └── spec_to_agents/
 │       ├── __init__.py
 │       ├── clients.py # contains shared client code for AI Foundry
 │       ├── agents/ # contains core agent/workflow definitions

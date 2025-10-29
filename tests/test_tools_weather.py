@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from spec2agent.tools.weather import get_weather_forecast
+from spec_to_agents.tools.weather import get_weather_forecast
 
 
 @pytest.mark.asyncio

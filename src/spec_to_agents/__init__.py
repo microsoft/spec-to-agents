@@ -2,4 +2,4 @@
 
 from importlib.metadata import version
 
-__version__ = version("spec2agent")
+__version__ = version("spec_to_agents")

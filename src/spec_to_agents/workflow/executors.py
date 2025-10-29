@@ -14,7 +14,7 @@ from agent_framework import (
     handler,
 )
 
-from spec2agent.workflow.messages import UserElicitationRequest
+from spec_to_agents.workflow.messages import UserElicitationRequest
 
 
 class HumanInLoopAgentExecutor(Executor):

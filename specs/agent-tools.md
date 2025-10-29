@@ -13,12 +13,12 @@ To verify the implementation works, run `uv run app` to start the Agent Framewor
 ## Progress
 
 - [x] Research Agent Framework tool patterns and Azure AI Foundry integration
-- [x] Set up Azure AI Foundry client configuration (already configured in `src/spec2agent/clients.py`)
-- [x] Create Open-Meteo API tool with `@ai_function` decorator (`src/spec2agent/tools/weather.py`)
-- [x] Create iCalendar tool with `.ics` file storage (`src/spec2agent/tools/calendar.py`)
+- [x] Set up Azure AI Foundry client configuration (already configured in `src/spec_to_agents/clients.py`)
+- [x] Create Open-Meteo API tool with `@ai_function` decorator (`src/spec_to_agents/tools/weather.py`)
+- [x] Create iCalendar tool with `.ics` file storage (`src/spec_to_agents/tools/calendar.py`)
 - [x] Configure Bing Search `HostedWebSearchTool` for Venue and Catering agents (in `workflow/core.py`)
 - [x] Configure `HostedCodeInterpreterTool` for Budget Analyst (in `workflow/core.py`)
-- [x] Set up sequential-thinking-tools MCP server connection (`src/spec2agent/tools/mcp_tools.py`)
+- [x] Set up sequential-thinking-tools MCP server connection (`src/spec_to_agents/tools/mcp_tools.py`)
 - [x] Integrate sequential-thinking-tools with all agents (in `workflow/core.py`)
 - [x] Update Logistics Manager with weather and calendar tools (in `workflow/core.py`)
 - [x] Update Venue Specialist with Bing Search tool (in `workflow/core.py`)
@@ -76,10 +76,10 @@ To verify the implementation works, run `uv run app` to start the Agent Framewor
 
 This project is a multi-agent event planning workflow built with Microsoft Agent Framework and Azure AI Foundry. The codebase is organized as follows:
 
-- `src/spec2agent/agents/` - Agent definitions (event_coordinator.py, venue_specialist.py, budget_analyst.py, catering_coordinator.py, logistics_manager.py)
-- `src/spec2agent/prompts/` - System prompts for each agent
-- `src/spec2agent/tools/` - Reusable tool definitions
-- `src/spec2agent/clients.py` - Azure AI Foundry client initialization
+- `src/spec_to_agents/agents/` - Agent definitions (event_coordinator.py, venue_specialist.py, budget_analyst.py, catering_coordinator.py, logistics_manager.py)
+- `src/spec_to_agents/prompts/` - System prompts for each agent
+- `src/spec_to_agents/tools/` - Reusable tool definitions
+- `src/spec_to_agents/clients.py` - Azure AI Foundry client initialization
 - `tests/` - Test suite for agents and tools
 - `.env` - Environment configuration (create from `.env.example`)
 
@@ -111,7 +111,7 @@ Update `.env.example` to include:
 
 ### 2. Tool Implementations
 
-#### 2.1 Weather Tool (`src/spec2agent/tools/weather.py`)
+#### 2.1 Weather Tool (`src/spec_to_agents/tools/weather.py`)
 
 Create an async function using Open-Meteo API (no API key required):
 
@@ -204,7 +204,7 @@ async def get_weather_forecast(
             return f"Error: {str(e)}"
 ```
 
-#### 2.2 Calendar Tool (`src/spec2agent/tools/calendar.py`)
+#### 2.2 Calendar Tool (`src/spec_to_agents/tools/calendar.py`)
 
 Create iCalendar management functions:
 
@@ -389,7 +389,7 @@ code_interpreter = HostedCodeInterpreterTool(
 
 #### 2.5 MCP Sequential-Thinking-Tools Setup
 
-Create MCP server initialization in `src/spec2agent/tools/mcp_sequential_thinking.py`:
+Create MCP server initialization in `src/spec_to_agents/tools/mcp_sequential_thinking.py`:
 
 ```python
 import os
@@ -426,7 +426,7 @@ async def close_sequential_thinking_tool() -> None:
 
 ### 3. Agent Updates
 
-#### 3.1 Update `src/spec2agent/tools/__init__.py`
+#### 3.1 Update `src/spec_to_agents/tools/__init__.py`
 
 Export all tools:
 
@@ -456,7 +456,7 @@ __all__ = [
 ]
 ```
 
-#### 3.2 Update Logistics Manager (`src/spec2agent/agents/logistics_manager.py`)
+#### 3.2 Update Logistics Manager (`src/spec_to_agents/agents/logistics_manager.py`)
 
 Add weather and calendar tools:
 
@@ -501,7 +501,7 @@ async def get_agent() -> ChatAgent:
     return agent
 ```
 
-#### 3.3 Update Venue Specialist (`src/spec2agent/agents/venue_specialist.py`)
+#### 3.3 Update Venue Specialist (`src/spec_to_agents/agents/venue_specialist.py`)
 
 Add Bing Search tool:
 
@@ -539,7 +539,7 @@ async def get_agent() -> ChatAgent:
     return agent
 ```
 
-#### 3.4 Update Catering Coordinator (`src/spec2agent/agents/catering_coordinator.py`)
+#### 3.4 Update Catering Coordinator (`src/spec_to_agents/agents/catering_coordinator.py`)
 
 Add Bing Search tool:
 
@@ -577,7 +577,7 @@ async def get_agent() -> ChatAgent:
     return agent
 ```
 
-#### 3.5 Update Budget Analyst (`src/spec2agent/agents/budget_analyst.py`)
+#### 3.5 Update Budget Analyst (`src/spec_to_agents/agents/budget_analyst.py`)
 
 Add Code Interpreter tool:
 
@@ -618,7 +618,7 @@ async def get_agent() -> ChatAgent:
     return agent
 ```
 
-#### 3.6 Update Event Coordinator (`src/spec2agent/agents/event_coordinator.py`)
+#### 3.6 Update Event Coordinator (`src/spec_to_agents/agents/event_coordinator.py`)
 
 Add sequential-thinking-tools MCP:
 
@@ -653,7 +653,7 @@ async def get_agent() -> ChatAgent:
 
 ### 4. Client Configuration Update
 
-Update `src/spec2agent/clients.py` to support async initialization:
+Update `src/spec_to_agents/clients.py` to support async initialization:
 
 ```python
 """Azure AI Foundry client initialization."""
@@ -752,7 +752,7 @@ MAX_HISTORY_SIZE=1000
 
 Update agent prompts to reference new tools:
 
-**`src/spec2agent/prompts/logistics_manager.py`:**
+**`src/spec_to_agents/prompts/logistics_manager.py`:**
 ```python
 LOGISTICS_MANAGER_PROMPT = """You are the Logistics Manager for event planning.
 
@@ -774,7 +774,7 @@ Always check weather forecasts when planning outdoor events. Maintain accurate c
 """
 ```
 
-**`src/spec2agent/prompts/venue_specialist.py`:**
+**`src/spec_to_agents/prompts/venue_specialist.py`:**
 ```python
 VENUE_SPECIALIST_PROMPT = """You are the Venue Specialist for event planning.
 
@@ -792,7 +792,7 @@ Use Bing Search to find up-to-date information about venues, including recent re
 """
 ```
 
-**`src/spec2agent/prompts/catering_coordinator.py`:**
+**`src/spec_to_agents/prompts/catering_coordinator.py`:**
 ```python
 CATERING_COORDINATOR_PROMPT = """You are the Catering Coordinator for event planning.
 
@@ -810,7 +810,7 @@ Use Bing Search to find catering options, verify dietary information, and resear
 """
 ```
 
-**`src/spec2agent/prompts/budget_analyst.py`:**
+**`src/spec_to_agents/prompts/budget_analyst.py`:**
 ```python
 BUDGET_ANALYST_PROMPT = """You are the Budget Analyst for event planning.
 
@@ -835,7 +835,7 @@ Always show your calculations and explain your reasoning. Use the scratchpad fea
 """
 ```
 
-**`src/spec2agent/prompts/event_coordinator.py`:**
+**`src/spec_to_agents/prompts/event_coordinator.py`:**
 ```python
 EVENT_COORDINATOR_PROMPT = """You are the Event Coordinator, the orchestrator of the event planning workflow.
 
@@ -896,13 +896,13 @@ Use sequential-thinking-tools to break down complex planning tasks and construct
 1. Create tool files:
    ```powershell
    # Weather tool
-   New-Item -Path "src\spec2agent\tools\weather.py" -ItemType File
+   New-Item -Path "src\spec_to_agents\tools\weather.py" -ItemType File
    
    # Calendar tool
-   New-Item -Path "src\spec2agent\tools\calendar.py" -ItemType File
+   New-Item -Path "src\spec_to_agents\tools\calendar.py" -ItemType File
    
    # MCP tool
-   New-Item -Path "src\spec2agent\tools\mcp_sequential_thinking.py" -ItemType File
+   New-Item -Path "src\spec_to_agents\tools\mcp_sequential_thinking.py" -ItemType File
    
    # Calendar data directory
    New-Item -Path "data\calendars" -ItemType Directory -Force
@@ -910,18 +910,18 @@ Use sequential-thinking-tools to break down complex planning tasks and construct
 
 2. Implement each tool file with the code provided in "Plan of Work" section
 
-3. Update `src/spec2agent/tools/__init__.py` to export new tools
+3. Update `src/spec_to_agents/tools/__init__.py` to export new tools
 
-4. Update `src/spec2agent/clients.py` with async client initialization
+4. Update `src/spec_to_agents/clients.py` with async client initialization
 
-5. Update each agent file in `src/spec2agent/agents/`:
+5. Update each agent file in `src/spec_to_agents/agents/`:
    - logistics_manager.py
    - venue_specialist.py
    - catering_coordinator.py
    - budget_analyst.py
    - event_coordinator.py
 
-6. Update prompt files in `src/spec2agent/prompts/` with tool descriptions
+6. Update prompt files in `src/spec_to_agents/prompts/` with tool descriptions
 
 7. Create data directory for calendars:
    ```powershell
@@ -962,20 +962,20 @@ Use sequential-thinking-tools to break down complex planning tasks and construct
 
 1. Verify weather tool returns real forecast data:
    ```powershell
-   uv run python -c "import asyncio; from src.spec2agent.tools.weather import get_weather_forecast; print(asyncio.run(get_weather_forecast('Seattle', 3)))"
+   uv run python -c "import asyncio; from src.spec_to_agents.tools.weather import get_weather_forecast; print(asyncio.run(get_weather_forecast('Seattle', 3)))"
    ```
    Expected output: Weather forecast with min/max temperatures, conditions, and precipitation probability
 
 2. Verify calendar tool creates `.ics` files:
    ```powershell
-   uv run python -c "import asyncio; from src.spec2agent.tools.calendar import create_calendar_event; print(asyncio.run(create_calendar_event('Test Event', '2025-11-01', '14:00', 2, 'Seattle', 'Test description')))"
+   uv run python -c "import asyncio; from src.spec_to_agents.tools.calendar import create_calendar_event; print(asyncio.run(create_calendar_event('Test Event', '2025-11-01', '14:00', 2, 'Seattle', 'Test description')))"
    ls data\calendars\*.ics
    ```
    Expected output: Success message and `.ics` file exists
 
 3. Verify MCP tool connection:
    ```powershell
-   uv run python -c "import asyncio; from src.spec2agent.tools.mcp_sequential_thinking import get_sequential_thinking_tool; tool = asyncio.run(get_sequential_thinking_tool()); print(tool.name)"
+   uv run python -c "import asyncio; from src.spec_to_agents.tools.mcp_sequential_thinking import get_sequential_thinking_tool; tool = asyncio.run(get_sequential_thinking_tool()); print(tool.name)"
    ```
    Expected output: "sequential-thinking-tools"
 
@@ -984,7 +984,7 @@ Use sequential-thinking-tools to break down complex planning tasks and construct
 
 5. Run full test suite:
    ```powershell
-   uv run pytest tests/ -v --cov=src/spec2agent
+   uv run pytest tests/ -v --cov=src/spec_to_agents
    ```
    Expected: All tests pass with >80% coverage
 
@@ -1070,7 +1070,7 @@ All tool operations are idempotent or safe to retry:
 **If MCP tool fails to connect:**
 ```powershell
 # Restart the MCP server
-uv run python -c "import asyncio; from src.spec2agent.tools.mcp_sequential_thinking import close_sequential_thinking_tool; asyncio.run(close_sequential_thinking_tool())"
+uv run python -c "import asyncio; from src.spec_to_agents.tools.mcp_sequential_thinking import close_sequential_thinking_tool; asyncio.run(close_sequential_thinking_tool())"
 # Next tool call will reconnect
 ```
 
@@ -1095,7 +1095,7 @@ az account show
 To fully reset the environment:
 ```powershell
 # Close MCP connections
-uv run python -c "import asyncio; from src.spec2agent.tools.mcp_sequential_thinking import close_sequential_thinking_tool; asyncio.run(close_sequential_thinking_tool())"
+uv run python -c "import asyncio; from src.spec_to_agents.tools.mcp_sequential_thinking import close_sequential_thinking_tool; asyncio.run(close_sequential_thinking_tool())"
 
 # Remove calendar data
 rm -r data/calendars/*
@@ -1245,7 +1245,7 @@ async def get_agent() -> ChatAgent:
 The Azure AI client uses singleton pattern:
 
 ```python
-# In src/spec2agent/clients.py
+# In src/spec_to_agents/clients.py
 from agent_framework.azure import AzureAIAgentClient
 from azure.identity.aio import AzureCliCredential
 
@@ -1324,7 +1324,7 @@ Create test files in `tests/` directory:
 ```python
 import pytest
 from unittest.mock import AsyncMock, patch
-from src.spec2agent.tools.weather import get_weather_forecast
+from src.spec_to_agents.tools.weather import get_weather_forecast
 
 @pytest.mark.asyncio
 async def test_get_weather_forecast_success(mocker):
@@ -1382,7 +1382,7 @@ async def test_get_weather_forecast_location_not_found(mocker):
 ```python
 import pytest
 from pathlib import Path
-from src.spec2agent.tools.calendar import (
+from src.spec_to_agents.tools.calendar import (
     create_calendar_event,
     list_calendar_events,
     delete_calendar_event,
@@ -1450,7 +1450,7 @@ async def test_delete_calendar_event(temp_calendar_path):
 ```python
 import pytest
 from unittest.mock import AsyncMock, patch
-from src.spec2agent.tools.mcp_sequential_thinking import (
+from src.spec_to_agents.tools.mcp_sequential_thinking import (
     get_sequential_thinking_tool,
     close_sequential_thinking_tool,
 )
@@ -1458,7 +1458,7 @@ from src.spec2agent.tools.mcp_sequential_thinking import (
 @pytest.mark.asyncio
 async def test_get_sequential_thinking_tool():
     """Test MCP tool initialization."""
-    with patch("src.spec2agent.tools.mcp_sequential_thinking.MCPStdioTool") as mock_tool:
+    with patch("src.spec_to_agents.tools.mcp_sequential_thinking.MCPStdioTool") as mock_tool:
         mock_instance = AsyncMock()
         mock_instance.connect = AsyncMock()
         mock_tool.return_value = mock_instance
@@ -1471,7 +1471,7 @@ async def test_get_sequential_thinking_tool():
 @pytest.mark.asyncio
 async def test_close_sequential_thinking_tool():
     """Test MCP tool cleanup."""
-    with patch("src.spec2agent.tools.mcp_sequential_thinking.MCPStdioTool") as mock_tool:
+    with patch("src.spec_to_agents.tools.mcp_sequential_thinking.MCPStdioTool") as mock_tool:
         mock_instance = AsyncMock()
         mock_instance.connect = AsyncMock()
         mock_instance.close = AsyncMock()
@@ -1490,15 +1490,15 @@ async def test_close_sequential_thinking_tool():
 ```python
 import pytest
 from unittest.mock import AsyncMock, patch
-from src.spec2agent.agents.logistics_manager import create_logistics_manager
-from src.spec2agent.agents.venue_specialist import create_venue_specialist
-from src.spec2agent.agents.budget_analyst import create_budget_analyst
+from src.spec_to_agents.agents.logistics_manager import create_logistics_manager
+from src.spec_to_agents.agents.venue_specialist import create_venue_specialist
+from src.spec_to_agents.agents.budget_analyst import create_budget_analyst
 
 @pytest.mark.asyncio
 async def test_logistics_manager_has_tools():
     """Test Logistics Manager has correct tools."""
-    with patch("src.spec2agent.agents.logistics_manager.get_azure_ai_client") as mock_client, \
-         patch("src.spec2agent.agents.logistics_manager.get_sequential_thinking_tool") as mock_mcp:
+    with patch("src.spec_to_agents.agents.logistics_manager.get_azure_ai_client") as mock_client, \
+         patch("src.spec_to_agents.agents.logistics_manager.get_sequential_thinking_tool") as mock_mcp:
         
         mock_client.return_value = AsyncMock()
         mock_mcp.return_value = AsyncMock(name="sequential-thinking-tools")
@@ -1511,8 +1511,8 @@ async def test_logistics_manager_has_tools():
 @pytest.mark.asyncio
 async def test_venue_specialist_has_tools():
     """Test Venue Specialist has correct tools."""
-    with patch("src.spec2agent.agents.venue_specialist.get_azure_ai_client") as mock_client, \
-         patch("src.spec2agent.agents.venue_specialist.get_sequential_thinking_tool") as mock_mcp:
+    with patch("src.spec_to_agents.agents.venue_specialist.get_azure_ai_client") as mock_client, \
+         patch("src.spec_to_agents.agents.venue_specialist.get_sequential_thinking_tool") as mock_mcp:
         
         mock_client.return_value = AsyncMock()
         mock_mcp.return_value = AsyncMock(name="sequential-thinking-tools")
@@ -1525,8 +1525,8 @@ async def test_venue_specialist_has_tools():
 @pytest.mark.asyncio
 async def test_budget_analyst_has_tools():
     """Test Budget Analyst has correct tools."""
-    with patch("src.spec2agent.agents.budget_analyst.get_azure_ai_client") as mock_client, \
-         patch("src.spec2agent.agents.budget_analyst.get_sequential_thinking_tool") as mock_mcp:
+    with patch("src.spec_to_agents.agents.budget_analyst.get_azure_ai_client") as mock_client, \
+         patch("src.spec_to_agents.agents.budget_analyst.get_sequential_thinking_tool") as mock_mcp:
         
         mock_client.return_value = AsyncMock()
         mock_mcp.return_value = AsyncMock(name="sequential-thinking-tools")

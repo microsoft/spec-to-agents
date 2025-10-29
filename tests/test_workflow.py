@@ -4,7 +4,7 @@
 
 from agent_framework import Workflow
 
-from spec2agent.workflow.core import build_event_planning_workflow, workflow
+from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
 
 
 def test_workflow_builds_successfully():
@@ -33,7 +33,7 @@ def test_workflow_builder_is_callable():
 
 def test_workflow_includes_request_info_executor():
     """Test that workflow includes RequestInfoExecutor for HITL."""
-    from spec2agent.workflow.core import build_event_planning_workflow
+    from spec_to_agents.workflow.core import build_event_planning_workflow
 
     workflow = build_event_planning_workflow()
 

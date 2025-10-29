@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework import ChatAgent, Workflow
 
-from spec2agent.workflow.core import workflow as event_planning_workflow
+from spec_to_agents.workflow.core import workflow as event_planning_workflow
 
 
 def export_entities() -> list[Workflow | ChatAgent]:
