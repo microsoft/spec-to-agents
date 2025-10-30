@@ -17,7 +17,7 @@ from agent_framework import (
     response_handler,
 )
 
-from spec_to_agents.workflow.messages import HumanFeedbackRequest
+from spec_to_agents.workflow.messages import HumanFeedbackRequest, SummarizedContext
 
 
 class EventPlanningCoordinator(Executor):
@@ -202,7 +202,7 @@ class EventPlanningCoordinator(Executor):
         from spec_to_agents.clients import get_chat_client
 
         client = get_chat_client()
-        synthesis_result = await client.run(agent=self._agent, messages=self._conversation_history)
+        synthesis_result = await client.get_response(agent=self._agent, messages=self._conversation_history)
 
         # Yield final plan as workflow output
         if synthesis_result.text:
@@ -240,6 +240,61 @@ class EventPlanningCoordinator(Executor):
                     elif isinstance(args, dict):
                         return args  # type: ignore
         return None
+
+    async def _summarize_context(self, new_content: str) -> str:
+        """
+        Chain previous summary with new content and condense to ≤150 words.
+
+        This method implements stateless chained summarization by combining
+        the existing summary with new specialist output, then using the
+        summarizer agent to condense into a maximum of 150 words.
+
+        Parameters
+        ----------
+        new_content : str
+            New content from specialist to incorporate into summary
+
+        Returns
+        -------
+        str
+            Condensed summary containing both previous and new information (≤150 words)
+        """
+        from spec_to_agents.clients import get_chat_client
+
+        # Build prompt combining previous summary and new content
+        if self._current_summary:
+            prompt = (
+                f"Previous summary:\n{self._current_summary}\n\n"
+                f"New content:\n{new_content}\n\n"
+                "Please condense the above into a single summary of maximum 150 words. "
+                "Preserve all critical information including: user requirements, decisions made, "
+                "specialist recommendations, and key constraints (budget, dates, preferences). "
+                "Remove unnecessary details while maintaining everything needed for decision-making."
+            )
+        else:
+            prompt = (
+                f"Content to summarize:\n{new_content}\n\n"
+                "Please condense the above into a summary of maximum 150 words. "
+                "Focus on: key decisions, recommendations, and critical constraints. "
+                "Remove unnecessary details while preserving essential information."
+            )
+
+        # Use summarizer agent with structured output
+        client = get_chat_client()
+        result = await client.get_response(
+            agent=self._summarizer,
+            messages=[ChatMessage(Role.USER, text=prompt)],
+        )
+
+        # Parse structured output
+        result.try_parse_value(SummarizedContext)
+
+        # Extract and return condensed summary
+        if result.value and isinstance(result.value, SummarizedContext):
+            return result.value.condensed_summary
+
+        # Fallback if structured output parsing fails
+        return result.text or ""
 
 
 __all__ = ["EventPlanningCoordinator"]
