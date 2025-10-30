@@ -4,10 +4,10 @@ from agent_framework import (
     AgentExecutor,
     HostedCodeInterpreterTool,
     HostedWebSearchTool,
-    RequestInfoExecutor,
     Workflow,
     WorkflowBuilder,
 )
+from dotenv import load_dotenv
 
 from spec_to_agents.clients import get_chat_client
 from spec_to_agents.prompts import (
@@ -25,24 +25,37 @@ from spec_to_agents.tools import (
     list_calendar_events,
     request_user_input,
 )
-from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
+from spec_to_agents.workflow.executors import EventPlanningCoordinator
+from spec_to_agents.workflow.messages import SummarizedContext
 
 
 async def build_event_planning_workflow() -> Workflow:
     """
     Build the multi-agent event planning workflow with human-in-the-loop capabilities.
 
-    The workflow orchestrates five specialized agents with optional user interaction:
-    - Event Coordinator: Primary orchestrator and synthesizer (MCP sequential-thinking)
-    - Venue Specialist: Venue research via Bing Search (can request user input)
-    - Budget Analyst: Financial planning via Code Interpreter (can request user input)
-    - Catering Coordinator: Food planning via Bing Search (can request user input)
-    - Logistics Manager: Scheduling, weather, calendar management (can request user input)
+    Architecture
+    ------------
+    Uses coordinator-centric star topology with 5 executors:
+    - EventPlanningCoordinator: Manages routing and human-in-the-loop
+    - VenueSpecialist: Venue research via Bing Search
+    - BudgetAnalyst: Financial planning via Code Interpreter
+    - CateringCoordinator: Food planning via Bing Search
+    - LogisticsManager: Scheduling, weather, calendar management
 
-    Agents can call the request_user_input tool when they need clarification,
-    selection, or approval from the user. HumanInLoopAgentExecutor wrappers
-    intercept these tool calls and emit UserElicitationRequest to a shared
-    RequestInfoExecutor, which pauses the workflow until the user responds via DevUI.
+    Workflow Pattern
+    ----------------
+    Star topology with bidirectional edges:
+    - Coordinator ←→ Venue Specialist
+    - Coordinator ←→ Budget Analyst
+    - Coordinator ←→ Catering Coordinator
+    - Coordinator ←→ Logistics Manager
+
+    Human-in-the-Loop
+    ------------------
+    Specialists can call request_user_input tool when they need clarification,
+    selection, or approval. The coordinator intercepts these tool calls and uses
+    ctx.request_info() + @response_handler to pause the workflow, emit
+    RequestInfoEvent, and resume with user responses via DevUI.
 
     Returns
     -------
@@ -52,19 +65,32 @@ async def build_event_planning_workflow() -> Workflow:
 
     Notes
     -----
-    The workflow uses sequential orchestration where the Event Coordinator
-    delegates to each specialist in sequence, then synthesizes the final plan.
-
+    The workflow uses sequential orchestration managed by the coordinator.
     Human-in-the-loop is optional: the workflow can complete autonomously
     if agents have sufficient context and choose not to request user input.
 
     Requires Azure AI Foundry credentials configured via environment variables
     or Azure CLI authentication.
     """
+    load_dotenv()
     client = get_chat_client()
 
     # Get MCP tool for all agents
     mcp_tool = await get_sequential_thinking_tool()
+
+    # Create summarizer agent for context condensation
+    summarizer_agent = client.create_agent(
+        name="ContextSummarizer",
+        instructions=(
+            "You are a context summarization specialist. Your task is to condense "
+            "conversation history and specialist recommendations into a maximum of 150 words. "
+            "Focus on: user requirements, decisions made, specialist recommendations, "
+            "and key constraints (budget, dates, preferences). Remove unnecessary details "
+            "while preserving all critical information needed for decision-making."
+        ),
+        response_format=SummarizedContext,
+        store=True,
+    )
 
     # Create hosted tools
     bing_search = HostedWebSearchTool(
@@ -124,52 +150,36 @@ async def build_event_planning_workflow() -> Workflow:
         store=True,
     )
 
-    # Create AgentExecutors
-    coordinator_exec = AgentExecutor(agent=coordinator_agent, id="coordinator")
+    # Create coordinator executor with routing logic
+    coordinator = EventPlanningCoordinator(coordinator_agent, summarizer_agent)
+
+    # Create specialist executors
     venue_exec = AgentExecutor(agent=venue_agent, id="venue")
     budget_exec = AgentExecutor(agent=budget_agent, id="budget")
     catering_exec = AgentExecutor(agent=catering_agent, id="catering")
     logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
 
-    # Create RequestInfoExecutor for human-in-the-loop
-    request_info = RequestInfoExecutor(id="user_input")
-
-    # Create HITL wrappers for specialist agents
-    venue_hitl = HumanInLoopAgentExecutor(agent_id="venue", request_info_id="user_input")
-    budget_hitl = HumanInLoopAgentExecutor(agent_id="budget", request_info_id="user_input")
-    catering_hitl = HumanInLoopAgentExecutor(agent_id="catering", request_info_id="user_input")
-    logistics_hitl = HumanInLoopAgentExecutor(agent_id="logistics", request_info_id="user_input")
-
-    # Build workflow with HITL integration
+    # Build workflow with bidirectional star topology
     workflow = (
         WorkflowBuilder(
             name="Event Planning Workflow",
             description=(
                 "Multi-agent event planning workflow with venue selection, budgeting, "
-                "catering, and logistics coordination"
+                "catering, and logistics coordination. Supports human-in-the-loop for "
+                "clarification and approval."
             ),
         )
-        # Set starting point
-        .set_start_executor(coordinator_exec)
-        # Sequential flow: Agent → HITL Wrapper → Next Agent
-        .add_edge(coordinator_exec, venue_exec)
-        .add_edge(venue_exec, venue_hitl)
-        .add_edge(venue_hitl, budget_exec)
-        .add_edge(budget_exec, budget_hitl)
-        .add_edge(budget_hitl, catering_exec)
-        .add_edge(catering_exec, catering_hitl)
-        .add_edge(catering_hitl, logistics_exec)
-        .add_edge(logistics_exec, logistics_hitl)
-        .add_edge(logistics_hitl, coordinator_exec)  # Back to coordinator for synthesis
-        # Bidirectional HITL edges: Wrapper ←→ RequestInfoExecutor
-        .add_edge(venue_hitl, request_info)
-        .add_edge(request_info, venue_hitl)
-        .add_edge(budget_hitl, request_info)
-        .add_edge(request_info, budget_hitl)
-        .add_edge(catering_hitl, request_info)
-        .add_edge(request_info, catering_hitl)
-        .add_edge(logistics_hitl, request_info)
-        .add_edge(request_info, logistics_hitl)
+        # Set coordinator as start executor
+        .set_start_executor(coordinator)
+        # Bidirectional edges: Coordinator ←→ Each Specialist
+        .add_edge(coordinator, venue_exec)
+        .add_edge(venue_exec, coordinator)
+        .add_edge(coordinator, budget_exec)
+        .add_edge(budget_exec, coordinator)
+        .add_edge(coordinator, catering_exec)
+        .add_edge(catering_exec, coordinator)
+        .add_edge(coordinator, logistics_exec)
+        .add_edge(logistics_exec, coordinator)
         .build()
     )
 

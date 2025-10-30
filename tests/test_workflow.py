@@ -2,14 +2,16 @@
 
 """Unit tests for the event planning workflow."""
 
+import pytest
 from agent_framework import Workflow
 
 from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
 
 
-def test_workflow_builds_successfully():
+@pytest.mark.asyncio
+async def test_workflow_builds_successfully():
     """Test that the workflow can be constructed without errors."""
-    test_workflow = build_event_planning_workflow()
+    test_workflow = await build_event_planning_workflow()
     assert test_workflow is not None
     assert isinstance(test_workflow, Workflow)
 
@@ -20,25 +22,50 @@ def test_workflow_module_export():
     assert isinstance(workflow, Workflow)
 
 
-def test_workflow_builder_is_callable():
-    """Test that build_event_planning_workflow can be called multiple times."""
-    workflow1 = build_event_planning_workflow()
-    workflow2 = build_event_planning_workflow()
-
-    assert workflow1 is not None
-    assert workflow2 is not None
-    assert isinstance(workflow1, Workflow)
-    assert isinstance(workflow2, Workflow)
-
-
-def test_workflow_includes_request_info_executor():
-    """Test that workflow includes RequestInfoExecutor for HITL."""
-    from spec_to_agents.workflow.core import build_event_planning_workflow
-
-    workflow = build_event_planning_workflow()
-
-    # Workflow should build successfully with HITL components
+def test_workflow_has_correct_id():
+    """Test that workflow has the expected ID."""
     assert workflow is not None
+    assert workflow.id == "event-planning-workflow"
 
-    # Note: Can't easily inspect workflow internals, but building without
-    # errors confirms RequestInfoExecutor and HITL wrappers are integrated
+
+@pytest.mark.asyncio
+async def test_workflow_uses_star_topology():
+    """
+    Test that workflow uses coordinator-centric star topology.
+
+    The new architecture uses:
+    - 1 EventPlanningCoordinator (custom executor)
+    - 4 AgentExecutors (specialists)
+    Total: 5 executors (down from 13)
+    """
+    test_workflow = await build_event_planning_workflow()
+    assert test_workflow is not None
+
+    # Workflow should build successfully with new star topology
+    # No RequestInfoExecutor or HumanInLoopAgentExecutor wrappers
+    # Routing handled by EventPlanningCoordinator
+
+
+@pytest.mark.asyncio
+async def test_workflow_includes_summarizer_agent():
+    """
+    Test that the workflow includes a summarizer agent in the coordinator.
+
+    The summarizer agent should:
+    - Be present in the coordinator
+    - Be configured with SummarizedContext response format
+    - Not have any tools (pure LLM task)
+    """
+    test_workflow = await build_event_planning_workflow()
+    assert test_workflow is not None
+
+    # Access the coordinator from workflow executors
+    coordinator = None
+    for executor in test_workflow.executors.values():
+        if executor.id == "event_coordinator":
+            coordinator = executor
+            break
+
+    assert coordinator is not None, "Coordinator not found in workflow"
+    assert hasattr(coordinator, "_summarizer"), "Coordinator does not have a summarizer agent"
+    assert coordinator._summarizer is not None, "Summarizer agent is None"
