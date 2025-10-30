@@ -6,14 +6,9 @@ metadata:
 
 # Services to deploy
 services:
-  backend:
-    project: ./backend
+  app:
+    project: ./src
     language: py
-    host: appservice
-
-  frontend:
-    project: ./frontend
-    language: js
     host: appservice
 
 # Infrastructure as Code
