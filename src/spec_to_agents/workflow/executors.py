@@ -24,24 +24,27 @@ class EventPlanningCoordinator(Executor):
     """
     Coordinates event planning workflow with intelligent routing and human-in-the-loop.
 
-    This coordinator manages the sequential execution of specialist agents
-    (venue, budget, catering, logistics) with star topology routing. It detects
-    when specialists need user input via request_user_input tool calls and
-    handles human feedback using the @response_handler pattern.
+    This coordinator manages the dynamic execution of specialist agents using
+    structured output routing (next_agent field) and chained summarization.
+    It detects when specialists need user input via request_user_input tool calls
+    and handles human feedback using the @response_handler pattern.
 
     Architecture
     ------------
     - Star topology: Coordinator ←→ Each specialist (bidirectional edges)
+    - Structured output routing: Specialists indicate next agent via response format
     - Handler-based routing: Logic in executor methods, not workflow edges
     - Framework-native HITL: Uses ctx.request_info() + @response_handler
+    - Chained summarization: Context condensed after each specialist
 
     Responsibilities
     ----------------
     - Receive initial user requests and route to first specialist
-    - Track workflow progress through specialist sequence
+    - Use structured output to determine next agent (no hardcoded sequence)
     - Detect request_user_input tool calls in specialist responses
     - Request human feedback via ctx.request_info() when needed
     - Route human responses back to requesting specialist
+    - Maintain chained summaries of specialist outputs for context
     - Synthesize final event plan after all specialists complete
 
     Parameters
@@ -56,9 +59,7 @@ class EventPlanningCoordinator(Executor):
         super().__init__(id="event_coordinator")
         self._agent = coordinator_agent
         self._summarizer = summarizer_agent
-        self._specialist_sequence = ["venue", "budget", "catering", "logistics"]
-        self._current_index = 0
-        self._conversation_history: list[ChatMessage] = []
+        self._current_summary: str = ""
 
     @handler
     async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:

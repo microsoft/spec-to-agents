@@ -69,3 +69,45 @@ async def test_workflow_includes_summarizer_agent():
     assert coordinator is not None, "Coordinator not found in workflow"
     assert hasattr(coordinator, "_summarizer"), "Coordinator does not have a summarizer agent"
     assert coordinator._summarizer is not None, "Summarizer agent is None"
+
+
+@pytest.mark.asyncio
+async def test_coordinator_has_correct_state_variables():
+    """
+    Test that coordinator has correct state variables after refactor.
+
+    After refactoring to use structured output routing:
+    - Should have _coordinator (agent for synthesis)
+    - Should have _summarizer (agent for context condensation)
+    - Should have _current_summary (for chained summarization)
+    - Should NOT have _conversation_history (obsolete)
+    - Should NOT have _current_index (obsolete)
+    - Should NOT have _sequence (obsolete)
+    """
+    test_workflow = await build_event_planning_workflow()
+    assert test_workflow is not None
+
+    # Get the coordinator executor
+    coordinator = None
+    for executor in test_workflow.executors.values():
+        if executor.id == "event_coordinator":
+            coordinator = executor
+            break
+
+    assert coordinator is not None, "Coordinator not found in workflow"
+
+    # Should have these attributes
+    assert hasattr(coordinator, "_agent"), "Coordinator should have _agent attribute"
+    assert coordinator._agent is not None, "Coordinator _agent should not be None"
+
+    assert hasattr(coordinator, "_summarizer"), "Coordinator should have _summarizer attribute"
+    assert coordinator._summarizer is not None, "Coordinator _summarizer should not be None"
+
+    assert hasattr(coordinator, "_current_summary"), "Coordinator should have _current_summary attribute"
+    assert isinstance(coordinator._current_summary, str), "Coordinator _current_summary should be a string"
+    assert coordinator._current_summary == "", "Coordinator _current_summary should be initialized to empty string"
+
+    # Should NOT have these obsolete attributes
+    assert not hasattr(coordinator, "_conversation_history"), "Coordinator should not have _conversation_history"
+    assert not hasattr(coordinator, "_current_index"), "Coordinator should not have _current_index"
+    assert not hasattr(coordinator, "_specialist_sequence"), "Coordinator should not have _specialist_sequence"
