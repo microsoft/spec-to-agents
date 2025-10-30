@@ -16,7 +16,8 @@ param environmentName string
 param location string
 
 // Parameters for your existing application resources
-param appServiceName string = ''
+param containerAppName string = ''
+param containerRegistryName string = ''
 param appUserAssignedIdentityName string = ''
 param applicationInsightsName string = ''
 param logAnalyticsName string = ''
@@ -320,32 +321,81 @@ module dts './app/dts.bicep' = {
   }
 }
 
-// Unified Application - combines backend and frontend in a single service
-module app './app/app.bicep' = {
-  name: 'app'
+// Container Registry for storing Docker images
+module containerRegistry './app/container-registry.bicep' = {
+  name: 'acr-${resourceToken}'
   scope: rg
   params: {
-    name: !empty(appServiceName) ? appServiceName : '${abbrs.webSitesAppService}app-${resourceToken}'
+    name: !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
+    location: location
+    tags: tags
+    sku: 'Basic'
+    adminUserEnabled: false
+  }
+}
+
+// Grant Container Registry pull permissions to the app identity
+var AcrPullRole = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+module acrRoleAssignment 'app/rbac/acr-access.bicep' = {
+  name: 'acr-rbac-${resourceToken}'
+  scope: rg
+  params: {
+    containerRegistryName: containerRegistry.outputs.name
+    roleDefinitionID: AcrPullRole
+    principalID: appUserAssignedIdentity.outputs.principalId
+  }
+}
+
+// Unified Application - Container App with backend and frontend
+module app './app/container-app.bicep' = {
+  name: 'containerapp-${resourceToken}'
+  scope: rg
+  params: {
+    name: !empty(containerAppName) ? containerAppName : '${abbrs.appContainerApps}${resourceToken}'
     location: location
     tags: tags
     serviceName: 'app' // azd service name
     resourceToken: resourceToken
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     identityId: appUserAssignedIdentity.outputs.resourceId
-    identityClientId: appUserAssignedIdentity.outputs.clientId
-    appSettings: {
+    containerRegistryName: containerRegistry.outputs.name
+    appSettings: [
       // AI Project configuration
-      AZURE_AI_ACCOUNT_NAME: aiAccount.outputs.accountName
-      AZURE_AI_PROJECT_NAME: aiProject.outputs.projectName
-      AZURE_AI_PROJECT_ENDPOINT: aiAccount.outputs.accountTarget
-
+      {
+        name: 'AZURE_AI_ACCOUNT_NAME'
+        value: aiAccount.outputs.accountName
+      }
+      {
+        name: 'AZURE_AI_PROJECT_NAME'
+        value: aiProject.outputs.projectName
+      }
+      {
+        name: 'AZURE_AI_PROJECT_ENDPOINT'
+        value: aiAccount.outputs.accountTarget
+      }
       // Durable Task Service configuration
-      DTS_CONNECTION_STRING: 'Endpoint=${dts.outputs.dts_URL};Authentication=ManagedIdentity;ClientID=${appUserAssignedIdentity.outputs.clientId}'
-      TASKHUBNAME: dts.outputs.TASKHUB_NAME
-    }
+      {
+        name: 'DTS_CONNECTION_STRING'
+        value: 'Endpoint=${dts.outputs.dts_URL};Authentication=ManagedIdentity;ClientID=${appUserAssignedIdentity.outputs.clientId}'
+      }
+      {
+        name: 'TASKHUBNAME'
+        value: dts.outputs.TASKHUB_NAME
+      }
+      // Container environment settings
+      {
+        name: 'ENVIRONMENT'
+        value: 'production'
+      }
+      {
+        name: 'PORT'
+        value: '8080'
+      }
+    ]
   }
   dependsOn: [
     blobRoleAssignmentApp
+    acrRoleAssignment
   ]
 }
 
@@ -375,6 +425,9 @@ output AZURE_AI_PROJECT_NAME string = aiProject.outputs.projectName
 
 @description('The endpoint for the new AI Account.')
 output AZURE_AI_ENDPOINT string = aiAccount.outputs.accountTarget
+
+@description('The login server for the Azure Container Registry.')
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 
 @description('Name of the deployed unified application.')
 output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME

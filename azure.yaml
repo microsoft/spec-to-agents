@@ -7,9 +7,12 @@ metadata:
 # Services to deploy
 services:
   app:
-    project: ./src
+    project: ./
     language: py
-    host: appservice
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: ./
 
 # Infrastructure as Code
 infra:
