@@ -76,11 +76,11 @@ async def test_coordinator_has_correct_state_variables():
     """
     Test that coordinator has correct state variables after refactor.
 
-    After refactoring to use structured output routing:
+    After refactoring to use structured output routing and adding conversation history:
     - Should have _coordinator (agent for synthesis)
     - Should have _summarizer (agent for context condensation)
     - Should have _current_summary (for chained summarization)
-    - Should NOT have _conversation_history (obsolete)
+    - Should have _conversation_history (for follow-up questions)
     - Should NOT have _current_index (obsolete)
     - Should NOT have _sequence (obsolete)
     """
@@ -107,7 +107,12 @@ async def test_coordinator_has_correct_state_variables():
     assert isinstance(coordinator._current_summary, str), "Coordinator _current_summary should be a string"
     assert coordinator._current_summary == "", "Coordinator _current_summary should be initialized to empty string"
 
+    assert hasattr(coordinator, "_conversation_history"), "Coordinator should have _conversation_history attribute"
+    assert isinstance(coordinator._conversation_history, list), "Coordinator _conversation_history should be a list"
+    assert coordinator._conversation_history == [], (
+        "Coordinator _conversation_history should be initialized to empty list"
+    )
+
     # Should NOT have these obsolete attributes
-    assert not hasattr(coordinator, "_conversation_history"), "Coordinator should not have _conversation_history"
     assert not hasattr(coordinator, "_current_index"), "Coordinator should not have _current_index"
     assert not hasattr(coordinator, "_specialist_sequence"), "Coordinator should not have _specialist_sequence"

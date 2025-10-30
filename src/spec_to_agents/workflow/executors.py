@@ -2,11 +2,10 @@
 
 """Custom executors for event planning workflow with human-in-the-loop."""
 
-from typing import Any
-
 from agent_framework import (
     AgentExecutorRequest,
     AgentExecutorResponse,
+    ChatAgent,
     ChatMessage,
     Executor,
     Role,
@@ -23,9 +22,10 @@ class EventPlanningCoordinator(Executor):
     Coordinates event planning workflow with intelligent routing and human-in-the-loop.
 
     This coordinator manages the dynamic execution of specialist agents using
-    structured output routing (next_agent field) and chained summarization.
-    It detects when specialists need user input via request_user_input tool calls
-    and handles human feedback using the @response_handler pattern.
+    structured output routing (next_agent field) and maintains full conversation
+    history for context. It detects when specialists need user input via
+    request_user_input tool calls and handles human feedback using the
+    @response_handler pattern.
 
     Architecture
     ------------
@@ -34,6 +34,7 @@ class EventPlanningCoordinator(Executor):
     - Handler-based routing: Logic in executor methods, not workflow edges
     - Framework-native HITL: Uses ctx.request_info() + @response_handler
     - Chained summarization: Context condensed after each specialist
+    - Conversation history: Full message history preserved for follow-up questions
 
     Responsibilities
     ----------------
@@ -43,6 +44,7 @@ class EventPlanningCoordinator(Executor):
     - Request human feedback via ctx.request_info() when needed
     - Route human responses back to requesting specialist
     - Maintain chained summaries of specialist outputs for context
+    - Maintain full conversation history for follow-up questions
     - Synthesize final event plan after all specialists complete
 
     Parameters
@@ -53,20 +55,22 @@ class EventPlanningCoordinator(Executor):
         The agent instance for condensing context (max 150 words)
     """
 
-    def __init__(self, coordinator_agent: Any, summarizer_agent: Any):
+    def __init__(self, coordinator_agent: ChatAgent, summarizer_agent: ChatAgent):
         super().__init__(id="event_coordinator")
         self._agent = coordinator_agent
         self._summarizer = summarizer_agent
         self._current_summary: str = ""
+        self._conversation_history: list[ChatMessage] = []
 
     @handler
-    async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
+    async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
         """
         Handle initial user request and route to venue specialist.
 
         This handler is invoked when the workflow starts with a user prompt.
-        It initializes the summary with the user's request and routes to the
-        venue specialist by default (typical first step for event planning).
+        It initializes the summary and conversation history with the user's
+        request and routes to the venue specialist by default (typical first
+        step for event planning).
 
         Parameters
         ----------
@@ -75,6 +79,10 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages to specialists
         """
+        # Initialize conversation history
+        user_message = ChatMessage(Role.USER, text=prompt)
+        self._conversation_history = [user_message]
+
         # Initialize summary with user request (stateless chaining)
         self._current_summary = await self._chain_summarize(prev="", new=prompt)
 
@@ -91,9 +99,10 @@ class EventPlanningCoordinator(Executor):
         Handle specialist response and route to next agent or request user input.
 
         This handler processes responses from specialist agents. It:
-        1. Parses structured output (SpecialistOutput)
-        2. Chains summaries (stateless)
-        3. Routes based on structured output fields (next_agent, user_input_needed)
+        1. Adds specialist response to conversation history
+        2. Parses structured output (SpecialistOutput)
+        3. Chains summaries (stateless)
+        4. Routes based on structured output fields (next_agent, user_input_needed)
 
         Parameters
         ----------
@@ -102,6 +111,10 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for routing and requesting human input
         """
+        # Add specialist response to conversation history
+        if response.agent_run_response.messages:
+            self._conversation_history.extend(response.agent_run_response.messages)
+
         # Parse structured output from specialist
         specialist_output = self._parse_specialist_output(response)
 
@@ -139,8 +152,8 @@ class EventPlanningCoordinator(Executor):
         Handle human feedback and route back to requesting specialist.
 
         This handler is invoked after a human responds to a request_info() call.
-        It chains the user's feedback into the summary and routes back
-        to the specialist that requested the input.
+        It adds the user's feedback to conversation history, chains the feedback
+        into the summary, and routes back to the specialist that requested the input.
 
         Parameters
         ----------
@@ -151,6 +164,10 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages back to specialist
         """
+        # Add user feedback to conversation history
+        feedback_message = ChatMessage(Role.USER, text=feedback)
+        self._conversation_history.append(feedback_message)
+
         # Chain user feedback into summary (stateless)
         self._current_summary = await self._chain_summarize(
             prev=self._current_summary, new=f"User feedback: {feedback}"
@@ -172,8 +189,6 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for yielding final output
         """
-        from spec_to_agents.clients import get_chat_client
-
         # Create synthesis message from summary
         synthesis_msg = ChatMessage(
             Role.USER,
@@ -186,8 +201,7 @@ class EventPlanningCoordinator(Executor):
         )
 
         # Run coordinator agent to synthesize
-        client = get_chat_client()
-        synthesis_result = await client.get_response(agent=self._agent, messages=[synthesis_msg])
+        synthesis_result = await self._agent.run(messages=[synthesis_msg])
 
         # Yield final plan as workflow output
         if synthesis_result.text:
@@ -212,16 +226,22 @@ class EventPlanningCoordinator(Executor):
         ValueError
             If response does not contain SpecialistOutput
         """
+        # Try to parse structured output if not already parsed
+        if response.agent_run_response.value is None:
+            response.agent_run_response.try_parse_value(SpecialistOutput)
+
         if response.agent_run_response.value and isinstance(response.agent_run_response.value, SpecialistOutput):
             return response.agent_run_response.value
         raise ValueError("Specialist must return SpecialistOutput")
 
     async def _route_to_agent(self, agent_id: str, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
         """
-        Route to specialist with condensed summary context.
+        Route to specialist with condensed summary AND recent conversation context.
 
-        Sends only the current summary (≤150 words) to the target specialist,
-        not the full conversation history. This enables stateless routing.
+        Sends the summary plus recent conversation turns to provide both
+        condensed context and immediate conversational context. This ensures
+        specialists have proper context for follow-up questions and mid-workflow
+        changes.
 
         Parameters
         ----------
@@ -230,10 +250,21 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages
         """
-        message = ChatMessage(
-            Role.USER, text=f"Context summary:\n{self._current_summary}\n\nPlease proceed with your analysis."
+        # Build message with summary + pointer to recent conversation
+        context_text = f"Context summary:\n{self._current_summary}\n\nPlease proceed with your analysis."
+
+        # Include recent conversation history (last 5 turns) for immediate context
+        if len(self._conversation_history) > 5:
+            recent_history = self._conversation_history[-5:]
+        else:
+            recent_history = self._conversation_history
+
+        messages = [*recent_history, ChatMessage(Role.USER, text=context_text)]
+
+        await ctx.send_message(
+            AgentExecutorRequest(messages=messages, should_respond=True),
+            target_id=agent_id,
         )
-        await ctx.send_message(AgentExecutorRequest(messages=[message], should_respond=True), target_id=agent_id)
 
     async def _chain_summarize(self, prev: str, new: str) -> str:
         """
@@ -255,8 +286,6 @@ class EventPlanningCoordinator(Executor):
         str
             Condensed summary containing both previous and new information (≤150 words)
         """
-        from spec_to_agents.clients import get_chat_client
-
         # Build prompt combining previous summary and new content
         if prev:
             prompt = (
@@ -276,11 +305,7 @@ class EventPlanningCoordinator(Executor):
             )
 
         # Use summarizer agent with structured output
-        client = get_chat_client()
-        result = await client.get_response(
-            agent=self._summarizer,
-            messages=[ChatMessage(Role.USER, text=prompt)],
-        )
+        result = await self._summarizer.run(messages=[ChatMessage(Role.USER, text=prompt)])
 
         # Parse structured output
         result.try_parse_value(SummarizedContext)
