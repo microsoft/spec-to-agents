@@ -76,21 +76,4 @@ class SpecialistOutput(BaseModel):
     user_prompt: str | None = Field(default=None, description="Question to ask user if user_input_needed=True")
 
 
-class SummarizedContext(BaseModel):
-    """
-    Condensed context for next agent.
-
-    This model enforces bounded context (max 150 words) to prevent
-    context window overflow in long workflows.
-
-    Examples
-    --------
-    >>> SummarizedContext(
-    ...     condensed_summary="User wants corporate party, 50 people. Venue: Option B ($3k). Budget allocated."
-    ... )
-    """
-
-    condensed_summary: str = Field(description="All previous work condensed into 150 words maximum")
-
-
-__all__ = ["HumanFeedbackRequest", "SpecialistOutput", "SummarizedContext"]
+__all__ = ["HumanFeedbackRequest", "SpecialistOutput"]

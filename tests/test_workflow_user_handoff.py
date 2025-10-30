@@ -8,10 +8,9 @@ from agent_framework import RequestInfoEvent
 from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
-@pytest.mark.asyncio
-async def test_workflow_builds_with_hitl_components():
+def test_workflow_builds_with_hitl_components():
     """Test that workflow builds successfully with HITL components."""
-    workflow = await build_event_planning_workflow()
+    workflow = build_event_planning_workflow()
     assert workflow is not None
 
 

@@ -27,21 +27,23 @@ from spec_to_agents.tools import (
     request_user_input,
 )
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
-from spec_to_agents.workflow.messages import SummarizedContext
 
 
-async def build_event_planning_workflow() -> Workflow:
+def build_event_planning_workflow() -> Workflow:
     """
     Build the multi-agent event planning workflow with human-in-the-loop capabilities.
 
     Architecture
     ------------
     Uses coordinator-centric star topology with 5 executors:
-    - EventPlanningCoordinator: Manages routing and human-in-the-loop
+    - EventPlanningCoordinator: Manages routing and human-in-the-loop using service-managed threads
     - VenueSpecialist: Venue research via Bing Search
     - BudgetAnalyst: Financial planning via Code Interpreter
     - CateringCoordinator: Food planning via Bing Search
     - LogisticsManager: Scheduling, weather, calendar management
+
+    Conversation history is managed automatically by service-managed threads (store=True).
+    No manual message tracking or summarization overhead.
 
     Workflow Pattern
     ----------------
@@ -75,26 +77,11 @@ async def build_event_planning_workflow() -> Workflow:
     """
     client = get_chat_client()
 
-    # Get MCP tool for all agents
-    mcp_tool = await get_sequential_thinking_tool()
-
-    # Create summarizer agent for context condensation
-    summarizer_agent = client.create_agent(
-        name="ContextSummarizer",
-        instructions=(
-            "You are a context summarization specialist. Your task is to condense "
-            "conversation history and specialist recommendations into a maximum of 150 words. "
-            "Focus on: user requirements, decisions made, specialist recommendations, "
-            "and key constraints (budget, dates, preferences). Remove unnecessary details "
-            "while preserving all critical information needed for decision-making."
-        ),
-        response_format=SummarizedContext,
-        store=True,
-    )
+    # Get MCP tool for coordinator only (removed from specialists - see note below)
+    mcp_tool = get_sequential_thinking_tool()
 
     # Create hosted tools
     bing_search = HostedWebSearchTool(
-        name="Bing Search",
         description="Search the web for current information using Bing with grounding (source citations)",
     )
 
@@ -113,39 +100,37 @@ async def build_event_planning_workflow() -> Workflow:
     )
 
     # Create specialist agents with domain-specific tools
+    # NOTE: MCP tool removed from specialists - it interferes with structured output (SpecialistOutput)
+    # The thinking process doesn't return a final structured response, causing ValueError
     venue_agent = venue_specialist.create_agent(
         client,
         bing_search,
-        mcp_tool,
         request_user_input,
     )
 
     budget_agent = budget_analyst.create_agent(
         client,
         code_interpreter,
-        mcp_tool,
         request_user_input,
     )
 
     catering_agent = catering_coordinator.create_agent(
         client,
         bing_search,
-        mcp_tool,
         request_user_input,
     )
 
     logistics_agent = logistics_manager.create_agent(
         client,
-        get_weather_forecast,
-        create_calendar_event,
-        list_calendar_events,
-        delete_calendar_event,
-        mcp_tool,
+        get_weather_forecast,  # type: ignore
+        create_calendar_event,  # type: ignore
+        list_calendar_events,  # type: ignore
+        delete_calendar_event,  # type: ignore
         request_user_input,
     )
 
     # Create coordinator executor with routing logic
-    coordinator = EventPlanningCoordinator(coordinator_agent, summarizer_agent)
+    coordinator = EventPlanningCoordinator(coordinator_agent)
 
     # Create specialist executors
     venue_exec = AgentExecutor(agent=venue_agent, id="venue")

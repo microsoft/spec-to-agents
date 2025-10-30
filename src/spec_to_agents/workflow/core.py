@@ -10,7 +10,7 @@ and lazy-loading the workflow instance.
 
 from agent_framework import Workflow
 
-from spec_to_agents.agents.event_planning_workflow import build_event_planning_workflow
+from spec_to_agents.workflow.event_planning_workflow import build_event_planning_workflow
 
 # Declare lazy-loaded attribute for type checking
 workflow: Workflow
@@ -46,8 +46,6 @@ def __getattr__(name: str) -> Workflow:
     if name == "workflow":
         global _workflow_cache
         if _workflow_cache is None:
-            import asyncio
-
-            _workflow_cache = asyncio.run(build_event_planning_workflow())
+            _workflow_cache = build_event_planning_workflow()
         return _workflow_cache
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
