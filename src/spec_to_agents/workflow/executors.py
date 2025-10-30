@@ -233,6 +233,25 @@ class EventPlanningCoordinator(Executor):
             return response.agent_run_response.value
         raise ValueError("Specialist must return SpecialistOutput")
 
+    async def _route_to_agent(self, agent_id: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
+        """
+        Route to specialist with condensed summary context.
+
+        Sends only the current summary (≤150 words) to the target specialist,
+        not the full conversation history. This enables stateless routing.
+
+        Parameters
+        ----------
+        agent_id : str
+            ID of specialist agent to route to ("venue", "budget", "catering", "logistics")
+        ctx : WorkflowContext[AgentExecutorRequest]
+            Workflow context for sending messages
+        """
+        message = ChatMessage(
+            Role.USER, text=f"Context summary:\n{self._current_summary}\n\nPlease proceed with your analysis."
+        )
+        await ctx.send_message(AgentExecutorRequest(messages=[message], should_respond=True), target_id=agent_id)
+
     async def _summarize_context(self, new_content: str) -> str:
         """
         Chain previous summary with new content and condense to ≤150 words.

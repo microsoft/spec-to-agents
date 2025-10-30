@@ -231,3 +231,31 @@ def test_parse_specialist_output_raises_when_missing():
 
     with pytest.raises(ValueError, match="Specialist must return SpecialistOutput"):
         coordinator._parse_specialist_output(mock_response)
+
+
+@pytest.mark.asyncio
+async def test_route_to_agent_sends_summary_message():
+    """Test routing sends condensed summary to target agent."""
+    from agent_framework import AgentExecutorRequest
+
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+    coordinator._current_summary = "User wants party for 50 people. Budget $5k."
+
+    mock_ctx = AsyncMock()
+
+    await coordinator._route_to_agent("budget", mock_ctx)
+
+    mock_ctx.send_message.assert_called_once()
+    call_args = mock_ctx.send_message.call_args
+
+    # Verify AgentExecutorRequest with summary message
+    request = call_args[0][0]
+    assert isinstance(request, AgentExecutorRequest)
+    assert len(request.messages) == 1
+    assert "User wants party for 50 people" in request.messages[0].text
+    assert request.should_respond is True
+
+    # Verify target_id
+    assert call_args[1]["target_id"] == "budget"
