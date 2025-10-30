@@ -187,3 +187,47 @@ async def test_start_handler_initializes_summary():
     message_text = message_arg.messages[0].text
     assert test_input in message_text, "Message should contain original input"
     assert mock_summary in message_text, "Message should contain summary"
+
+
+def test_parse_specialist_output_with_valid_structured_output():
+    """Test parsing SpecialistOutput from agent response."""
+    from agent_framework import AgentExecutorResponse, AgentRunResponse
+
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import SpecialistOutput
+
+    # Create mock response with structured output
+    specialist_output = SpecialistOutput(
+        summary="Researched 3 venues", next_agent="budget", user_input_needed=False, user_prompt=None
+    )
+
+    mock_run_response = Mock(spec=AgentRunResponse)
+    mock_run_response.value = specialist_output
+
+    mock_response = Mock(spec=AgentExecutorResponse)
+    mock_response.agent_run_response = mock_run_response
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+    result = coordinator._parse_specialist_output(mock_response)
+
+    assert result.summary == "Researched 3 venues"
+    assert result.next_agent == "budget"
+    assert result.user_input_needed is False
+
+
+def test_parse_specialist_output_raises_when_missing():
+    """Test error raised when no structured output present."""
+    from agent_framework import AgentExecutorResponse, AgentRunResponse
+
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    mock_run_response = Mock(spec=AgentRunResponse)
+    mock_run_response.value = None
+
+    mock_response = Mock(spec=AgentExecutorResponse)
+    mock_response.agent_run_response = mock_run_response
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+
+    with pytest.raises(ValueError, match="Specialist must return SpecialistOutput"):
+        coordinator._parse_specialist_output(mock_response)

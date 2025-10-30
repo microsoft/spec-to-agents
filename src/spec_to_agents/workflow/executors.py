@@ -2,7 +2,6 @@
 
 """Custom executors for event planning workflow with human-in-the-loop."""
 
-import json
 from typing import Any
 
 from agent_framework import (
@@ -10,14 +9,13 @@ from agent_framework import (
     AgentExecutorResponse,
     ChatMessage,
     Executor,
-    FunctionCallContent,
     Role,
     WorkflowContext,
     handler,
     response_handler,
 )
 
-from spec_to_agents.workflow.messages import HumanFeedbackRequest, SummarizedContext
+from spec_to_agents.workflow.messages import HumanFeedbackRequest, SpecialistOutput, SummarizedContext
 
 
 class EventPlanningCoordinator(Executor):
@@ -212,38 +210,28 @@ class EventPlanningCoordinator(Executor):
         if synthesis_result.text:
             await ctx.yield_output(synthesis_result.text)
 
-    def _extract_tool_call(self, response: AgentExecutorResponse, tool_name: str) -> dict[str, Any] | None:
+    def _parse_specialist_output(self, response: AgentExecutorResponse) -> SpecialistOutput:
         """
-        Extract tool call arguments from agent response.
-
-        Searches through agent response messages for FunctionCallContent
-        matching the specified tool name and parses arguments.
+        Parse SpecialistOutput from agent response.
 
         Parameters
         ----------
         response : AgentExecutorResponse
-            Agent's response to check for tool calls
-        tool_name : str
-            Name of the tool to search for (e.g., "request_user_input")
+            Agent's response containing structured output
 
         Returns
         -------
-        dict[str, Any] | None
-            Parsed tool arguments if found, None otherwise
+        SpecialistOutput
+            Parsed structured output with routing decision
+
+        Raises
+        ------
+        ValueError
+            If response does not contain SpecialistOutput
         """
-        for message in response.agent_run_response.messages:
-            for content in message.contents:
-                if isinstance(content, FunctionCallContent) and content.name == tool_name:
-                    args = content.arguments
-                    # Arguments can be string (JSON) or already a dict
-                    if isinstance(args, str):
-                        try:
-                            return json.loads(args)
-                        except json.JSONDecodeError:
-                            continue
-                    elif isinstance(args, dict):
-                        return args  # type: ignore
-        return None
+        if response.agent_run_response.value:
+            return response.agent_run_response.value
+        raise ValueError("Specialist must return SpecialistOutput")
 
     async def _summarize_context(self, new_content: str) -> str:
         """
