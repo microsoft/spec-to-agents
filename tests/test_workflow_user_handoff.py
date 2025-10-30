@@ -2,56 +2,16 @@
 
 """Tests for human-in-the-loop workflow functionality."""
 
-import json
-from unittest.mock import Mock
-
 import pytest
-from agent_framework import FunctionCallContent, RequestInfoEvent
+from agent_framework import RequestInfoEvent
 
 from spec_to_agents.workflow.core import build_event_planning_workflow
-from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
 
 
-def test_hitl_executor_detects_tool_call():
-    """Test HumanInLoopAgentExecutor correctly detects request_user_input calls."""
-    executor = HumanInLoopAgentExecutor(agent_id="test", request_info_id="user_input")
-
-    # Mock AgentExecutorResponse with tool call
-    mock_response = Mock()
-    mock_agent_run_response = Mock()
-    mock_message = Mock()
-    mock_content = Mock(spec=FunctionCallContent)
-    mock_content.name = "request_user_input"
-    mock_content.arguments = json.dumps({"prompt": "test", "context": {}, "request_type": "clarification"})
-    mock_message.contents = [mock_content]
-    mock_agent_run_response.messages = [mock_message]
-    mock_response.agent_run_response = mock_agent_run_response
-
-    # Extract should find the tool call
-    result = executor._extract_user_request(mock_response)
-    assert result is not None
-    assert result["prompt"] == "test"
-
-
-def test_hitl_executor_returns_none_without_tool_call():
-    """Test HumanInLoopAgentExecutor returns None when no tool call."""
-    executor = HumanInLoopAgentExecutor(agent_id="test", request_info_id="user_input")
-
-    # Mock response without tool calls
-    mock_response = Mock()
-    mock_agent_run_response = Mock()
-    mock_message = Mock()
-    mock_message.contents = []
-    mock_agent_run_response.messages = [mock_message]
-    mock_response.agent_run_response = mock_agent_run_response
-
-    result = executor._extract_user_request(mock_response)
-    assert result is None
-
-
-def test_workflow_builds_with_hitl_components():
+@pytest.mark.asyncio
+async def test_workflow_builds_with_hitl_components():
     """Test that workflow builds successfully with HITL components."""
-    workflow = build_event_planning_workflow()
+    workflow = await build_event_planning_workflow()
     assert workflow is not None
 
 
