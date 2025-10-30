@@ -111,7 +111,6 @@ def build_event_planning_workflow() -> Workflow:
     budget_agent = budget_analyst.create_agent(
         client,
         code_interpreter,
-        request_user_input,
     )
 
     catering_agent = catering_coordinator.create_agent(
