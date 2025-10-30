@@ -52,7 +52,7 @@ from agent_framework import (
     WorkflowStatusEvent,
 )
 
-from spec_to_agents.workflow.core import build_event_planning_workflow
+from spec_to_agents.agents import build_event_planning_workflow
 from spec_to_agents.workflow.messages import HumanFeedbackRequest
 
 
