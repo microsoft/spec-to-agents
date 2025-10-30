@@ -153,9 +153,9 @@ async def test_start_handler_initializes_summary():
     mock_ctx = AsyncMock()
     mock_ctx.send_message = AsyncMock()
 
-    # Mock the summarize_context method to avoid external dependencies
+    # Mock the chain_summarize method to avoid external dependencies
     mock_summary = "User wants a corporate party for 50 people with a budget of $5,000."
-    coordinator._summarize_context = AsyncMock(return_value=mock_summary)
+    coordinator._chain_summarize = AsyncMock(return_value=mock_summary)
 
     # Initial user request
     test_input = "I need to plan a corporate party for 50 people with a budget of $5,000"
@@ -166,8 +166,8 @@ async def test_start_handler_initializes_summary():
     # Verify self._current_summary was initialized
     assert coordinator._current_summary == mock_summary, "Summary should be initialized with user request"
 
-    # Verify summarize_context was called with the initial input
-    coordinator._summarize_context.assert_called_once_with(test_input)
+    # Verify chain_summarize was called with the initial input
+    coordinator._chain_summarize.assert_called_once_with(prev="", new=test_input)
 
     # Verify ctx.send_message was called with target_id="venue"
     mock_ctx.send_message.assert_called_once()
@@ -259,3 +259,58 @@ async def test_route_to_agent_sends_summary_message():
 
     # Verify target_id
     assert call_args[1]["target_id"] == "budget"
+
+
+@pytest.mark.asyncio
+async def test_chain_summarize_with_previous_summary():
+    """Test chaining previous summary with new content."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import SummarizedContext
+
+    mock_agent = Mock()
+    mock_summarizer = Mock()
+
+    # Mock client.get_response
+    mock_result = Mock()
+    mock_result.value = SummarizedContext(condensed_summary="Party for 50. Venue selected. Budget allocated.")
+    mock_result.text = "Party for 50. Venue selected. Budget allocated."
+
+    with patch("spec_to_agents.clients.get_chat_client") as mock_get_client:
+        mock_client = AsyncMock()
+        mock_client.get_response = AsyncMock(return_value=mock_result)
+        mock_get_client.return_value = mock_client
+
+        coordinator = EventPlanningCoordinator(mock_agent, mock_summarizer)
+        coordinator._current_summary = "Party for 50 people."
+
+        result = await coordinator._chain_summarize(
+            prev="Party for 50 people.", new="Venue specialist selected Option B ($3k)."
+        )
+
+        assert result == "Party for 50. Venue selected. Budget allocated."
+        mock_client.get_response.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chain_summarize_without_previous_summary():
+    """Test initial summarization without previous content."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import SummarizedContext
+
+    mock_agent = Mock()
+    mock_summarizer = Mock()
+
+    mock_result = Mock()
+    mock_result.value = SummarizedContext(condensed_summary="User wants corporate party, 50 people, $5k budget.")
+    mock_result.text = "User wants corporate party, 50 people, $5k budget."
+
+    with patch("spec_to_agents.clients.get_chat_client") as mock_get_client:
+        mock_client = AsyncMock()
+        mock_client.get_response = AsyncMock(return_value=mock_result)
+        mock_get_client.return_value = mock_client
+
+        coordinator = EventPlanningCoordinator(mock_agent, mock_summarizer)
+
+        result = await coordinator._chain_summarize(prev="", new="Plan a corporate party for 50 people with $5k budget")
+
+        assert result == "User wants corporate party, 50 people, $5k budget."

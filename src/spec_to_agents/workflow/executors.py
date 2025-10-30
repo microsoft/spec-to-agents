@@ -76,7 +76,7 @@ class EventPlanningCoordinator(Executor):
             Workflow context for sending messages to specialists
         """
         # Initialize summary with user request
-        self._current_summary = await self._summarize_context(prompt)
+        self._current_summary = await self._chain_summarize(prev="", new=prompt)
 
         # Route to venue specialist by default
         message = ChatMessage(
@@ -252,7 +252,7 @@ class EventPlanningCoordinator(Executor):
         )
         await ctx.send_message(AgentExecutorRequest(messages=[message], should_respond=True), target_id=agent_id)
 
-    async def _summarize_context(self, new_content: str) -> str:
+    async def _chain_summarize(self, prev: str, new: str) -> str:
         """
         Chain previous summary with new content and condense to ≤150 words.
 
@@ -262,8 +262,10 @@ class EventPlanningCoordinator(Executor):
 
         Parameters
         ----------
-        new_content : str
-            New content from specialist to incorporate into summary
+        prev : str
+            Previous summary (empty string if first call)
+        new : str
+            New content from specialist or user to incorporate into summary
 
         Returns
         -------
@@ -273,10 +275,10 @@ class EventPlanningCoordinator(Executor):
         from spec_to_agents.clients import get_chat_client
 
         # Build prompt combining previous summary and new content
-        if self._current_summary:
+        if prev:
             prompt = (
-                f"Previous summary:\n{self._current_summary}\n\n"
-                f"New content:\n{new_content}\n\n"
+                f"Previous summary:\n{prev}\n\n"
+                f"New content:\n{new}\n\n"
                 "Please condense the above into a single summary of maximum 150 words. "
                 "Preserve all critical information including: user requirements, decisions made, "
                 "specialist recommendations, and key constraints (budget, dates, preferences). "
@@ -284,7 +286,7 @@ class EventPlanningCoordinator(Executor):
             )
         else:
             prompt = (
-                f"Content to summarize:\n{new_content}\n\n"
+                f"Content to summarize:\n{new}\n\n"
                 "Please condense the above into a summary of maximum 150 words. "
                 "Focus on: key decisions, recommendations, and critical constraints. "
                 "Remove unnecessary details while preserving essential information."
