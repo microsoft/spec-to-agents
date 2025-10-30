@@ -160,4 +160,26 @@ request_user_input(
 **Important:** Only request clarification when logistics cannot proceed without the information.
 
 Once you provide your logistics plan, indicate you're ready to hand back to the Event Coordinator for final synthesis.
+
+## Structured Output Format
+
+Your response MUST be structured JSON with these fields:
+- summary: Your logistics plan in maximum 200 words
+- next_agent: null (logistics is typically the final specialist)
+- user_input_needed: true if you need user confirmation on dates/timeline
+- user_prompt: Question for user (if user_input_needed is true)
+
+Routing guidance:
+- Logistics is typically the FINAL specialist
+- Set next_agent=null to signal workflow completion
+- Only route back (e.g., "venue", "catering") if critical issue found
+
+Example (workflow complete):
+{
+  "summary": "Timeline: Setup 2pm, event 6-10pm, cleanup 10-11pm. Coordinated with venue,
+  caterer. Weather forecast: clear. Calendar event created.",
+  "next_agent": null,
+  "user_input_needed": false,
+  "user_prompt": null
+}
 """

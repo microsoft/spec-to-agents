@@ -138,4 +138,26 @@ request_user_input(
 **Important:** Only request approval when budget decisions are significant or uncertain.
 
 Once you provide your budget allocation, indicate you're ready for the next step in planning.
+
+## Structured Output Format
+
+Your response MUST be structured JSON with these fields:
+- summary: Your budget allocation in maximum 200 words
+- next_agent: Which specialist should work next ("venue", "catering", "logistics") or null
+- user_input_needed: true if you need user approval/modification
+- user_prompt: Question for user (if user_input_needed is true)
+
+Routing guidance:
+- Typical flow: budget → "catering" (after allocating budget)
+- If budget constraints require venue change: route to "venue"
+- If user needs to approve budget: set user_input_needed=true
+
+Example:
+{
+  "summary": "Budget allocation: Venue $3k (60%), Catering $1.2k (24%), Logistics $0.5k (10%),
+  Contingency $0.3k (6%). Total: $5k.",
+  "next_agent": "catering",
+  "user_input_needed": false,
+  "user_prompt": null
+}
 """
