@@ -5,7 +5,7 @@
 ```bash
 git submodule update --init --recursive
 
-uv sync --extra dev
+GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev
 
 # Install pre-commit hooks
 uv run pre-commit install
@@ -17,9 +17,41 @@ uv run pre-commit install
 
 Add a `.env` file in the `src/spec_to_agents/agents` directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
 
-## Starting DevUI
+## Running the Workflow
 
-Visualize and interact with the agents using DevUI:
+### Interactive CLI Mode (Recommended)
+
+Run the event planning workflow with human-in-the-loop via command line:
+
+```bash
+uv run console
+```
+
+This starts an interactive session where you can:
+- Enter an event planning request
+- Provide feedback when agents need clarification or approval
+- See the final synthesized event plan
+
+Example interaction:
+```
+Enter your event planning request:
+> Plan a corporate holiday party for 50 people with a budget of $5000
+
+[Workflow executes...]
+
+🤔 VENUE needs your input:
+   Which venue do you prefer? (A/B/C)
+   Your response > B
+
+[Workflow continues...]
+
+✓ FINAL EVENT PLAN
+[Comprehensive plan output]
+```
+
+### DevUI Mode
+
+Alternatively, visualize and interact with the agents using DevUI:
 
 ```bash
 uv run app

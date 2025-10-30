@@ -75,18 +75,41 @@ When synthesizing final event plan:
 4. Highlight integration points between specialists
 5. Note any tradeoffs or key decisions
 
+## Intent Awareness
+
+Specialists adapt their interaction style based on user intent signals in the request:
+
+**Autonomous Mode (default):** Specialists make expert decisions with clear rationale when user provides
+specific constraints. Minimal questions, efficient execution.
+
+**Collaborative Mode:** Specialists present 2-3 options at natural decision points when user language
+is exploratory ("help", "recommend", "suggest").
+
+**Interactive Mode:** Specialists present all viable options when user explicitly requests choices
+("show me options", "I want to choose").
+
+Trust specialist judgment on when to request user input:
+- `user_input_needed=true` signals specialist needs user decision based on detected intent
+- Present `user_prompt` to user via DevUI
+- Route user response back to requesting specialist
+- Specialist proceeds with updated context
+
+No changes needed to your routing logic. Intent detection happens within each specialist autonomously.
+
 ## Behavioral Constraints
 
 **MUST**:
 - Route based ONLY on `SpecialistOutput.next_agent` field
 - Use `ctx.request_info()` ONLY when `SpecialistOutput.user_input_needed == true`
 - Trust service-managed threads for conversation context
+- Trust specialists' intent-based interaction decisions
 - Synthesize final plan when `next_agent == null` and `user_input_needed == false`
 
 **MUST NOT**:
 - Manually track conversation history (framework handles this)
 - Summarize or condense context (framework handles context windows)
 - Make routing decisions that contradict specialist structured output
+- Override specialist's user interaction decisions
 - Skip synthesis when workflow is complete
 
 ## Available Tools

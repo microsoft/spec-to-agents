@@ -24,7 +24,6 @@ from spec_to_agents.tools import (
     get_sequential_thinking_tool,
     get_weather_forecast,
     list_calendar_events,
-    request_user_input,
 )
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
@@ -102,22 +101,14 @@ def build_event_planning_workflow() -> Workflow:
     # Create specialist agents with domain-specific tools
     # NOTE: MCP tool removed from specialists - it interferes with structured output (SpecialistOutput)
     # The thinking process doesn't return a final structured response, causing ValueError
-    venue_agent = venue_specialist.create_agent(
-        client,
-        bing_search,
-        request_user_input,
-    )
+    venue_agent = venue_specialist.create_agent(client, bing_search)
 
     budget_agent = budget_analyst.create_agent(
         client,
         code_interpreter,
     )
 
-    catering_agent = catering_coordinator.create_agent(
-        client,
-        bing_search,
-        request_user_input,
-    )
+    catering_agent = catering_coordinator.create_agent(client, bing_search)
 
     logistics_agent = logistics_manager.create_agent(
         client,
@@ -125,7 +116,6 @@ def build_event_planning_workflow() -> Workflow:
         create_calendar_event,  # type: ignore
         list_calendar_events,  # type: ignore
         delete_calendar_event,  # type: ignore
-        request_user_input,
     )
 
     # Create coordinator executor with routing logic

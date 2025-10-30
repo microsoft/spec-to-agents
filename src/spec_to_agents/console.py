@@ -41,6 +41,7 @@ Example
 """
 
 import asyncio
+import json
 
 from agent_framework import (
     AgentRunResponseUpdate,
@@ -52,48 +53,60 @@ from agent_framework import (
     WorkflowStatusEvent,
 )
 
-from spec_to_agents.agents import build_event_planning_workflow
+from spec_to_agents.tools import close_sequential_thinking_tool
+from spec_to_agents.workflow.core import build_event_planning_workflow
 from spec_to_agents.workflow.messages import HumanFeedbackRequest
 
 
-def format_tool_call(content: FunctionCallContent) -> str:
+def format_tool_call(content: FunctionCallContent, executor_id: str) -> str:
     """
-    Format a tool call for console display.
+    Format a tool call for console display with proper JSON serialization.
+
+    This follows the pattern from microsoft/agent-framework samples for
+    displaying tool execution feedback with full context.
 
     Parameters
     ----------
     content : FunctionCallContent
         The function call content to format
+    executor_id : str
+        ID of the executor making the call (e.g., "venue", "budget")
 
     Returns
     -------
     str
-        Formatted tool call string
+        Formatted tool call: "venue [tool-call] web_search({...})"
     """
-    args_preview = str(content.arguments)[:100]
-    if len(str(content.arguments)) > 100:
-        args_preview += "..."
-    return f"🔧 Tool Call: {content.name}({args_preview})"
+    args = content.arguments
+    args_str = json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else (args or "").strip()
+
+    return f"{executor_id} [tool-call] {content.name}({args_str})"
 
 
-def format_tool_result(content: FunctionResultContent) -> str:
+def format_tool_result(content: FunctionResultContent, executor_id: str) -> str:
     """
-    Format a tool result for console display.
+    Format a tool result for console display with call_id linkage.
+
+    This follows the pattern from microsoft/agent-framework samples for
+    displaying tool execution feedback with proper result formatting.
 
     Parameters
     ----------
     content : FunctionResultContent
         The function result content to format
+    executor_id : str
+        ID of the executor that made the call
 
     Returns
     -------
     str
-        Formatted tool result string
+        Formatted tool result: "venue [tool-result] abc123: {...}"
     """
-    result_preview = str(content.result)[:150]
-    if len(str(content.result)) > 150:
-        result_preview += "..."
-    return f"   ✓ Result: {result_preview}"
+    result = content.result
+    if not isinstance(result, str):
+        result = json.dumps(result, ensure_ascii=False)
+
+    return f"{executor_id} [tool-result] {content.call_id}: {result}"
 
 
 async def main() -> None:
@@ -111,151 +124,198 @@ async def main() -> None:
        - Prompt user for input when needed
        - Send responses back to workflow
     3. Display final event plan
+    4. Cleanup MCP tool resources
 
     The workflow alternates between executing agent logic and pausing
     for human input via the request_info/response_handler pattern.
     """
-    print("\n" + "=" * 70)
-    print("Event Planning Workflow - Interactive CLI")
-    print("=" * 70)
-    print()
-    print("This workflow will help you plan an event with assistance from")
-    print("specialized agents (Venue, Budget, Catering, Logistics).")
-    print()
-    print("You may be asked for clarification or approval at various steps.")
-    print("Type 'exit' at any prompt to quit.")
-    print()
+    try:
+        print("\n" + "=" * 70)
+        print("Event Planning Workflow - Interactive CLI")
+        print("=" * 70)
+        print()
+        print("This workflow will help you plan an event with assistance from")
+        print("specialized agents (Venue, Budget, Catering, Logistics).")
+        print()
+        print("You may be asked for clarification or approval at various steps.")
+        print("Type 'exit' at any prompt to quit.")
+        print()
 
-    # Build workflow
-    print("Loading workflow...", end="", flush=True)
-    workflow = await build_event_planning_workflow()
-    print(" ✓")
-    print()
+        # Build workflow
+        print("Loading workflow...", end="", flush=True)
+        workflow = build_event_planning_workflow()
+        print(" ✓")
+        print()
 
-    # Get initial event planning request from user
-    print("-" * 70)
-    print("Enter your event planning request:")
-    print("(e.g., 'Plan a corporate holiday party for 50 people, budget $5000')")
-    print("-" * 70)
-    user_request = input("> ").strip()
+        # Get initial event planning request from user
+        print("-" * 70)
+        print("Enter your event planning request:")
+        print("(e.g., 'Plan a corporate holiday party for 50 people, budget $5000')")
+        print("-" * 70)
 
-    if not user_request:
-        print("\nNo request provided. Exiting.")
-        return
+        try:
+            user_request = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n\nInput interrupted. Exiting.")
+            return
 
-    print()
-    print("=" * 70)
-    print("Starting workflow execution...")
-    print("=" * 70)
-    print()
+        if not user_request:
+            print("\nNo request provided. Exiting.")
+            return
 
-    # Main workflow loop: alternate between workflow execution and human input
-    pending_responses: dict[str, str] | None = None
-    workflow_output: str | None = None
+        print()
+        print("=" * 70)
+        print("Starting workflow execution...")
+        print("=" * 70)
+        print()
 
-    while workflow_output is None:
-        # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
-        if pending_responses:
-            stream = workflow.send_responses_streaming(pending_responses)
-        else:
-            stream = workflow.run_stream(user_request)
+        # Main workflow loop: alternate between workflow execution and human input
+        pending_responses: dict[str, str] | None = None
+        workflow_output: str | None = None
 
-        # Collect all events from this execution cycle
-        events = [event async for event in stream]
-        pending_responses = None
+        # Track printed tool calls/results to avoid duplication in streaming
+        printed_tool_calls: set[str] = set()
+        printed_tool_results: set[str] = set()
+        last_executor: str | None = None
 
-        # Display tool calls and results for transparency
-        for event in events:
-            # Check if event has agent_run_response_update attribute
-            if hasattr(event, "agent_run_response_update"):
-                update: AgentRunResponseUpdate = event.agent_run_response_update
+        while workflow_output is None:
+            # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
+            if pending_responses:
+                stream = workflow.send_responses_streaming(pending_responses)
+            else:
+                stream = workflow.run_stream(user_request)
 
-                # Log tool calls
-                for content in update.contents:
-                    if isinstance(content, FunctionCallContent):
-                        print(f"   {format_tool_call(content)}")
-                    elif isinstance(content, FunctionResultContent):
-                        print(f"   {format_tool_result(content)}")
+            # Collect all events from this execution cycle
+            events = [event async for event in stream]
+            pending_responses = None
 
-        # Process events to extract human requests and workflow outputs
-        human_requests: list[tuple[str, HumanFeedbackRequest]] = []
-        for event in events:
-            if isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
-                # Workflow is requesting human input
-                human_requests.append((event.request_id, event.data))
+            # Display tool calls and results for transparency
+            for event in events:
+                # Check if event has agent_run_response_update attribute
+                if hasattr(event, "agent_run_response_update"):
+                    update: AgentRunResponseUpdate = event.agent_run_response_update  # type: ignore
+                    executor_id = getattr(event, "executor_id", "workflow")
 
-            elif isinstance(event, WorkflowOutputEvent):
-                # Workflow has yielded final output
-                workflow_output = str(event.data)
+                    # Extract tool calls and results
+                    function_calls = [c for c in update.contents if isinstance(c, FunctionCallContent)]  # type: ignore
+                    function_results = [c for c in update.contents if isinstance(c, FunctionResultContent)]  # type: ignore
 
-        # Display workflow status transitions for transparency
-        idle_with_requests = any(
-            isinstance(e, WorkflowStatusEvent) and e.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
-            for e in events
-        )
+                    # Show executor transition
+                    if function_calls or function_results:
+                        if executor_id != last_executor:
+                            if last_executor is not None:
+                                print()
+                            last_executor = executor_id
 
-        if idle_with_requests:
-            print("[Workflow paused - awaiting human input]")
-            print()
+                        # Print new tool calls
+                        for call in function_calls:
+                            if call.call_id in printed_tool_calls:
+                                continue
+                            printed_tool_calls.add(call.call_id)
+                            print(f"   {format_tool_call(call, executor_id)}")
 
-        # Prompt user for feedback if workflow requested input
-        if human_requests:
-            responses: dict[str, str] = {}
+                        # Print new tool results
+                        for result in function_results:
+                            if result.call_id in printed_tool_results:
+                                continue
+                            printed_tool_results.add(result.call_id)
+                            print(f"   {format_tool_result(result, executor_id)}")
 
-            for request_id, feedback_request in human_requests:
-                print("─" * 70)
-                print(f"🤔 {feedback_request.requesting_agent.upper()} needs your input:")
+            # Process events to extract human requests and workflow outputs
+            human_requests: list[tuple[str, HumanFeedbackRequest]] = []
+            for event in events:
+                if isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
+                    # Workflow is requesting human input
+                    human_requests.append((event.request_id, event.data))
+
+                elif isinstance(event, WorkflowOutputEvent):
+                    # Workflow has yielded final output
+                    workflow_output = str(event.data)
+
+            # Display workflow status transitions for transparency
+            idle_with_requests = any(
+                isinstance(e, WorkflowStatusEvent) and e.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
+                for e in events
+            )
+
+            if idle_with_requests:
+                print("[Workflow paused - awaiting human input]")
                 print()
-                print(f"   Request Type: {feedback_request.request_type}")
-                print()
-                print(f"   {feedback_request.prompt}")
-                print()
 
-                # Display context if available
-                if feedback_request.context:
-                    print("   Additional Context:")
-                    for key, value in feedback_request.context.items():
-                        # Format context nicely
-                        if isinstance(value, (list, dict)):
-                            print(f"   • {key}:")
-                            if isinstance(value, list):
-                                for item in value:
-                                    print(f"     - {item}")
-                            elif isinstance(value, dict):
-                                for k, v in value.items():
-                                    print(f"     {k}: {v}")
-                        else:
-                            print(f"   • {key}: {value}")
+            # Prompt user for feedback if workflow requested input
+            if human_requests:
+                responses: dict[str, str] = {}
+
+                for request_id, feedback_request in human_requests:
+                    print("─" * 70)
+                    print(f"🤔 {feedback_request.requesting_agent.upper()} needs your input:")
+                    print()
+                    print(f"   Request Type: {feedback_request.request_type}")
+                    print()
+                    print(f"   {feedback_request.prompt}")
                     print()
 
-                # Get user response
-                user_response = input("   Your response > ").strip()
-                print()
+                    # Display context if available
+                    if feedback_request.context:
+                        print("   Additional Context:")
+                        for key, value in feedback_request.context.items():
+                            # Format context nicely
+                            if isinstance(value, (list, dict)):
+                                print(f"   • {key}:")
+                                if isinstance(value, list):
+                                    for item in value:  # type: ignore
+                                        print(f"     - {item}")
+                                elif isinstance(value, dict):
+                                    for k, v in value.items():  # type: ignore
+                                        print(f"     {k}: {v}")
+                            else:
+                                print(f"   • {key}: {value}")
+                        print()
 
-                if user_response.lower() in ("exit", "quit"):
-                    print("Exiting workflow...")
-                    return
+                    # Get user response
+                    try:
+                        user_response = input("   Your response > ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\n\nInput interrupted. Exiting workflow...")
+                        return
 
-                if not user_response:
-                    user_response = "Continue with your best judgment"
-                    print(f"   [Using default response: '{user_response}']")
                     print()
 
-                responses[request_id] = user_response
+                    if user_response.lower() in ("exit", "quit"):
+                        print("Exiting workflow...")
+                        return
 
-            pending_responses = responses
+                    if not user_response:
+                        user_response = "Continue with your best judgment"
+                        print(f"   [Using default response: '{user_response}']")
+                        print()
 
-    # Display final workflow output
-    print()
-    print("=" * 70)
-    print("✓ FINAL EVENT PLAN")
-    print("=" * 70)
-    print()
-    print(workflow_output)
-    print()
-    print("=" * 70)
-    print("Event planning complete!")
-    print("=" * 70)
+                    responses[request_id] = user_response
+
+                pending_responses = responses
+
+        # Display final workflow output
+        print()
+        print("=" * 70)
+        print("✓ FINAL EVENT PLAN")
+        print("=" * 70)
+        print()
+        print(workflow_output)
+        print()
+        print("=" * 70)
+        print("Event planning complete!")
+        print("=" * 70)
+
+    finally:
+        # Always cleanup MCP tools on exit
+        # Suppress cleanup errors due to asyncio context mismatches
+        import contextlib
+
+        with contextlib.suppress(RuntimeError, Exception):
+            # MCP tool cleanup can fail due to asyncio.run() context issues
+            # This is a known limitation when mixing stdio MCP tools with asyncio.run()
+            # The subprocess will be cleaned up by the OS on exit
+            await close_sequential_thinking_tool()
 
 
 def cli() -> None:

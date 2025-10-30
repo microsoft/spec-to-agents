@@ -116,11 +116,11 @@ async def get_weather_forecast(
                 precip_prob = daily["precipitation_probability_max"][i]
                 condition = weather_codes.get(weather_code, "unknown")
 
-                forecasts.append(
+                forecasts.append(  # type: ignore
                     f"{date}: {condition}, {temp_min:.1f}°C to {temp_max:.1f}°C, {precip_prob}% chance of precipitation"
                 )
 
-            return f"Weather forecast for {location_name}:\n" + "\n".join(forecasts)
+            return f"Weather forecast for {location_name}:\n" + "\n".join(forecasts)  # type: ignore
 
         except httpx.HTTPStatusError as e:
             return f"Error fetching weather: {e.response.status_code} - {e.response.text}"

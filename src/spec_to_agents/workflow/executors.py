@@ -188,7 +188,7 @@ class EventPlanningCoordinator(Executor):
         Raises
         ------
         ValueError
-            If response does not contain SpecialistOutput
+            If response does not contain SpecialistOutput, includes actual response text for debugging
         """
         # Try to parse structured output if not already parsed
         if response.agent_run_response.value is None:
@@ -196,7 +196,17 @@ class EventPlanningCoordinator(Executor):
 
         if response.agent_run_response.value and isinstance(response.agent_run_response.value, SpecialistOutput):
             return response.agent_run_response.value
-        raise ValueError("Specialist must return SpecialistOutput")
+
+        # Enhanced error message with debugging information
+        response_text = response.agent_run_response.text if response.agent_run_response.text else "(empty)"
+        num_messages = len(response.agent_run_response.messages) if response.agent_run_response.messages else 0
+        error_msg = (
+            f"Specialist '{response.executor_id}' must return SpecialistOutput.\n"
+            f"Response text: '{response_text}'\n"
+            f"Number of messages: {num_messages}\n"
+            f"Value is None: {response.agent_run_response.value is None}"
+        )
+        raise ValueError(error_msg)
 
     async def _route_to_agent(
         self, agent_id: str, message: str, ctx: WorkflowContext[AgentExecutorRequest, str]

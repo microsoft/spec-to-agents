@@ -10,7 +10,7 @@ from agent_framework import MCPStdioTool
 _mcp_sequential_thinking: MCPStdioTool | None = None
 
 
-async def get_sequential_thinking_tool() -> MCPStdioTool:
+def get_sequential_thinking_tool() -> MCPStdioTool:
     """
     Get or create the sequential-thinking-tools MCP server connection.
 
@@ -21,7 +21,8 @@ async def get_sequential_thinking_tool() -> MCPStdioTool:
 
     Notes
     -----
-    Uses manual connection management to persist across agent runs.
+    The MCP tool lifecycle is managed by the Agent Framework.
+    Connection is established automatically when the tool is first used.
     The MCP server is spawned as a subprocess using npx.
     """
     global _mcp_sequential_thinking
@@ -35,8 +36,6 @@ async def get_sequential_thinking_tool() -> MCPStdioTool:
                 "MAX_HISTORY_SIZE": os.getenv("MAX_HISTORY_SIZE", "1000"),
             },
         )
-        # Manually connect to persist across agent runs
-        await _mcp_sequential_thinking.connect()
 
     return _mcp_sequential_thinking
 

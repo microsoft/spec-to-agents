@@ -1,8 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework import ChatAgent, Workflow
 
-from spec_to_agents.agents.event_planning_workflow import build_event_planning_workflow
-
 
 def export_entities() -> list[Workflow | ChatAgent]:
     """
@@ -22,4 +20,4 @@ def export_entities() -> list[Workflow | ChatAgent]:
     return [workflow]
 
 
-__all__ = ["build_event_planning_workflow", "export_entities"]
+__all__ = ["export_entities"]
