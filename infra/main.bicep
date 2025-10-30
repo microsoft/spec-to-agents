@@ -16,10 +16,8 @@ param environmentName string
 param location string
 
 // Parameters for your existing application resources
-param apiServiceName string = ''
-param frontendServiceName string = ''
-param apiUserAssignedIdentityName string = ''
-param frontendUserAssignedIdentityName string = ''
+param appServiceName string = ''
+param appUserAssignedIdentityName string = ''
 param applicationInsightsName string = ''
 param logAnalyticsName string = ''
 param resourceGroupName string = ''
@@ -182,7 +180,6 @@ module bingGrounding 'app/bing-grounding.bicep' = {
     newOrExisting: 'new'
   }
   dependsOn: [
-    aiAccount
     aiProject
   ]
 }
@@ -255,24 +252,14 @@ module bingGrounding 'app/bing-grounding.bicep' = {
 // the new AI platform outputs.
 // =================================================================
 
-// User assigned managed identity for the function app (no change)
-module apiUserAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
-  name: 'apiUserAssignedIdentity'
+// User assigned managed identity for the app
+module appUserAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
+  name: 'appUserAssignedIdentity'
   scope: rg
   params: {
     location: location
     tags: tags
-    name: !empty(apiUserAssignedIdentityName) ? apiUserAssignedIdentityName : '${abbrs.managedIdentityUserAssignedIdentities}api-${resourceToken}'
-  }
-}
-
-module frontendUserAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
-  name: 'frontendUserAssignedIdentity'
-  scope: rg
-  params: {
-    location: location
-    tags: tags
-    name: !empty(frontendUserAssignedIdentityName) ? frontendUserAssignedIdentityName : '${abbrs.managedIdentityUserAssignedIdentities}frontend-${resourceToken}'
+    name: !empty(appUserAssignedIdentityName) ? appUserAssignedIdentityName : '${abbrs.managedIdentityUserAssignedIdentities}app-${resourceToken}'
   }
 }
 
@@ -294,19 +281,19 @@ module storage 'br/public:avm/res/storage/storage-account:0.8.3' = {
   }
 }
 
-// RBAC for your function app (no change)
+// RBAC for your app
 var StorageBlobDataOwner = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-module blobRoleAssignmentApi 'app/rbac/storage-access.bicep' = {
-  name: 'blobRoleAssignmentapi'
+module blobRoleAssignmentApp 'app/rbac/storage-access.bicep' = {
+  name: 'blobRoleAssignmentApp'
   scope: rg
   params: {
     storageAccountName: storage.outputs.name
     roleDefinitionID: StorageBlobDataOwner
-    principalID: apiUserAssignedIdentity.outputs.principalId
+    principalID: appUserAssignedIdentity.outputs.principalId
   }
 }
 
-// Monitor application with Azure Monitor (no change)
+// Monitor application with Azure Monitor
 module monitoring 'app/monitoring.bicep' = {
   name: 'monitoring'
   scope: rg
@@ -318,23 +305,7 @@ module monitoring 'app/monitoring.bicep' = {
   }
 }
 
-// App Service Plan for Frontend (API uses its own Flex Consumption plan)
-module frontendAppServicePlan 'br/public:avm/res/web/serverfarm:0.1.1' = {
-  name: 'frontend-appserviceplan'
-  scope: rg
-  params: {
-    name: '${abbrs.webServerFarms}frontend-${resourceToken}'
-    location: location
-    tags: tags
-    sku: {
-      name: 'B1'
-      tier: 'Basic'
-    }
-    reserved: true
-  }
-}
-
-// Durable Task Service (moved before API to resolve dependencies)
+// Durable Task Service
 module dts './app/dts.bicep' = {
   scope: rg
   name: 'dtsResource'
@@ -349,65 +320,33 @@ module dts './app/dts.bicep' = {
   }
 }
 
-// Your application API - NOTE THE CHANGES TO appSettings
-module api './app/api.bicep' = {
-  name: 'api'
+// Unified Application - combines backend and frontend in a single service
+module app './app/app.bicep' = {
+  name: 'app'
   scope: rg
   params: {
-    name: !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesFunctions}api-${resourceToken}'
-    location: location // You may want to use your region selector here
+    name: !empty(appServiceName) ? appServiceName : '${abbrs.webSitesAppService}app-${resourceToken}'
+    location: location
     tags: tags
-    serviceName: 'backend' // azd service name
+    serviceName: 'app' // azd service name
     resourceToken: resourceToken
     applicationInsightsName: monitoring.outputs.applicationInsightsName
-    storageAccountName: storage.outputs.name
-    deploymentStorageContainerName: 'app-packages'
-    identityId: apiUserAssignedIdentity.outputs.resourceId
-    identityClientId: apiUserAssignedIdentity.outputs.clientId
+    identityId: appUserAssignedIdentity.outputs.resourceId
+    identityClientId: appUserAssignedIdentity.outputs.clientId
     appSettings: {
-      // --- UPDATED APP SETTINGS ---
-      // Point to the new AI Project resources instead of the old ones.
-      // Your application code will need to be updated to use the AI Agent SDK
-      // to interact with the project.
+      // AI Project configuration
       AZURE_AI_ACCOUNT_NAME: aiAccount.outputs.accountName
       AZURE_AI_PROJECT_NAME: aiProject.outputs.projectName
-      AZURE_AI_PROJECT_ENDPOINT: aiAccount.outputs.accountTarget // The endpoint of the parent AI Account
+      AZURE_AI_PROJECT_ENDPOINT: aiAccount.outputs.accountTarget
 
-      // --- OLD APP SETTINGS TO REMOVE OR UPDATE ---
-      // COSMOS_ENDPOINT: cosmosDb.outputs.documentEndpoint // This is now managed by the AI project
-      // EMBEDDING_MODEL_DEPLOYMENT_NAME: openai.outputs.embeddingDeploymentName // Models are managed by the project
-      // AGENTS_MODEL_DEPLOYMENT_NAME: openai.outputs.chatDeploymentName
-      // AZURE_OPENAI_ENDPOINT: openai.outputs.aiServicesEndpoint // Replaced by project info
-
-      // --- Other settings ---
-      DTS_CONNECTION_STRING: 'Endpoint=${dts.outputs.dts_URL};Authentication=ManagedIdentity;ClientID=${apiUserAssignedIdentity.outputs.clientId}'
+      // Durable Task Service configuration
+      DTS_CONNECTION_STRING: 'Endpoint=${dts.outputs.dts_URL};Authentication=ManagedIdentity;ClientID=${appUserAssignedIdentity.outputs.clientId}'
       TASKHUBNAME: dts.outputs.TASKHUB_NAME
     }
   }
   dependsOn: [
-    blobRoleAssignmentApi
-    // You may need other dependsOn clauses here
+    blobRoleAssignmentApp
   ]
-}
-
-// Frontend Web App
-module frontend './app/frontend.bicep' = {
-  name: 'frontend'
-  scope: rg
-  params: {
-    name: !empty(frontendServiceName) ? frontendServiceName : '${abbrs.webSitesAppService}frontend-${resourceToken}'
-    location: location
-    tags: tags
-    serviceName: 'frontend' // azd service name
-    resourceToken: resourceToken
-    applicationInsightsName: monitoring.outputs.applicationInsightsName
-    identityId: frontendUserAssignedIdentity.outputs.resourceId
-    identityClientId: frontendUserAssignedIdentity.outputs.clientId
-    appServicePlanId: frontendAppServicePlan.outputs.resourceId
-    appSettings: {
-      VITE_API_URL: 'https://${api.outputs.SERVICE_API_NAME}.azurewebsites.net'
-    }
-  }
 }
 
 // API Management service (no change)
@@ -437,14 +376,11 @@ output AZURE_AI_PROJECT_NAME string = aiProject.outputs.projectName
 @description('The endpoint for the new AI Account.')
 output AZURE_AI_ENDPOINT string = aiAccount.outputs.accountTarget
 
-@description('Name of the deployed Azure Function App.')
-output AZURE_FUNCTION_NAME string = api.outputs.SERVICE_API_NAME
+@description('Name of the deployed unified application.')
+output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 
-@description('Name of the deployed frontend web app.')
-output AZURE_FRONTEND_NAME string = frontend.outputs.SERVICE_FRONTEND_NAME
-
-@description('URL of the deployed frontend web app.')
-output AZURE_FRONTEND_URI string = frontend.outputs.SERVICE_FRONTEND_URI
+@description('URL of the deployed unified application.')
+output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
 
 @description('API Management gateway URL for external API access.')
 output APIM_GATEWAY_URL string = apim.outputs.gatewayUrl
