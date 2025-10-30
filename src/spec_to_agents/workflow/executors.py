@@ -133,7 +133,7 @@ class EventPlanningCoordinator(Executor):
         self,
         original_request: HumanFeedbackRequest,
         feedback: str,
-        ctx: WorkflowContext[AgentExecutorRequest],
+        ctx: WorkflowContext[AgentExecutorRequest, str],
     ) -> None:
         """
         Handle human feedback and route back to requesting specialist.
@@ -212,11 +212,11 @@ class EventPlanningCoordinator(Executor):
         ValueError
             If response does not contain SpecialistOutput
         """
-        if response.agent_run_response.value:
+        if response.agent_run_response.value and isinstance(response.agent_run_response.value, SpecialistOutput):
             return response.agent_run_response.value
         raise ValueError("Specialist must return SpecialistOutput")
 
-    async def _route_to_agent(self, agent_id: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
+    async def _route_to_agent(self, agent_id: str, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
         """
         Route to specialist with condensed summary context.
 
@@ -286,11 +286,14 @@ class EventPlanningCoordinator(Executor):
         result.try_parse_value(SummarizedContext)
 
         # Extract and return condensed summary
+        condensed_summary: str
         if result.value and isinstance(result.value, SummarizedContext):
-            return result.value.condensed_summary
+            condensed_summary = result.value.condensed_summary
+        else:
+            # Fallback if structured output parsing fails
+            condensed_summary = result.text or ""
 
-        # Fallback if structured output parsing fails
-        return result.text or ""
+        return condensed_summary
 
 
 __all__ = ["EventPlanningCoordinator"]
