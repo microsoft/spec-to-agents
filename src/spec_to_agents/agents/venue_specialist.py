@@ -1,6 +1,9 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from agent_framework import ChatAgent, HostedWebSearchTool
+from collections.abc import Callable
+
+from agent_framework import ChatAgent, HostedWebSearchTool, MCPStdioTool
+from agent_framework.azure import AzureAIAgentClient
 
 from spec_to_agents.clients import get_chat_client
 from spec_to_agents.prompts import venue_specialist
@@ -9,10 +12,10 @@ from spec_to_agents.workflow.messages import SpecialistOutput
 
 
 def create_agent(
-    client,
+    client: AzureAIAgentClient,
     bing_search: HostedWebSearchTool,
-    mcp_tool,
-    request_user_input,
+    mcp_tool: MCPStdioTool,
+    request_user_input: Callable[..., str],
 ) -> ChatAgent:
     """
     Create Venue Specialist agent for event planning workflow.
@@ -46,10 +49,6 @@ agent = get_chat_client().create_agent(
     name="VenueSpecialistAgent",
     instructions=SYSTEM_PROMPT,
     store=True,
-    additional_chat_options={
-        "allow_multiple_tool_calls": True,
-        "reasoning": {"effort": "minimal", "summary": "concise"},
-    },
 )
 
 __all__ = ["agent", "create_agent"]
