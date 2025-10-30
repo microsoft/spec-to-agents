@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from spec_to_agents.workflow.messages import SpecialistOutput, SummarizedContext
 
 
-def test_specialist_output_with_next_agent():
+def test_specialist_output_with_next_agent() -> None:
     """Test SpecialistOutput with routing to next agent."""
     output = SpecialistOutput(summary="Venue options researched", next_agent="budget", user_input_needed=False)
     assert output.next_agent == "budget"
@@ -14,7 +14,7 @@ def test_specialist_output_with_next_agent():
     assert output.user_prompt is None
 
 
-def test_specialist_output_with_user_input():
+def test_specialist_output_with_user_input() -> None:
     """Test SpecialistOutput requesting user input."""
     output = SpecialistOutput(
         summary="Found 3 venue options",
@@ -27,13 +27,13 @@ def test_specialist_output_with_user_input():
     assert output.next_agent is None
 
 
-def test_specialist_output_requires_summary():
+def test_specialist_output_requires_summary() -> None:
     """Test SpecialistOutput validation."""
     with pytest.raises(ValidationError):
-        SpecialistOutput(next_agent="budget")
+        SpecialistOutput(next_agent="budget")  # type: ignore[call-arg]
 
 
-def test_summarized_context():
+def test_summarized_context() -> None:
     """Test SummarizedContext model."""
     context = SummarizedContext(condensed_summary="User wants 50 people party, $5000 budget")
     assert len(context.condensed_summary) > 0
