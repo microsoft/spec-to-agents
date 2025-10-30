@@ -26,7 +26,7 @@ from spec_to_agents.tools import (
     request_user_input,
 )
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
-from spec_to_agents.workflow.messages import SummarizedContext
+from spec_to_agents.workflow.messages import SpecialistOutput, SummarizedContext
 
 
 async def build_event_planning_workflow() -> Workflow:
@@ -119,6 +119,7 @@ async def build_event_planning_workflow() -> Workflow:
         name="VenueSpecialist",
         instructions=venue_specialist.SYSTEM_PROMPT,
         tools=[bing_search, mcp_tool, request_user_input],
+        response_format=SpecialistOutput,
         store=True,
     )
 
@@ -126,6 +127,7 @@ async def build_event_planning_workflow() -> Workflow:
         name="BudgetAnalyst",
         instructions=budget_analyst.SYSTEM_PROMPT,
         tools=[code_interpreter, mcp_tool, request_user_input],
+        response_format=SpecialistOutput,
         store=True,
     )
 
@@ -133,6 +135,7 @@ async def build_event_planning_workflow() -> Workflow:
         name="CateringCoordinator",
         instructions=catering_coordinator.SYSTEM_PROMPT,
         tools=[bing_search, mcp_tool, request_user_input],
+        response_format=SpecialistOutput,
         store=True,
     )
 
@@ -147,6 +150,7 @@ async def build_event_planning_workflow() -> Workflow:
             mcp_tool,
             request_user_input,
         ],
+        response_format=SpecialistOutput,
         store=True,
     )
 
