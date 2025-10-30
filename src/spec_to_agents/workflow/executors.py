@@ -64,10 +64,11 @@ class EventPlanningCoordinator(Executor):
     @handler
     async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
         """
-        Handle initial user request and route to first specialist.
+        Handle initial user request and route to venue specialist.
 
         This handler is invoked when the workflow starts with a user prompt.
-        It initializes conversation history and routes to the venue specialist.
+        It initializes the summary with the user's request and routes to the
+        venue specialist by default (typical first step for event planning).
 
         Parameters
         ----------
@@ -76,14 +77,17 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages to specialists
         """
-        user_msg = ChatMessage(Role.USER, text=prompt)
-        self._conversation_history = [user_msg]
-        self._current_index = 0
+        # Initialize summary with user request
+        self._current_summary = await self._summarize_context(prompt)
 
-        # Route to first specialist (venue)
+        # Route to venue specialist by default
+        message = ChatMessage(
+            Role.USER,
+            text=f"Initial request: {prompt}\n\nContext summary: {self._current_summary}",
+        )
         await ctx.send_message(
-            AgentExecutorRequest(messages=[user_msg], should_respond=True),
-            target_id=self._specialist_sequence[0],
+            AgentExecutorRequest(messages=[message], should_respond=True),
+            target_id="venue",
         )
 
     @handler

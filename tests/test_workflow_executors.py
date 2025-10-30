@@ -133,3 +133,57 @@ async def test_summarize_context_chained():
 
     # Verify it has critical venue information (from mock summary)
     assert "option b" in result.lower() or "venue" in result.lower(), "Summary should mention venue selection"
+
+
+@pytest.mark.asyncio
+async def test_start_handler_initializes_summary():
+    """
+    Test that start handler initializes summary and routes to venue.
+
+    This verifies that the start handler:
+    - Initializes self._current_summary with the user's request
+    - Routes to the venue specialist by default
+    - Sends a message containing both the original input and summary
+    """
+    # Build workflow and get coordinator
+    workflow = await build_event_planning_workflow()
+    coordinator = workflow.executors["event_coordinator"]
+
+    # Mock the workflow context
+    mock_ctx = AsyncMock()
+    mock_ctx.send_message = AsyncMock()
+
+    # Mock the summarize_context method to avoid external dependencies
+    mock_summary = "User wants a corporate party for 50 people with a budget of $5,000."
+    coordinator._summarize_context = AsyncMock(return_value=mock_summary)
+
+    # Initial user request
+    test_input = "I need to plan a corporate party for 50 people with a budget of $5,000"
+
+    # Call the start handler
+    await coordinator.start(test_input, mock_ctx)
+
+    # Verify self._current_summary was initialized
+    assert coordinator._current_summary == mock_summary, "Summary should be initialized with user request"
+
+    # Verify summarize_context was called with the initial input
+    coordinator._summarize_context.assert_called_once_with(test_input)
+
+    # Verify ctx.send_message was called with target_id="venue"
+    mock_ctx.send_message.assert_called_once()
+    call_args = mock_ctx.send_message.call_args
+
+    # Check target_id is venue
+    assert call_args.kwargs.get("target_id") == "venue", "Should route to venue specialist"
+
+    # Check that the message is an AgentExecutorRequest
+    from agent_framework import AgentExecutorRequest
+
+    message_arg = call_args.args[0] if call_args.args else None
+    assert isinstance(message_arg, AgentExecutorRequest), "Message should be an AgentExecutorRequest"
+
+    # Check that the messages list contains our expected content
+    assert len(message_arg.messages) > 0, "Should have at least one message"
+    message_text = message_arg.messages[0].text
+    assert test_input in message_text, "Message should contain original input"
+    assert mock_summary in message_text, "Message should contain summary"
