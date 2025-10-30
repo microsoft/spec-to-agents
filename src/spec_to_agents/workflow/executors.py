@@ -75,18 +75,11 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages to specialists
         """
-        # Initialize summary with user request
+        # Initialize summary with user request (stateless chaining)
         self._current_summary = await self._chain_summarize(prev="", new=prompt)
 
         # Route to venue specialist by default
-        message = ChatMessage(
-            Role.USER,
-            text=f"Initial request: {prompt}\n\nContext summary: {self._current_summary}",
-        )
-        await ctx.send_message(
-            AgentExecutorRequest(messages=[message], should_respond=True),
-            target_id="venue",
-        )
+        await self._route_to_agent("venue", ctx)
 
     @handler
     async def on_specialist_response(
@@ -98,9 +91,9 @@ class EventPlanningCoordinator(Executor):
         Handle specialist response and route to next agent or request user input.
 
         This handler processes responses from specialist agents. It:
-        1. Updates conversation history with specialist's output
-        2. Checks for request_user_input tool calls
-        3. Either requests human input OR routes to next specialist
+        1. Parses structured output (SpecialistOutput)
+        2. Chains summaries (stateless)
+        3. Routes based on structured output fields (next_agent, user_input_needed)
 
         Parameters
         ----------
@@ -109,39 +102,31 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for routing and requesting human input
         """
-        # Update conversation history with specialist's full conversation
-        if response.full_conversation:
-            self._conversation_history = list(response.full_conversation)
+        # Parse structured output from specialist
+        specialist_output = self._parse_specialist_output(response)
 
-        # Check if specialist called request_user_input tool
-        user_request = self._extract_tool_call(response, "request_user_input")
+        # Chain summaries (stateless)
+        self._current_summary = await self._chain_summarize(prev=self._current_summary, new=specialist_output.summary)
 
-        if user_request:
-            # Specialist needs user input - pause workflow and request feedback
+        # Route based ONLY on structured output
+        if specialist_output.user_input_needed:
+            # Pause workflow for human input
             await ctx.request_info(
                 request_data=HumanFeedbackRequest(
-                    prompt=user_request.get("prompt", ""),
-                    context=user_request.get("context", {}),
-                    request_type=user_request.get("request_type", "clarification"),
-                    requesting_agent=self._specialist_sequence[self._current_index],
+                    prompt=specialist_output.user_prompt or "Please provide input",
+                    context={},
+                    request_type="clarification",
+                    requesting_agent=response.executor_id,
                 ),
                 request_type=HumanFeedbackRequest,
                 response_type=str,
             )
+        elif specialist_output.next_agent:
+            # Dynamic routing - specialist decides next agent
+            await self._route_to_agent(specialist_output.next_agent, ctx)
         else:
-            # No user input needed - continue to next specialist or synthesize
-            self._current_index += 1
-
-            if self._current_index < len(self._specialist_sequence):
-                # Route to next specialist in sequence
-                next_agent_id = self._specialist_sequence[self._current_index]
-                await ctx.send_message(
-                    AgentExecutorRequest(messages=self._conversation_history, should_respond=True),
-                    target_id=next_agent_id,
-                )
-            else:
-                # All specialists completed - synthesize final plan
-                await self._synthesize_plan(ctx)
+            # next_agent=None and no user input needed = workflow complete
+            await self._synthesize_plan(ctx)
 
     @response_handler
     async def on_human_feedback(
@@ -154,7 +139,7 @@ class EventPlanningCoordinator(Executor):
         Handle human feedback and route back to requesting specialist.
 
         This handler is invoked after a human responds to a request_info() call.
-        It appends the user's feedback to conversation history and routes back
+        It chains the user's feedback into the summary and routes back
         to the specialist that requested the input.
 
         Parameters
@@ -166,45 +151,43 @@ class EventPlanningCoordinator(Executor):
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages back to specialist
         """
-        # Add user feedback to conversation history
-        feedback_msg = ChatMessage(Role.USER, text=f"User feedback: {feedback}")
-        self._conversation_history.append(feedback_msg)
+        # Chain user feedback into summary (stateless)
+        self._current_summary = await self._chain_summarize(
+            prev=self._current_summary, new=f"User feedback: {feedback}"
+        )
 
         # Route back to specialist that requested input
-        await ctx.send_message(
-            AgentExecutorRequest(messages=self._conversation_history, should_respond=True),
-            target_id=original_request.requesting_agent,
-        )
+        await self._route_to_agent(original_request.requesting_agent, ctx)
 
     async def _synthesize_plan(self, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
         """
-        Synthesize final event plan from all specialist recommendations.
+        Synthesize final event plan from summary of all specialist recommendations.
 
         This method is called after all specialists have completed their work.
-        It uses the coordinator agent to generate an integrated event plan
-        and yields it as workflow output.
+        It uses the coordinator agent with the condensed summary to generate
+        an integrated event plan and yields it as workflow output.
 
         Parameters
         ----------
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for yielding final output
         """
-        # Add synthesis instruction to conversation
+        from spec_to_agents.clients import get_chat_client
+
+        # Create synthesis message from summary
         synthesis_msg = ChatMessage(
             Role.USER,
             text=(
-                "All specialists have provided their recommendations. "
+                f"Summary of specialist work:\n{self._current_summary}\n\n"
                 "Please synthesize a comprehensive event plan that integrates "
-                "venue selection, budget allocation, catering options, and logistics coordination."
+                "all specialist recommendations including venue selection, budget allocation, "
+                "catering options, and logistics coordination. Provide a cohesive final plan."
             ),
         )
-        self._conversation_history.append(synthesis_msg)
 
         # Run coordinator agent to synthesize
-        from spec_to_agents.clients import get_chat_client
-
         client = get_chat_client()
-        synthesis_result = await client.get_response(agent=self._agent, messages=self._conversation_history)
+        synthesis_result = await client.get_response(agent=self._agent, messages=[synthesis_msg])
 
         # Yield final plan as workflow output
         if synthesis_result.text:

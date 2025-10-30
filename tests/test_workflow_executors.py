@@ -15,7 +15,7 @@ async def test_summarize_context_first_call():
     """
     Test summarization with empty previous summary.
 
-    This verifies that _summarize_context works correctly on the first call
+    This verifies that _chain_summarize works correctly on the first call
     when there's no existing summary (empty string). The result should:
     - Be non-empty
     - Contain the new content information
@@ -50,7 +50,7 @@ async def test_summarize_context_first_call():
         mock_client.get_response = AsyncMock(return_value=mock_response)
         mock_get_client.return_value = mock_client
 
-        result = await coordinator._summarize_context(new_content)
+        result = await coordinator._chain_summarize(prev="", new=new_content)
 
     # Verify the result
     assert result is not None, "Summary should not be None"
@@ -70,7 +70,7 @@ async def test_summarize_context_chained():
     """
     Test chained summarization with existing summary.
 
-    This verifies that _summarize_context correctly chains the previous
+    This verifies that _chain_summarize correctly chains the previous
     summary with new content and produces a condensed result that:
     - Incorporates both old and new information
     - Stays within the 150-word limit
@@ -113,7 +113,7 @@ async def test_summarize_context_chained():
         mock_client.get_response = AsyncMock(return_value=mock_response)
         mock_get_client.return_value = mock_client
 
-        result = await coordinator._summarize_context(new_content)
+        result = await coordinator._chain_summarize(prev=initial_summary, new=new_content)
 
     # Verify the result
     assert result is not None, "Summary should not be None"
@@ -137,56 +137,29 @@ async def test_summarize_context_chained():
 
 @pytest.mark.asyncio
 async def test_start_handler_initializes_summary():
-    """
-    Test that start handler initializes summary and routes to venue.
+    """Test start handler summarizes prompt and routes to venue."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-    This verifies that the start handler:
-    - Initializes self._current_summary with the user's request
-    - Routes to the venue specialist by default
-    - Sends a message containing both the original input and summary
-    """
-    # Build workflow and get coordinator
-    workflow = await build_event_planning_workflow()
-    coordinator = workflow.executors["event_coordinator"]
+    mock_agent = Mock()
+    mock_summarizer = Mock()
 
-    # Mock the workflow context
-    mock_ctx = AsyncMock()
-    mock_ctx.send_message = AsyncMock()
+    # Mock _chain_summarize to return condensed summary
+    with patch.object(EventPlanningCoordinator, "_chain_summarize", new_callable=AsyncMock) as mock_summarize:
+        mock_summarize.return_value = "Corporate party, 50 people, $5k budget."
 
-    # Mock the chain_summarize method to avoid external dependencies
-    mock_summary = "User wants a corporate party for 50 people with a budget of $5,000."
-    coordinator._chain_summarize = AsyncMock(return_value=mock_summary)
+        coordinator = EventPlanningCoordinator(mock_agent, mock_summarizer)
+        mock_ctx = AsyncMock()
 
-    # Initial user request
-    test_input = "I need to plan a corporate party for 50 people with a budget of $5,000"
+        await coordinator.start("Plan a corporate party for 50 people with $5k budget", mock_ctx)
 
-    # Call the start handler
-    await coordinator.start(test_input, mock_ctx)
+        # Verify summary initialized
+        mock_summarize.assert_called_once_with(prev="", new="Plan a corporate party for 50 people with $5k budget")
+        assert coordinator._current_summary == "Corporate party, 50 people, $5k budget."
 
-    # Verify self._current_summary was initialized
-    assert coordinator._current_summary == mock_summary, "Summary should be initialized with user request"
-
-    # Verify chain_summarize was called with the initial input
-    coordinator._chain_summarize.assert_called_once_with(prev="", new=test_input)
-
-    # Verify ctx.send_message was called with target_id="venue"
-    mock_ctx.send_message.assert_called_once()
-    call_args = mock_ctx.send_message.call_args
-
-    # Check target_id is venue
-    assert call_args.kwargs.get("target_id") == "venue", "Should route to venue specialist"
-
-    # Check that the message is an AgentExecutorRequest
-    from agent_framework import AgentExecutorRequest
-
-    message_arg = call_args.args[0] if call_args.args else None
-    assert isinstance(message_arg, AgentExecutorRequest), "Message should be an AgentExecutorRequest"
-
-    # Check that the messages list contains our expected content
-    assert len(message_arg.messages) > 0, "Should have at least one message"
-    message_text = message_arg.messages[0].text
-    assert test_input in message_text, "Message should contain original input"
-    assert mock_summary in message_text, "Message should contain summary"
+        # Verify routed to venue specialist
+        mock_ctx.send_message.assert_called_once()
+        call_args = mock_ctx.send_message.call_args
+        assert call_args[1]["target_id"] == "venue"
 
 
 def test_parse_specialist_output_with_valid_structured_output():
@@ -314,3 +287,179 @@ async def test_chain_summarize_without_previous_summary():
         result = await coordinator._chain_summarize(prev="", new="Plan a corporate party for 50 people with $5k budget")
 
         assert result == "User wants corporate party, 50 people, $5k budget."
+
+
+def test_coordinator_has_only_summary_state():
+    """Test coordinator has no conversation_history, current_index, or specialist_sequence."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+
+    # Verify ONLY _current_summary exists
+    assert hasattr(coordinator, "_current_summary")
+    assert coordinator._current_summary == ""
+
+    # Verify stateful fields DO NOT exist
+    assert not hasattr(coordinator, "_conversation_history")
+    assert not hasattr(coordinator, "_current_index")
+    assert not hasattr(coordinator, "_specialist_sequence")
+
+
+@pytest.mark.asyncio
+async def test_on_specialist_response_routes_to_next_agent():
+    """Test routing to next agent based on structured output."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import SpecialistOutput
+
+    mock_response = Mock()
+    mock_response.executor_id = "venue"
+    mock_response.agent_run_response.value = SpecialistOutput(
+        summary="Researched 3 venues: A ($2k), B ($3k), C ($4k)",
+        next_agent="budget",
+        user_input_needed=False,
+        user_prompt=None,
+    )
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+    coordinator._current_summary = "Party for 50 people"
+
+    with patch.object(coordinator, "_chain_summarize", new_callable=AsyncMock) as mock_summarize:
+        mock_summarize.return_value = "Party for 50. Venues researched."
+        with patch.object(coordinator, "_route_to_agent", new_callable=AsyncMock) as mock_route:
+            mock_ctx = AsyncMock()
+
+            await coordinator.on_specialist_response(mock_response, mock_ctx)
+
+            # Verify summary chained
+            mock_summarize.assert_called_once_with(
+                prev="Party for 50 people", new="Researched 3 venues: A ($2k), B ($3k), C ($4k)"
+            )
+
+            # Verify routed to budget
+            mock_route.assert_called_once_with("budget", mock_ctx)
+
+
+@pytest.mark.asyncio
+async def test_on_specialist_response_requests_user_input():
+    """Test requesting user input when specialist needs it."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import HumanFeedbackRequest, SpecialistOutput
+
+    mock_response = Mock()
+    mock_response.executor_id = "venue"
+    mock_response.agent_run_response.value = SpecialistOutput(
+        summary="Found 3 venue options",
+        next_agent=None,
+        user_input_needed=True,
+        user_prompt="Which venue do you prefer: A, B, or C?",
+    )
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+    coordinator._current_summary = "Party for 50"
+
+    with patch.object(coordinator, "_chain_summarize", new_callable=AsyncMock) as mock_summarize:
+        mock_summarize.return_value = "Party for 50. Venue options found."
+        mock_ctx = AsyncMock()
+
+        await coordinator.on_specialist_response(mock_response, mock_ctx)
+
+        # Verify request_info called
+        mock_ctx.request_info.assert_called_once()
+        call_args = mock_ctx.request_info.call_args[1]
+
+        request = call_args["request_data"]
+        assert isinstance(request, HumanFeedbackRequest)
+        assert request.prompt == "Which venue do you prefer: A, B, or C?"
+        assert request.requesting_agent == "venue"
+
+
+@pytest.mark.asyncio
+async def test_on_specialist_response_synthesizes_when_done():
+    """Test final synthesis when next_agent is None and no user input needed."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import SpecialistOutput
+
+    mock_response = Mock()
+    mock_response.executor_id = "logistics"
+    mock_response.agent_run_response.value = SpecialistOutput(
+        summary="Timeline and coordination complete",
+        next_agent=None,
+        user_input_needed=False,
+        user_prompt=None,
+    )
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+
+    with patch.object(coordinator, "_chain_summarize", new_callable=AsyncMock) as mock_summarize:
+        mock_summarize.return_value = "All specialists complete."
+        with patch.object(coordinator, "_synthesize_plan", new_callable=AsyncMock) as mock_synthesize:
+            mock_ctx = AsyncMock()
+
+            await coordinator.on_specialist_response(mock_response, mock_ctx)
+
+            # Verify synthesis called
+            mock_synthesize.assert_called_once_with(mock_ctx)
+
+
+@pytest.mark.asyncio
+async def test_on_human_feedback_chains_summary_and_routes_back():
+    """Test human feedback is chained into summary and routed back to requester."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+    from spec_to_agents.workflow.messages import HumanFeedbackRequest
+
+    original_request = HumanFeedbackRequest(
+        prompt="Which venue?", context={}, request_type="selection", requesting_agent="venue"
+    )
+
+    coordinator = EventPlanningCoordinator(Mock(), Mock())
+    coordinator._current_summary = "Party for 50. Venue options: A, B, C."
+
+    with patch.object(coordinator, "_chain_summarize", new_callable=AsyncMock) as mock_summarize:
+        mock_summarize.return_value = "Party for 50. User selected Venue B."
+        with patch.object(coordinator, "_route_to_agent", new_callable=AsyncMock) as mock_route:
+            mock_ctx = AsyncMock()
+
+            await coordinator.on_human_feedback(original_request, "Venue B", mock_ctx)
+
+            # Verify summary updated with feedback
+            mock_summarize.assert_called_once_with(
+                prev="Party for 50. Venue options: A, B, C.", new="User feedback: Venue B"
+            )
+
+            # Verify routed back to venue specialist
+            mock_route.assert_called_once_with("venue", mock_ctx)
+
+
+@pytest.mark.asyncio
+async def test_synthesize_plan_uses_summary_not_history():
+    """Test final synthesis uses summary, not conversation history."""
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    mock_agent = Mock()
+    mock_result = Mock()
+    mock_result.text = "Complete event plan with all specialist recommendations."
+
+    with patch("spec_to_agents.clients.get_chat_client") as mock_get_client:
+        mock_client = AsyncMock()
+        mock_client.get_response = AsyncMock(return_value=mock_result)
+        mock_get_client.return_value = mock_client
+
+        coordinator = EventPlanningCoordinator(mock_agent, Mock())
+        coordinator._current_summary = (
+            "All specialists complete. Venue B, budget allocated, catering confirmed, logistics ready."
+        )
+
+        mock_ctx = AsyncMock()
+
+        await coordinator._synthesize_plan(mock_ctx)
+
+        # Verify get_response called with summary-based message
+        call_args = mock_client.get_response.call_args
+        messages = call_args[1]["messages"]
+
+        assert len(messages) == 1
+        assert "All specialists complete" in messages[0].text
+        assert "synthesize a comprehensive event plan" in messages[0].text
+
+        # Verify output yielded
+        mock_ctx.yield_output.assert_called_once_with("Complete event plan with all specialist recommendations.")
