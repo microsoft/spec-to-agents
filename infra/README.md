@@ -133,6 +133,22 @@ The deployment provides these outputs:
 
 ## Testing the Deployment
 
+### Automated Verification
+
+Run the verification script to check your deployment:
+
+```bash
+./scripts/verify-bing-connection.sh
+```
+
+This script will:
+- Check that all required environment variables are set
+- Verify the Bing Grounding resource exists
+- Confirm the application is accessible
+- Provide guidance for manual verification steps
+
+### Manual Verification
+
 After deployment, verify the Bing connection:
 
 1. Navigate to the Azure Portal
