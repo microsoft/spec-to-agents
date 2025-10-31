@@ -4,12 +4,14 @@
 
 from agent_framework import Workflow
 
+from spec_to_agents.clients import create_agent_client
 from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
 
 
 def test_workflow_builds_successfully():
     """Test that the workflow can be constructed without errors."""
-    test_workflow = build_event_planning_workflow()
+    client = create_agent_client()
+    test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
     assert isinstance(test_workflow, Workflow)
 
@@ -35,7 +37,8 @@ def test_workflow_uses_star_topology():
     - 4 AgentExecutors (specialists)
     Total: 5 executors (down from 13)
     """
-    test_workflow = build_event_planning_workflow()
+    client = create_agent_client()
+    test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
 
     # Workflow should build successfully with new star topology
@@ -55,7 +58,8 @@ def test_coordinator_uses_service_managed_threads():
     - Should NOT have _current_index (obsolete)
     - Should NOT have _specialist_sequence (obsolete)
     """
-    test_workflow = build_event_planning_workflow()
+    client = create_agent_client()
+    test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
 
     # Get the coordinator executor

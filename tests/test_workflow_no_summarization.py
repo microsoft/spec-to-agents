@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from agent_framework import AgentExecutorResponse, AgentRunResponse, WorkflowContext
 
+from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
-from spec_to_agents.workflow.messages import SpecialistOutput
 
 
 @pytest.mark.asyncio

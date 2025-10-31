@@ -19,7 +19,6 @@ dependencies = [
     "httpx>=0.27.0",
     "icalendar>=5.0.11",
     "pytz>=2024.1",
-    "azure-cognitiveservices-search-websearch>=2.0.1",
 ]
 
 [project.scripts]
@@ -52,7 +51,12 @@ python_functions = ["test_*"]
 asyncio_mode = "auto"
 
 [dependency-groups]
-dev = ["mypy>=1.18.2", "pyright>=1.1.406", "pytest-asyncio>=1.2.0"]
+dev = [
+    "mypy>=1.18.2",
+    "pyright>=1.1.406",
+    "pytest-asyncio>=1.2.0",
+    "types-pytz>=2025.2.0.20250809",
+]
 
 [tool.uv.sources]
 "agent-framework-core" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/core" }

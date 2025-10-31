@@ -9,7 +9,7 @@ from agent_framework import ai_function
 from pydantic import Field
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def get_weather_forecast(
     location: Annotated[
         str, Field(description="City name or 'latitude,longitude' (e.g., 'Seattle' or '47.6062,-122.3321')")
@@ -50,7 +50,12 @@ async def get_weather_forecast(
             else:
                 # Geocode city name using Open-Meteo's geocoding API
                 geocode_url = "https://geocoding-api.open-meteo.com/v1/search"
-                geocode_params = {"name": location, "count": 1, "language": "en", "format": "json"}
+                geocode_params: dict[str, str | int] = {
+                    "name": location,
+                    "count": 1,
+                    "language": "en",
+                    "format": "json",
+                }
                 geocode_response = await client.get(geocode_url, params=geocode_params)
                 geocode_response.raise_for_status()
                 geocode_data = geocode_response.json()
@@ -65,7 +70,7 @@ async def get_weather_forecast(
 
             # Get weather forecast from Open-Meteo
             weather_url = "https://api.open-meteo.com/v1/forecast"
-            weather_params = {
+            weather_params: dict[str, str | float | int] = {
                 "latitude": lat,
                 "longitude": lon,
                 "daily": "temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max",

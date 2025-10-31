@@ -5,51 +5,15 @@
 import os
 from typing import Annotated
 
-from agent_framework import ai_function
-from azure.cognitiveservices.search.websearch import WebSearchClient
-from msrest.authentication import CognitiveServicesCredentials
+from agent_framework import HostedWebSearchTool, ToolMode, ai_function
 from pydantic import Field
 
-# Lazy client initialization
-_client: WebSearchClient | None = None
+from spec_to_agents.clients import create_agent_client
 
 
-def _get_client() -> WebSearchClient:
-    """
-    Get or create the Bing Search client instance.
-
-    Returns
-    -------
-    WebSearchClient
-        Configured Bing Search client
-
-    Raises
-    ------
-    ValueError
-        If BING_SEARCH_API_KEY environment variable is not set
-    """
-    global _client
-
-    if _client is None:
-        api_key = os.getenv("BING_SEARCH_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "BING_SEARCH_API_KEY environment variable not set. "
-                "Obtain an API key from Azure Portal (Bing Search v7 resource) and add to .env file."
-            )
-
-        _client = WebSearchClient(
-            endpoint="https://api.bing.microsoft.com",
-            credentials=CognitiveServicesCredentials(api_key),
-        )
-
-    return _client
-
-
-@ai_function
-def web_search(
+@ai_function  # type: ignore[arg-type]
+async def web_search(
     query: Annotated[str, Field(description="Search query to find information on the web")],
-    count: Annotated[int, Field(description="Number of search results to return (1-50)", ge=1, le=50)] = 3,
 ) -> str:
     """
     Search the web using Bing Search API and return formatted results.
@@ -58,8 +22,6 @@ def web_search(
     ----------
     query : str
         The search query string
-    count : int, optional
-        Number of results to return (1-50), default is 3
 
     Returns
     -------
@@ -71,33 +33,32 @@ def web_search(
     Results are formatted for language model consumption with clear structure:
     - Result count at top
     - Numbered results
-    - Title, snippet, URL, and source for each result
+    - Title, snippet, URL, and display URL for each result
+
+    Uses a temporary agent with auto-cleanup via async context manager.
     """
+    # Ensure conflicting environment variables are not set
+    del os.environ["BING_CONNECTION_ID"]
+    del os.environ["BING_CUSTOM_CONNECTION_NAME"]
+    del os.environ["BING_CUSTOM_INSTANCE_NAME"]
     try:
-        # Get client (lazy initialization)
-        client = _get_client()
+        web_search_tool = HostedWebSearchTool(description="Search the web for current information using Bing")
 
-        # Execute search
-        response = client.web.search(query=query, count=count)
-
-        # Check if we have results
-        if not response.web_pages or not response.web_pages.value:
-            return f"No results found for query: {query}"
-
-        # Format results for LM consumption
-        results = []
-        for i, result in enumerate(response.web_pages.value, start=1):
-            result_text = f"{i}. {result.name}\n"
-            result_text += f"   {result.snippet}\n"
-            result_text += f"   URL: {result.url}\n"
-            result_text += f"   Source: {result.display_url}"
-            results.append(result_text)
-
-        # Build final response
-        formatted_response = f'Found {len(results)} results for "{query}":\n\n'
-        formatted_response += "\n\n".join(results)
-
-        return formatted_response
+        # Use async context manager for proper cleanup
+        async with create_agent_client() as client:
+            agent = client.create_agent(
+                name="BingWebSearchAgent",
+                tools=[web_search_tool],
+                system_message=(
+                    "You are a web search agent that uses the Bing Web Search tool to find information on the web."
+                ),
+                tool_choice=ToolMode.REQUIRED(function_name="web_search"),
+                store=True,
+                model_id=os.getenv("WEB_SEARCH_MODEL", "gpt-4.1-mini"),
+            )
+            response = await agent.run(f"Perform a web search for: {query}")
+            return response.text
+        # Agent automatically cleaned up when context manager exits
 
     except Exception as e:
         # Handle API errors gracefully

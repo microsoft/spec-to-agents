@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def main():
+def main() -> None:
     """Launch the branching workflow in DevUI."""
     import logging
 

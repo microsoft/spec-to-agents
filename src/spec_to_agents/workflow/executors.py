@@ -14,7 +14,7 @@ from agent_framework import (
     response_handler,
 )
 
-from spec_to_agents.workflow.messages import HumanFeedbackRequest, SpecialistOutput
+from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
 
 
 class EventPlanningCoordinator(Executor):
@@ -56,8 +56,8 @@ class EventPlanningCoordinator(Executor):
         """
         Handle initial user request and route to venue specialist.
 
-        Service-managed threads automatically maintain conversation context,
-        so we simply route the user's request to the venue specialist.
+        Creates the initial conversation with the user's request and routes
+        it to the venue specialist to begin the workflow.
 
         Parameters
         ----------
@@ -67,6 +67,7 @@ class EventPlanningCoordinator(Executor):
             Workflow context for sending messages to specialists
         """
         # Route to venue specialist with user's initial request
+        # _route_to_agent will wrap it in a ChatMessage
         await self._route_to_agent("venue", prompt, ctx)
 
     @handler
@@ -83,6 +84,8 @@ class EventPlanningCoordinator(Executor):
         - Elif next_agent is set: Route to that specialist
         - Else: Synthesize final plan (workflow complete)
 
+        Extracts full_conversation from the response to pass context to next agent.
+
         Parameters
         ----------
         response : AgentExecutorResponse
@@ -93,26 +96,38 @@ class EventPlanningCoordinator(Executor):
         # Parse structured output from specialist
         specialist_output = self._parse_specialist_output(response)
 
+        # Extract full conversation from specialist response
+        conversation = list(response.full_conversation or response.agent_run_response.messages)
+
         # Route based ONLY on structured output fields
         if specialist_output.user_input_needed:
-            # Pause workflow for human input
+            # Pause workflow for human input, preserving conversation
             await ctx.request_info(
                 request_data=HumanFeedbackRequest(
                     prompt=specialist_output.user_prompt or "Please provide input",
                     context={},
                     request_type="clarification",
                     requesting_agent=response.executor_id,
+                    conversation=conversation,
                 ),
                 request_type=HumanFeedbackRequest,
                 response_type=str,
             )
         elif specialist_output.next_agent:
-            # Route to next specialist (dynamic routing via structured output)
-            next_context = f"Previous specialist ({response.executor_id}) completed. Continue with your analysis."
-            await self._route_to_agent(specialist_output.next_agent, next_context, ctx)
+            # Route to next specialist with full conversation history
+            next_context = (
+                f"Previous specialist ({response.executor_id}) completed their analysis. "
+                f"Please review the conversation history and continue with your specialized analysis."
+            )
+            await self._route_to_agent(
+                specialist_output.next_agent,
+                next_context,
+                ctx,
+                prior_conversation=conversation,
+            )
         else:
             # Workflow complete: next_agent=None and no user input needed
-            await self._synthesize_plan(ctx)
+            await self._synthesize_plan(ctx, conversation)
 
     @response_handler
     async def on_human_feedback(
@@ -124,48 +139,64 @@ class EventPlanningCoordinator(Executor):
         """
         Handle human feedback and route back to requesting specialist.
 
-        Service-managed threads automatically include the user's feedback
-        in the conversation context, so we simply route back to the specialist.
+        Restores conversation history from the original request and adds
+        the user's feedback to continue the conversation.
 
         Parameters
         ----------
         original_request : HumanFeedbackRequest
-            Original request containing requesting_agent ID
+            Original request containing requesting_agent ID and conversation history
         feedback : str
             User's response (selection, clarification, approval)
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for routing
         """
-        # Route back to specialist that requested input
-        # Framework automatically includes user feedback in thread
-        feedback_context = f"User provided: {feedback}. Please continue with your analysis."
-        await self._route_to_agent(original_request.requesting_agent, feedback_context, ctx)
+        # Retrieve conversation history from original request
+        conversation = list(original_request.conversation)
 
-    async def _synthesize_plan(self, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
+        # Route back to specialist with feedback and full conversation history
+        feedback_context = (
+            f"User provided the following input: {feedback}\nPlease continue with your analysis based on this feedback."
+        )
+        await self._route_to_agent(
+            original_request.requesting_agent,
+            feedback_context,
+            ctx,
+            prior_conversation=conversation,
+        )
+
+    async def _synthesize_plan(
+        self,
+        ctx: WorkflowContext[AgentExecutorRequest, str],
+        conversation: list[ChatMessage],
+    ) -> None:
         """
         Synthesize final event plan from all specialist recommendations.
 
         This method is called after all specialists have completed their work.
-        Service-managed threads provide full conversation context automatically,
-        so the coordinator agent has access to all specialist outputs.
+        Uses the full conversation history to generate a comprehensive final plan.
 
         Parameters
         ----------
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for yielding final output
+        conversation : list[ChatMessage]
+            Complete conversation history including all specialist interactions
         """
-        # Create synthesis message (framework provides full context via thread)
-        synthesis_msg = ChatMessage(
+        # Add synthesis instruction to full conversation
+        synthesis_instruction = ChatMessage(
             Role.USER,
             text=(
-                "Please synthesize a comprehensive event plan that integrates "
-                "all specialist recommendations including venue selection, budget allocation, "
-                "catering options, and logistics coordination. Provide a cohesive final plan."
+                "All specialists have completed their work. Please synthesize a comprehensive "
+                "event plan that integrates all specialist recommendations including venue "
+                "selection, budget allocation, catering options, and logistics coordination. "
+                "Provide a cohesive final plan."
             ),
         )
+        conversation.append(synthesis_instruction)
 
-        # Run coordinator agent to synthesize
-        synthesis_result = await self._agent.run(messages=[synthesis_msg])
+        # Run coordinator agent with full conversation context
+        synthesis_result = await self._agent.run(messages=conversation)
 
         # Yield final plan as workflow output
         if synthesis_result.text:
@@ -248,9 +279,9 @@ class EventPlanningCoordinator(Executor):
 
                 # Add details for specific content types
                 if hasattr(content, "name"):  # FunctionCallContent
-                    content_types[-1] += f"(name={content.name})"
-                elif hasattr(content, "text") and content.text:  # TextContent
-                    preview = content.text[:50] + "..." if len(content.text) > 50 else content.text
+                    content_types[-1] += f"(name={content.name})"  # type: ignore
+                elif hasattr(content, "text") and content.text:  # type: ignore # TextContent
+                    preview = content.text[:50] + "..." if len(content.text) > 50 else content.text  # type: ignore
                     content_types[-1] += f'(text="{preview}")'
 
             role = getattr(msg, "role", "unknown")
@@ -259,13 +290,17 @@ class EventPlanningCoordinator(Executor):
         return "\n".join(analysis_lines)
 
     async def _route_to_agent(
-        self, agent_id: str, message: str, ctx: WorkflowContext[AgentExecutorRequest, str]
+        self,
+        agent_id: str,
+        message: str,
+        ctx: WorkflowContext[AgentExecutorRequest, str],
+        prior_conversation: list[ChatMessage] | None = None,
     ) -> None:
         """
-        Route message to specialist agent.
+        Route message to specialist agent with full conversation history.
 
-        Service-managed threads automatically provide full conversation history
-        to each agent, so we only need to send the new message.
+        Builds complete conversation by combining prior history with new routing message,
+        ensuring agents have full context from the workflow.
 
         Parameters
         ----------
@@ -275,14 +310,17 @@ class EventPlanningCoordinator(Executor):
             New message/context for specialist
         ctx : WorkflowContext[AgentExecutorRequest]
             Workflow context for sending messages
+        prior_conversation : list[ChatMessage] | None, optional
+            Previous conversation history to preserve. If None, starts fresh conversation.
         """
+        # Build conversation: prior history + new routing message
+        conversation = list(prior_conversation) if prior_conversation else []
+        conversation.append(ChatMessage(Role.USER, text=message))
+
         await ctx.send_message(
             AgentExecutorRequest(
-                messages=[ChatMessage(Role.USER, text=message)],
+                messages=conversation,
                 should_respond=True,
             ),
             target_id=agent_id,
         )
-
-
-__all__ = ["EventPlanningCoordinator"]

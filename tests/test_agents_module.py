@@ -19,10 +19,13 @@ def test_export_entities_accessible_from_agents():
 
 def test_workflow_builder_returns_workflow():
     """Test that build_event_planning_workflow returns a Workflow instance."""
+    from unittest.mock import Mock
+
     from agent_framework import Workflow
 
     from spec_to_agents.workflow.core import build_event_planning_workflow
 
-    workflow = build_event_planning_workflow()
+    mock_client = Mock()
+    workflow = build_event_planning_workflow(mock_client)
     assert isinstance(workflow, Workflow)
     assert workflow.id == "event-planning-workflow"

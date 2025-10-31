@@ -16,7 +16,7 @@ def test_create_agent_without_request_user_input():
     mock_client.create_agent.return_value = mock_agent
 
     # Act
-    agent = create_agent(mock_client, mock_code_interpreter)
+    agent = create_agent(mock_client, mock_code_interpreter, mcp_tool=None)
 
     # Assert
     assert agent == mock_agent
@@ -36,5 +36,6 @@ def test_create_agent_signature_has_no_request_user_input_parameter():
 
     assert "client" in params
     assert "code_interpreter" in params
+    assert "mcp_tool" in params
     assert "request_user_input" not in params
-    assert len(params) == 2
+    assert len(params) == 3

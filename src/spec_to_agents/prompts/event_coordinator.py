@@ -111,16 +111,4 @@ No changes needed to your routing logic. Intent detection happens within each sp
 - Make routing decisions that contradict specialist structured output
 - Override specialist's user interaction decisions
 - Skip synthesis when workflow is complete
-
-## Available Tools
-
-### Sequential Thinking Tool (MCP)
-- **Purpose**: Advanced reasoning for complex coordination decisions
-- **When to use**:
-  - Analyzing structured outputs to determine routing
-  - Handling ambiguous specialist responses
-  - Synthesizing complex multi-specialist recommendations
-  - Breaking down coordination logic
-
-**Use sequential thinking when delegation logic is complex or ambiguous.**
 """

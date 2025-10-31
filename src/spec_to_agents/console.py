@@ -54,9 +54,10 @@ from agent_framework import (
 )
 from dotenv import load_dotenv
 
+from spec_to_agents.clients import create_agent_client
+from spec_to_agents.models.messages import HumanFeedbackRequest
 from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
 from spec_to_agents.workflow.core import build_event_planning_workflow
-from spec_to_agents.workflow.messages import HumanFeedbackRequest
 
 # Load environment variables at module import
 load_dotenv()
@@ -144,11 +145,14 @@ async def main() -> None:
     print("Type 'exit' at any prompt to quit.")
     print()
 
-    # Use async context manager for MCP tool lifecycle
-    async with create_sequential_thinking_tool() as mcp_tool:
-        # Build workflow with connected MCP tool
+    # Use async context managers for both MCP tool and agent client lifecycle
+    async with (
+        create_sequential_thinking_tool() as mcp_tool,
+        create_agent_client() as client,
+    ):
+        # Build workflow with connected MCP tool and agent client
         print("Loading workflow...", end="", flush=True)
-        workflow = build_event_planning_workflow(mcp_tool)
+        workflow = build_event_planning_workflow(client, mcp_tool)
         print(" ✓")
         print()
 
@@ -311,7 +315,7 @@ async def main() -> None:
         print("Event planning complete!")
         print("=" * 70)
 
-    # MCP tool automatically cleaned up by async context manager
+    # MCP tool and agent client automatically cleaned up by async context managers
 
 
 def cli() -> None:

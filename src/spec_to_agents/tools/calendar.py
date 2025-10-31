@@ -17,7 +17,7 @@ CALENDAR_PATH: Final[Path] = Path(os.getenv("CALENDAR_STORAGE_PATH", "./data/cal
 CALENDAR_PATH.mkdir(parents=True, exist_ok=True)
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def create_calendar_event(  # noqa: RUF029
     event_title: Annotated[str, Field(description="Title of the calendar event")],
     start_date: Annotated[str, Field(description="Start date in ISO format (YYYY-MM-DD)")],
@@ -70,12 +70,12 @@ async def create_calendar_event(  # noqa: RUF029
             with open(calendar_file, "rb") as f:  # noqa: ASYNC230
                 cal = Calendar.from_ical(f.read())  # type: ignore
         else:
-            cal = Calendar()
+            cal = Calendar()  # type: ignore[no-untyped-call]
             cal.add("prodid", "-//Event Planning Agent//EN")  # type: ignore
             cal.add("version", "2.0")  # type: ignore
 
         # Create event
-        event = Event()
+        event = Event()  # type: ignore[no-untyped-call]
         event.add("summary", event_title)  # type: ignore
         event.add("dtstart", start_dt)  # type: ignore
         event.add("dtend", end_dt)  # type: ignore
@@ -102,7 +102,7 @@ async def create_calendar_event(  # noqa: RUF029
         return f"Error creating calendar event: {e!s}"
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def list_calendar_events(  # noqa: RUF029
     calendar_name: Annotated[str, Field(description="Calendar name (filename without .ics)")] = "event_planning",
     start_date: Annotated[str | None, Field(description="Optional: Filter events from this date (YYYY-MM-DD)")] = None,
@@ -176,7 +176,7 @@ async def list_calendar_events(  # noqa: RUF029
         return f"Error listing calendar events: {e!s}"
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def delete_calendar_event(  # noqa: RUF029
     event_title: Annotated[str, Field(description="Title of the event to delete")],
     calendar_name: Annotated[str, Field(description="Calendar name (filename without .ics)")] = "event_planning",

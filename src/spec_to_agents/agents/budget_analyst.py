@@ -1,15 +1,14 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from agent_framework import ChatAgent, HostedCodeInterpreterTool
+from agent_framework import ChatAgent, HostedCodeInterpreterTool, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
+from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import budget_analyst
-from spec_to_agents.workflow.messages import SpecialistOutput
 
 
 def create_agent(
-    client: AzureAIAgentClient,
-    code_interpreter: HostedCodeInterpreterTool,
+    client: AzureAIAgentClient, code_interpreter: HostedCodeInterpreterTool, mcp_tool: MCPStdioTool | None
 ) -> ChatAgent:
     """
     Create Budget Analyst agent for event planning workflow.
@@ -20,6 +19,9 @@ def create_agent(
         AI client for agent creation
     code_interpreter : HostedCodeInterpreterTool
         Python code execution tool for financial calculations
+    mcp_tool : MCPStdioTool | None, optional
+        Sequential thinking tool for complex reasoning.
+        If None, coordinator operates without MCP tool assistance.
 
     Returns
     -------
@@ -36,10 +38,13 @@ def create_agent(
     User input is handled through SpecialistOutput.user_input_needed field,
     not through a separate tool.
     """
+    tools = [code_interpreter]
+    if mcp_tool is not None:
+        tools.append(mcp_tool)  # type: ignore
     return client.create_agent(
         name="BudgetAnalyst",
         instructions=budget_analyst.SYSTEM_PROMPT,
-        tools=[code_interpreter],
+        tools=tools,
         response_format=SpecialistOutput,
         store=True,
     )

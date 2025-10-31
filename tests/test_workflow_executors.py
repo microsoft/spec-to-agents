@@ -11,8 +11,8 @@ def test_parse_specialist_output_with_valid_structured_output():
     """Test parsing SpecialistOutput from agent response."""
     from agent_framework import AgentExecutorResponse, AgentRunResponse
 
+    from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
-    from spec_to_agents.workflow.messages import SpecialistOutput
 
     # Create mock response with structured output
     specialist_output = SpecialistOutput(
@@ -37,8 +37,8 @@ def test_parse_specialist_output_with_try_parse_fallback():
     """Test parsing with try_parse_value fallback when value is None."""
     from agent_framework import AgentExecutorResponse, AgentRunResponse
 
+    from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
-    from spec_to_agents.workflow.messages import SpecialistOutput
 
     # Create mock response where value is initially None
     specialist_output = SpecialistOutput(
@@ -161,8 +161,10 @@ async def test_route_to_agent_sends_single_message():
 @pytest.mark.asyncio
 async def test_on_specialist_response_routes_to_next_agent():
     """Test routing to next agent based on structured output."""
+    from agent_framework import ChatMessage, Role
+
+    from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
-    from spec_to_agents.workflow.messages import SpecialistOutput
 
     mock_response = Mock()
     mock_response.executor_id = "venue"
@@ -172,6 +174,9 @@ async def test_on_specialist_response_routes_to_next_agent():
         user_input_needed=False,
         user_prompt=None,
     )
+    # Mock conversation history
+    mock_response.full_conversation = [ChatMessage(Role.USER, text="Find venues")]
+    mock_response.agent_run_response.messages = []
 
     coordinator = EventPlanningCoordinator(Mock())
 
@@ -188,8 +193,10 @@ async def test_on_specialist_response_routes_to_next_agent():
 @pytest.mark.asyncio
 async def test_on_specialist_response_requests_user_input():
     """Test requesting user input when specialist needs it."""
+    from agent_framework import ChatMessage, Role
+
+    from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
-    from spec_to_agents.workflow.messages import HumanFeedbackRequest, SpecialistOutput
 
     mock_response = Mock()
     mock_response.executor_id = "venue"
@@ -199,6 +206,9 @@ async def test_on_specialist_response_requests_user_input():
         user_input_needed=True,
         user_prompt="Which venue do you prefer: A, B, or C?",
     )
+    # Mock conversation history
+    mock_response.full_conversation = [ChatMessage(Role.USER, text="Find venues")]
+    mock_response.agent_run_response.messages = []
 
     coordinator = EventPlanningCoordinator(Mock())
 
@@ -221,8 +231,10 @@ async def test_on_specialist_response_synthesizes_when_done():
     """Test final synthesis when next_agent is None and no user input needed."""
     from unittest.mock import patch
 
+    from agent_framework import ChatMessage, Role
+
+    from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
-    from spec_to_agents.workflow.messages import SpecialistOutput
 
     mock_response = Mock()
     mock_response.executor_id = "logistics"
@@ -232,6 +244,9 @@ async def test_on_specialist_response_synthesizes_when_done():
         user_input_needed=False,
         user_prompt=None,
     )
+    # Mock conversation history
+    mock_response.full_conversation = [ChatMessage(Role.USER, text="Plan event")]
+    mock_response.agent_run_response.messages = []
 
     coordinator = EventPlanningCoordinator(Mock())
 
@@ -240,15 +255,18 @@ async def test_on_specialist_response_synthesizes_when_done():
 
         await coordinator.on_specialist_response(mock_response, mock_ctx)
 
-        # Verify synthesis called
-        mock_synthesize.assert_called_once_with(mock_ctx)
+        # Verify synthesis called with ctx and conversation
+        mock_synthesize.assert_called_once()
+        call_args = mock_synthesize.call_args[0]
+        assert call_args[0] == mock_ctx
+        assert isinstance(call_args[1], list)  # conversation list
 
 
 @pytest.mark.asyncio
 async def test_on_human_feedback_routes_back():
     """Test human feedback is routed back to requester."""
+    from spec_to_agents.models.messages import HumanFeedbackRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
-    from spec_to_agents.workflow.messages import HumanFeedbackRequest
 
     original_request = HumanFeedbackRequest(
         prompt="Which venue?", context={}, request_type="selection", requesting_agent="venue"
@@ -272,6 +290,8 @@ async def test_on_human_feedback_routes_back():
 @pytest.mark.asyncio
 async def test_synthesize_plan_uses_framework_context():
     """Test final synthesis relies on framework-provided context via threads."""
+    from agent_framework import ChatMessage, Role
+
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
     mock_agent = Mock()
@@ -286,16 +306,23 @@ async def test_synthesize_plan_uses_framework_context():
 
     mock_ctx = AsyncMock()
 
-    await coordinator._synthesize_plan(mock_ctx)
+    # Provide conversation history
+    conversation = [
+        ChatMessage(Role.USER, text="Plan event"),
+        ChatMessage(Role.ASSISTANT, text="Venue specialist work done"),
+    ]
 
-    # Verify run called with synthesis instruction
+    await coordinator._synthesize_plan(mock_ctx, conversation)
+
+    # Verify run called with conversation + synthesis instruction
     call_args = mock_agent_instance.run.call_args
     messages = call_args[1]["messages"]
 
-    assert len(messages) == 1
-    assert "synthesize a comprehensive event plan" in messages[0].text
+    # Should include original conversation + synthesis instruction
+    assert len(messages) == 3  # 2 original + 1 synthesis instruction
+    assert "synthesize a comprehensive event plan" in messages[-1].text
     # Should NOT contain manual summary (relies on framework context)
-    assert "Summary of specialist work" not in messages[0].text
+    assert "Summary of specialist work" not in messages[-1].text
 
     # Verify output yielded
     mock_ctx.yield_output.assert_called_once_with("Complete event plan with all specialist recommendations.")

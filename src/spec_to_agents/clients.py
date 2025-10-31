@@ -1,9 +1,9 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework.azure import AzureAIAgentClient
+from agent_framework.azure._shared import DEFAULT_AZURE_TOKEN_ENDPOINT
 from azure.identity.aio import AzureCliCredential, ChainedTokenCredential, ManagedIdentityCredential
 
 _credential: ChainedTokenCredential | None = None
-_chat_client: AzureAIAgentClient | None = None
 
 
 def get_credential() -> ChainedTokenCredential:
@@ -17,9 +17,33 @@ def get_credential() -> ChainedTokenCredential:
     return _credential
 
 
-def get_chat_client() -> AzureAIAgentClient:
-    """Get or create the shared agent client."""
-    global _chat_client
-    if _chat_client is None:
-        _chat_client = AzureAIAgentClient(async_credential=get_credential())
-    return _chat_client
+async def ad_token_provider() -> str:
+    """Get Azure AD token for Azure OpenAI."""
+    credential = get_credential()
+    token = await credential.get_token(DEFAULT_AZURE_TOKEN_ENDPOINT)
+    return token.token
+
+
+def create_agent_client() -> AzureAIAgentClient:
+    """
+    Create a new AzureAIAgentClient for agent lifecycle management.
+
+    Returns
+    -------
+    AzureAIAgentClient
+        A client instance for creating and managing Azure AI agents.
+        Must be used within an async context manager for automatic cleanup.
+
+    Notes
+    -----
+    The returned client should be used as an async context manager to ensure
+    proper cleanup of created agents when the program terminates:
+
+        async with create_agent_client() as client:
+            agent = client.create_agent(...)
+            # Agent automatically deleted on context exit
+
+    This follows the Agent Framework best practice for resource management
+    documented in the Azure AI Foundry integration guide.
+    """
+    return AzureAIAgentClient(async_credential=get_credential())
