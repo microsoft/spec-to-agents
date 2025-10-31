@@ -137,7 +137,7 @@ def build_event_planning_workflow(
     # Create coordinator executor with routing logic
     coordinator = EventPlanningCoordinator(coordinator_agent)
 
-    # Build workflow with bidirectional star topology using WorkflowBuilder pattern
+    # Initialize WorkflowBuilder with bidirectional star topology configuration
     builder = WorkflowBuilder(
         name="Event Planning Workflow",
         description=(
@@ -152,7 +152,7 @@ def build_event_planning_workflow(
     builder.set_start_executor(coordinator)
 
     # Add specialist agents using WorkflowBuilder pattern
-    # add_agent() wraps each agent in an AgentExecutor automatically
+    # add_agent() wraps each agent in an AgentExecutor and returns the executor
     venue_exec = builder.add_agent(venue_agent, id="venue")
     budget_exec = builder.add_agent(budget_agent, id="budget")
     catering_exec = builder.add_agent(catering_agent, id="catering")
@@ -160,8 +160,7 @@ def build_event_planning_workflow(
 
     # Add bidirectional edges: Coordinator ←→ Each Specialist
     workflow = (
-        builder
-        .add_edge(coordinator, venue_exec)
+        builder.add_edge(coordinator, venue_exec)
         .add_edge(venue_exec, coordinator)
         .add_edge(coordinator, budget_exec)
         .add_edge(budget_exec, coordinator)
