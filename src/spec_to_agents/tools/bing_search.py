@@ -8,7 +8,7 @@ from typing import Annotated
 from agent_framework import HostedWebSearchTool, ToolMode, ai_function
 from pydantic import Field
 
-from spec_to_agents.clients import create_agent_client
+from spec_to_agents.utils.clients import create_agent_client
 
 
 @ai_function  # type: ignore[arg-type]

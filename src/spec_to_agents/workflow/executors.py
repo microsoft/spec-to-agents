@@ -2,19 +2,88 @@
 
 """Custom executors for event planning workflow with human-in-the-loop."""
 
+import json
+
 from agent_framework import (
     AgentExecutorRequest,
     AgentExecutorResponse,
     ChatAgent,
     ChatMessage,
     Executor,
+    FunctionCallContent,
+    FunctionResultContent,
     Role,
+    TextContent,
     WorkflowContext,
     handler,
     response_handler,
 )
 
 from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
+
+
+def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessage]:
+    """
+    Convert tool calls and results to text summaries for cross-agent communication.
+
+    When passing conversation history between agents with different service thread IDs,
+    tool calls and results must be converted to text to avoid thread ID validation errors
+    in Azure AI Agent Client. This preserves the context of what tools were used and their
+    outcomes while making the messages compatible with a different agent's thread.
+
+    Parameters
+    ----------
+    messages : list[ChatMessage]
+        Original messages that may contain FunctionCallContent and FunctionResultContent
+
+    Returns
+    -------
+    list[ChatMessage]
+        New messages with tool content converted to TextContent summaries
+
+    Notes
+    -----
+    This addresses the error: "No thread ID was provided, but chat messages includes tool results."
+    Tool calls and results are inherently tied to the service thread where they were executed.
+    When routing between agents in a workflow, each agent has its own thread ID, so we must
+    convert tool-related content to plain text to avoid thread ID conflicts.
+    """
+    converted_messages = []
+    for message in messages:
+        new_contents = []
+        for content in message.contents:
+            if isinstance(content, FunctionCallContent):
+                # Convert function call to descriptive text
+                if isinstance(content.arguments, dict):
+                    args_str = json.dumps(content.arguments)
+                else:
+                    args_str = str(content.arguments)
+                text_repr = f"[Tool Call: {content.name}({args_str})]"
+                new_contents.append(TextContent(text=text_repr))
+            elif isinstance(content, FunctionResultContent):
+                # Convert function result to descriptive text
+                if content.result is not None:
+                    result_str = content.result if isinstance(content.result, str) else json.dumps(content.result)
+                    text_repr = f"[Tool Result for call {content.call_id}: {result_str}]"
+                elif content.exception is not None:
+                    text_repr = f"[Tool Error for call {content.call_id}: {content.exception}]"
+                else:
+                    text_repr = f"[Tool Result for call {content.call_id}: No result]"
+                new_contents.append(TextContent(text=text_repr))
+            else:
+                # Keep other content types as-is (TextContent, ImageContent, etc.)
+                new_contents.append(content)
+
+        # Create new message with converted contents, preserving role and metadata
+        converted_messages.append(
+            ChatMessage(
+                role=message.role,
+                contents=new_contents,
+                author_name=message.author_name,
+                message_id=message.message_id,
+            )
+        )
+    return converted_messages
 
 
 class EventPlanningCoordinator(Executor):
@@ -174,16 +243,20 @@ class EventPlanningCoordinator(Executor):
         Synthesize final event plan from all specialist recommendations.
 
         This method is called after all specialists have completed their work.
-        Uses the full conversation history to generate a comprehensive final plan.
+        Uses the conversation history with tool content converted to text summaries.
 
         Parameters
         ----------
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for yielding final output
         conversation : list[ChatMessage]
-            Complete conversation history including all specialist interactions
+            Complete conversation history including all specialist interactions.
+            Tool calls/results are converted to text summaries before synthesis.
         """
-        # Add synthesis instruction to full conversation
+        # Convert tool content to text for coordinator's thread
+        clean_conversation = convert_tool_content_to_text(conversation)
+
+        # Add synthesis instruction
         synthesis_instruction = ChatMessage(
             Role.USER,
             text=(
@@ -193,10 +266,10 @@ class EventPlanningCoordinator(Executor):
                 "Provide a cohesive final plan."
             ),
         )
-        conversation.append(synthesis_instruction)
+        clean_conversation.append(synthesis_instruction)
 
-        # Run coordinator agent with full conversation context
-        synthesis_result = await self._agent.run(messages=conversation)
+        # Run coordinator agent with converted conversation context
+        synthesis_result = await self._agent.run(messages=clean_conversation)
 
         # Yield final plan as workflow output
         if synthesis_result.text:
@@ -297,10 +370,11 @@ class EventPlanningCoordinator(Executor):
         prior_conversation: list[ChatMessage] | None = None,
     ) -> None:
         """
-        Route message to specialist agent with full conversation history.
+        Route message to specialist agent with conversation history.
 
-        Builds complete conversation by combining prior history with new routing message,
-        ensuring agents have full context from the workflow.
+        Builds complete conversation by combining prior history with new routing message.
+        Converts tool calls and results to text summaries to avoid thread ID conflicts
+        when passing messages between agents with different service threads.
 
         Parameters
         ----------
@@ -312,9 +386,18 @@ class EventPlanningCoordinator(Executor):
             Workflow context for sending messages
         prior_conversation : list[ChatMessage] | None, optional
             Previous conversation history to preserve. If None, starts fresh conversation.
+            Tool calls/results in prior conversation are converted to text summaries.
+
+        Notes
+        -----
+        Tool content conversion is necessary because each agent has its own service-managed
+        thread ID. Passing tool calls/results directly would cause Azure AI to reject the
+        request with "No thread ID provided, but chat messages includes tool results."
         """
-        # Build conversation: prior history + new routing message
-        conversation = list(prior_conversation) if prior_conversation else []
+        # Convert prior conversation to remove tool-specific content
+        conversation = convert_tool_content_to_text(prior_conversation) if prior_conversation else []
+
+        # Add new routing message
         conversation.append(ChatMessage(Role.USER, text=message))
 
         await ctx.send_message(

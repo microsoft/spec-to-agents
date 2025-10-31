@@ -18,7 +18,6 @@ from spec_to_agents.agents import (
     logistics_manager,
     venue_specialist,
 )
-from spec_to_agents.clients import create_agent_client
 from spec_to_agents.tools import (
     create_calendar_event,
     delete_calendar_event,
@@ -26,6 +25,7 @@ from spec_to_agents.tools import (
     list_calendar_events,
     web_search,
 )
+from spec_to_agents.utils.clients import create_agent_client
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
 # Declare lazy-loaded attribute for type checking
@@ -153,6 +153,7 @@ def build_event_planning_workflow(
                 "catering, and logistics coordination. Supports human-in-the-loop for "
                 "clarification and approval."
             ),
+            max_iterations=30,  # Prevent infinite loops
         )
         # Set coordinator as start executor
         .set_start_executor(coordinator)

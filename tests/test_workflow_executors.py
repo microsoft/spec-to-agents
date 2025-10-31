@@ -5,6 +5,9 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from agent_framework import ChatMessage, FunctionCallContent, FunctionResultContent, Role, TextContent
+
+from spec_to_agents.workflow.executors import convert_tool_content_to_text
 
 
 def test_parse_specialist_output_with_valid_structured_output():
@@ -326,3 +329,103 @@ async def test_synthesize_plan_uses_framework_context():
 
     # Verify output yielded
     mock_ctx.yield_output.assert_called_once_with("Complete event plan with all specialist recommendations.")
+
+
+def test_convert_tool_content_to_text_function_calls():
+    """Test converting function calls to text summaries."""
+    messages = [
+        ChatMessage(
+            Role.ASSISTANT,
+            contents=[
+                TextContent(text="Let me search for venues."),
+                FunctionCallContent(name="web_search", arguments={"query": "event venues"}, call_id="call_123"),
+            ],
+        )
+    ]
+
+    converted = convert_tool_content_to_text(messages)
+
+    assert len(converted) == 1
+    assert len(converted[0].contents) == 2
+    # First content should be original text
+    assert isinstance(converted[0].contents[0], TextContent)
+    assert converted[0].contents[0].text == "Let me search for venues."
+    # Second content should be converted tool call
+    assert isinstance(converted[0].contents[1], TextContent)
+    assert "Tool Call: web_search" in converted[0].contents[1].text
+    assert "event venues" in converted[0].contents[1].text
+
+
+def test_convert_tool_content_to_text_function_results():
+    """Test converting function results to text summaries."""
+    messages = [
+        ChatMessage(
+            Role.TOOL,
+            contents=[
+                FunctionResultContent(call_id="call_123", result="Found 5 venues", name="web_search"),
+            ],
+        )
+    ]
+
+    converted = convert_tool_content_to_text(messages)
+
+    assert len(converted) == 1
+    assert len(converted[0].contents) == 1
+    assert isinstance(converted[0].contents[0], TextContent)
+    assert "Tool Result for call call_123" in converted[0].contents[0].text
+    assert "Found 5 venues" in converted[0].contents[0].text
+
+
+def test_convert_tool_content_to_text_preserves_role_and_metadata():
+    """Test that message role and metadata are preserved during conversion."""
+    messages = [
+        ChatMessage(
+            Role.ASSISTANT,
+            contents=[FunctionCallContent(name="test_tool", arguments={}, call_id="call_456")],
+            author_name="VenueAgent",
+            message_id="msg_789",
+        )
+    ]
+
+    converted = convert_tool_content_to_text(messages)
+
+    assert converted[0].role == Role.ASSISTANT
+    assert converted[0].author_name == "VenueAgent"
+    assert converted[0].message_id == "msg_789"
+
+
+def test_convert_tool_content_to_text_handles_mixed_content():
+    """Test converting messages with mixed text and tool content."""
+    messages = [
+        ChatMessage(
+            Role.ASSISTANT,
+            contents=[
+                TextContent(text="Searching venues..."),
+                FunctionCallContent(name="web_search", arguments={"q": "venues"}, call_id="call_1"),
+            ],
+        ),
+        ChatMessage(
+            Role.TOOL,
+            contents=[FunctionResultContent(call_id="call_1", result="Result data", name="web_search")],
+        ),
+        ChatMessage(Role.ASSISTANT, contents=[TextContent(text="Found results!")]),
+    ]
+
+    converted = convert_tool_content_to_text(messages)
+
+    # Should have all 3 messages
+    assert len(converted) == 3
+    # First message: text + converted tool call
+    assert len(converted[0].contents) == 2
+    assert isinstance(converted[0].contents[0], TextContent)
+    assert converted[0].contents[0].text == "Searching venues..."
+    assert isinstance(converted[0].contents[1], TextContent)
+    assert "Tool Call: web_search" in converted[0].contents[1].text
+    # Second message: converted tool result
+    assert len(converted[1].contents) == 1
+    assert isinstance(converted[1].contents[0], TextContent)
+    assert "Tool Result" in converted[1].contents[0].text
+    # Third message: original text preserved
+    assert len(converted[2].contents) == 1
+    assert isinstance(converted[2].contents[0], TextContent)
+    assert converted[2].contents[0].text == "Found results!"

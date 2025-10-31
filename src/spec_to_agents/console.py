@@ -15,38 +15,12 @@ This follows the human-in-the-loop pattern from guessing_game_with_human_input.p
 3. Prompt user for responses via input()
 4. Call workflow.send_responses_streaming() with collected responses
 5. Repeat until WorkflowOutputEvent is received
-
-Usage
------
-    uv run python -m spec_to_agents.console
-
-Example
--------
-    $ uv run python -m spec_to_agents.console
-    Event Planning Workflow - Interactive CLI
-    ===========================================
-
-    Enter your event planning request:
-    > Plan a corporate holiday party for 50 people with a budget of $5000
-
-    [Workflow executes...]
-
-    HITL> The Venue Specialist found 3 options. Which do you prefer? (A/B/C)
-    > B
-
-    [Workflow continues...]
-
-    Final Event Plan:
-    [Comprehensive plan output]
 """
 
 import asyncio
-import json
 
 from agent_framework import (
-    AgentRunResponseUpdate,
-    FunctionCallContent,
-    FunctionResultContent,
+    AgentRunUpdateEvent,
     RequestInfoEvent,
     WorkflowOutputEvent,
     WorkflowRunState,
@@ -54,64 +28,14 @@ from agent_framework import (
 )
 from dotenv import load_dotenv
 
-from spec_to_agents.clients import create_agent_client
 from spec_to_agents.models.messages import HumanFeedbackRequest
 from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
+from spec_to_agents.utils.clients import create_agent_client
+from spec_to_agents.utils.display import display_agent_run_update
 from spec_to_agents.workflow.core import build_event_planning_workflow
 
 # Load environment variables at module import
 load_dotenv()
-
-
-def format_tool_call(content: FunctionCallContent, executor_id: str) -> str:
-    """
-    Format a tool call for console display with proper JSON serialization.
-
-    This follows the pattern from microsoft/agent-framework samples for
-    displaying tool execution feedback with full context.
-
-    Parameters
-    ----------
-    content : FunctionCallContent
-        The function call content to format
-    executor_id : str
-        ID of the executor making the call (e.g., "venue", "budget")
-
-    Returns
-    -------
-    str
-        Formatted tool call: "venue [tool-call] web_search({...})"
-    """
-    args = content.arguments
-    args_str = json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else (args or "").strip()
-
-    return f"{executor_id} [tool-call] {content.name}({args_str})"
-
-
-def format_tool_result(content: FunctionResultContent, executor_id: str) -> str:
-    """
-    Format a tool result for console display with call_id linkage.
-
-    This follows the pattern from microsoft/agent-framework samples for
-    displaying tool execution feedback with proper result formatting.
-
-    Parameters
-    ----------
-    content : FunctionResultContent
-        The function result content to format
-    executor_id : str
-        ID of the executor that made the call
-
-    Returns
-    -------
-    str
-        Formatted tool result: "venue [tool-result] abc123: {...}"
-    """
-    result = content.result
-    if not isinstance(result, str):
-        result = json.dumps(result, ensure_ascii=False)
-
-    return f"{executor_id} [tool-result] {content.call_id}: {result}"
 
 
 async def main() -> None:
@@ -178,6 +102,11 @@ async def main() -> None:
         print("=" * 70)
         print()
 
+        # Configuration: Toggle to display streaming agent run updates
+        # Set to True to see real-time tool calls, tool results, and text streaming
+        # Set to False to only see human-in-the-loop prompts and final output
+        display_streaming_updates = True
+
         # Main workflow loop: alternate between workflow execution and human input
         pending_responses: dict[str, str] | None = None
         workflow_output: str | None = None
@@ -194,62 +123,35 @@ async def main() -> None:
             else:
                 stream = workflow.run_stream(user_request)
 
-            # Collect all events from this execution cycle
-            events = [event async for event in stream]
             pending_responses = None
 
-            # Display tool calls and results for transparency
-            for event in events:
-                # Check if event has agent_run_response_update attribute
-                if hasattr(event, "agent_run_response_update"):
-                    update: AgentRunResponseUpdate = event.agent_run_response_update  # type: ignore
-                    executor_id = getattr(event, "executor_id", "workflow")
-
-                    # Extract tool calls and results
-                    function_calls = [c for c in update.contents if isinstance(c, FunctionCallContent)]  # type: ignore
-                    function_results = [c for c in update.contents if isinstance(c, FunctionResultContent)]  # type: ignore
-
-                    # Show executor transition
-                    if function_calls or function_results:
-                        if executor_id != last_executor:
-                            if last_executor is not None:
-                                print()
-                            last_executor = executor_id
-
-                        # Print new tool calls
-                        for call in function_calls:
-                            if call.call_id in printed_tool_calls:
-                                continue
-                            printed_tool_calls.add(call.call_id)
-                            print(f"   {format_tool_call(call, executor_id)}")
-
-                        # Print new tool results
-                        for result in function_results:
-                            if result.call_id in printed_tool_results:
-                                continue
-                            printed_tool_results.add(result.call_id)
-                            print(f"   {format_tool_result(result, executor_id)}")
-
-            # Process events to extract human requests and workflow outputs
+            # Process events as they stream in
             human_requests: list[tuple[str, HumanFeedbackRequest]] = []
-            for event in events:
-                if isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
+
+            async for event in stream:
+                # Display streaming agent updates if enabled
+                if isinstance(event, AgentRunUpdateEvent) and display_streaming_updates:
+                    last_executor = display_agent_run_update(
+                        event, last_executor, printed_tool_calls, printed_tool_results
+                    )
+
+                # Collect human-in-the-loop requests
+                elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
                     # Workflow is requesting human input
                     human_requests.append((event.request_id, event.data))
 
+                # Capture final workflow output
                 elif isinstance(event, WorkflowOutputEvent):
                     # Workflow has yielded final output
                     workflow_output = str(event.data)
 
-            # Display workflow status transitions for transparency
-            idle_with_requests = any(
-                isinstance(e, WorkflowStatusEvent) and e.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
-                for e in events
-            )
-
-            if idle_with_requests:
-                print("[Workflow paused - awaiting human input]")
-                print()
+                # Display workflow status transitions for transparency
+                elif (
+                    isinstance(event, WorkflowStatusEvent)
+                    and event.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
+                ):
+                    print("\n[Workflow paused - awaiting human input]")
+                    print()
 
             # Prompt user for feedback if workflow requested input
             if human_requests:
