@@ -3,7 +3,6 @@
 """Event planning multi-agent workflow definition and lazy initialization."""
 
 from agent_framework import (
-    AgentExecutor,
     HostedCodeInterpreterTool,
     MCPStdioTool,
     Workflow,
@@ -138,26 +137,30 @@ def build_event_planning_workflow(
     # Create coordinator executor with routing logic
     coordinator = EventPlanningCoordinator(coordinator_agent)
 
-    # Create specialist executors
-    venue_exec = AgentExecutor(agent=venue_agent, id="venue")
-    budget_exec = AgentExecutor(agent=budget_agent, id="budget")
-    catering_exec = AgentExecutor(agent=catering_agent, id="catering")
-    logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
-
-    # Build workflow with bidirectional star topology
+    # Build workflow with bidirectional star topology using WorkflowBuilder pattern
+    builder = WorkflowBuilder(
+        name="Event Planning Workflow",
+        description=(
+            "Multi-agent event planning workflow with venue selection, budgeting, "
+            "catering, and logistics coordination. Supports human-in-the-loop for "
+            "clarification and approval."
+        ),
+        max_iterations=30,  # Prevent infinite loops
+    )
+    
+    # Set coordinator as start executor
+    builder.set_start_executor(coordinator)
+    
+    # Add specialist agents using WorkflowBuilder pattern
+    # add_agent() wraps each agent in an AgentExecutor automatically
+    venue_exec = builder.add_agent(venue_agent, id="venue")
+    budget_exec = builder.add_agent(budget_agent, id="budget")
+    catering_exec = builder.add_agent(catering_agent, id="catering")
+    logistics_exec = builder.add_agent(logistics_agent, id="logistics")
+    
+    # Add bidirectional edges: Coordinator ←→ Each Specialist
     workflow = (
-        WorkflowBuilder(
-            name="Event Planning Workflow",
-            description=(
-                "Multi-agent event planning workflow with venue selection, budgeting, "
-                "catering, and logistics coordination. Supports human-in-the-loop for "
-                "clarification and approval."
-            ),
-            max_iterations=30,  # Prevent infinite loops
-        )
-        # Set coordinator as start executor
-        .set_start_executor(coordinator)
-        # Bidirectional edges: Coordinator ←→ Each Specialist
+        builder
         .add_edge(coordinator, venue_exec)
         .add_edge(venue_exec, coordinator)
         .add_edge(coordinator, budget_exec)
