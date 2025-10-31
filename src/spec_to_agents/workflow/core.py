@@ -147,17 +147,17 @@ def build_event_planning_workflow(
         ),
         max_iterations=30,  # Prevent infinite loops
     )
-    
+
     # Set coordinator as start executor
     builder.set_start_executor(coordinator)
-    
+
     # Add specialist agents using WorkflowBuilder pattern
     # add_agent() wraps each agent in an AgentExecutor automatically
     venue_exec = builder.add_agent(venue_agent, id="venue")
     budget_exec = builder.add_agent(budget_agent, id="budget")
     catering_exec = builder.add_agent(catering_agent, id="catering")
     logistics_exec = builder.add_agent(logistics_agent, id="logistics")
-    
+
     # Add bidirectional edges: Coordinator ←→ Each Specialist
     workflow = (
         builder
