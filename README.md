@@ -9,6 +9,10 @@ This sample showcases how to generate and orchestrate agents (aided by [spec-kit
 - **AutoGen**: Multi-agent conversation patterns
 
 The sample is built around an engaging event planning scenario. It demonstrates concurrent workflow execution and real-time workflow visualization.
+<!-- markdownlint-disable MD041 -->
+
+> [!NOTE]
+> For Ignite 2025 Lab instructions, go to: [LAB513 - Build A2A and MCP Systems Using SWE Agents and Agent Framework](https://github.com/microsoft/ignite25-LAB513-build-a2a-and-mcp-systems-using-swe-agents-and-agent-framework/blob/main/lab/instructions/instructions.md)
 
 # 🎯 Project Overview
 

@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.venv
+venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Documentation (but keep README.md as it's referenced in pyproject.toml)
+AGENTS.md
+CLAUDE.md
+CODE_OF_CONDUCT.md
+DEV_SETUP.md
+LICENSE
+SECURITY.md
+SUPPORT.md
+
+# Infrastructure
+infra/
+azure.yaml
+.azure/
+
+# Tests
+tests/
+test_*
+
+# Assets
+assets/
+
+# Specs
+specs/
+
+# Scripts
+scripts/
