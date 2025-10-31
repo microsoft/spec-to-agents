@@ -43,11 +43,6 @@ Example
 import asyncio
 import json
 
-from dotenv import load_dotenv
-
-# Load environment variables at module import
-load_dotenv()
-
 from agent_framework import (
     AgentRunResponseUpdate,
     FunctionCallContent,
@@ -57,10 +52,14 @@ from agent_framework import (
     WorkflowRunState,
     WorkflowStatusEvent,
 )
+from dotenv import load_dotenv
 
 from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
 from spec_to_agents.workflow.core import build_event_planning_workflow
 from spec_to_agents.workflow.messages import HumanFeedbackRequest
+
+# Load environment variables at module import
+load_dotenv()
 
 
 def format_tool_call(content: FunctionCallContent, executor_id: str) -> str:
