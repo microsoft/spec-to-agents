@@ -107,7 +107,8 @@ Keep modules focused with clear boundaries and minimal public APIs.
 
 For complex features or significant refactors:
 1. Create specification files in `specs/` directory
-2. Follow `specs/PLANS.md` format
+2. Follow `specs/PLANS.md` format  
+   _The `specs/PLANS.md` format typically includes: a summary, problem statement, goals/non-goals, proposed solution/architecture, implementation steps, and acceptance criteria. See `specs/PLANS.md` for a detailed template._
 3. For multiple specs, create a master ExecPlan linking to individual specs
 4. Update `specs/README.md` with links to new specs
 5. Skip ExecPlans for straightforward tasks (~25% easiest)
