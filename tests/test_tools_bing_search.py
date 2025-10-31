@@ -359,3 +359,97 @@ async def test_web_search_agent_persistence():
         assert calls[1] == "test-agent-123"
         # Third call retrieves by ID
         assert calls[2] == "test-agent-123"
+
+
+@pytest.mark.asyncio
+@patch.dict(
+    "os.environ",
+    {
+        "BING_SUBSCRIPTION_KEY": "test_api_key",
+        "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com",
+        "AZURE_OPENAI_API_KEY": "test_key",
+    },
+    clear=False,
+)
+async def test_web_search_full_lifecycle():
+    """
+    Integration test verifying complete agent lifecycle.
+
+    Tests:
+    - Agent created on first call with proper context manager cleanup
+    - Agent ID stored at module level
+    - Subsequent calls retrieve agent by ID with new context managers
+    - Each context manager properly cleaned up (enters/exits balanced)
+    """
+    import spec_to_agents.tools.bing_search as bing_search_module
+    from spec_to_agents.tools.bing_search import web_search
+
+    # Verify starting with no agent ID
+    assert bing_search_module._web_search_agent_id is None
+
+    with (
+        patch("spec_to_agents.tools.bing_search.create_agent_client") as mock_client_factory,
+        patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
+    ):
+        mock_client = Mock()
+        mock_agent = Mock()
+
+        # Track context manager calls to verify cleanup
+        enter_count = 0
+        exit_count = 0
+
+        async def mock_enter(self):
+            nonlocal enter_count
+            enter_count += 1
+            return mock_client
+
+        async def mock_exit(self, *args):
+            nonlocal exit_count
+            exit_count += 1
+            return
+
+        mock_client.__aenter__ = mock_enter
+        mock_client.__aexit__ = mock_exit
+
+        # Mock agent with ID
+        mock_agent.id = "persistent-agent-456"
+
+        response1 = Mock()
+        response1.text = "First result"
+        response2 = Mock()
+        response2.text = "Second result"
+        response3 = Mock()
+        response3.text = "Third result"
+
+        mock_agent.run = AsyncMock(side_effect=[response1, response2, response3])
+        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(side_effect=[response1, response2, response3])
+        mock_client_factory.return_value = mock_client
+
+        # First call - creates agent
+        result1 = await web_search("query 1")
+        assert result1 == "First result"
+        assert bing_search_module._web_search_agent_id == "persistent-agent-456"
+        # One context manager used for creation, one for run
+        assert enter_count == 2  # Once for creation, once for run
+        assert exit_count == 2
+
+        # Second call - retrieves by ID
+        result2 = await web_search("query 2")
+        assert result2 == "Second result"
+        # Still same agent ID
+        assert bing_search_module._web_search_agent_id == "persistent-agent-456"
+        # Additional context manager for retrieval
+        assert enter_count == 3  # One more for run
+        assert exit_count == 3
+
+        # Third call - retrieves by ID again
+        result3 = await web_search("query 3")
+        assert result3 == "Third result"
+        assert bing_search_module._web_search_agent_id == "persistent-agent-456"
+        # Another context manager for retrieval
+        assert enter_count == 4
+        assert exit_count == 4
+
+        # Verify context managers are balanced (proper cleanup)
+        assert enter_count == exit_count
