@@ -32,18 +32,20 @@ def create_agent_client() -> AzureAIAgentClient:
     -------
     AzureAIAgentClient
         A client instance for creating and managing Azure AI agents.
-        Must be used within an async context manager for automatic cleanup.
 
     Notes
     -----
-    The returned client should be used as an async context manager to ensure
-    proper cleanup of created agents when the program terminates:
+    **Best Practice:** Use as an async context manager for automatic cleanup:
 
         async with create_agent_client() as client:
             agent = client.create_agent(...)
             # Agent automatically deleted on context exit
 
-    This follows the Agent Framework best practice for resource management
-    documented in the Azure AI Foundry integration guide.
+    **DevUI Exception:** When using DevUI (agent_framework.devui.serve),
+    cleanup is handled automatically via FastAPI lifespan hooks. DevUI calls
+    close() on each agent's chat_client during server shutdown, so context
+    manager usage is not required in DevUI export functions.
+
+    See: agent_framework_devui/_server.py::_cleanup_entities()
     """
     return AzureAIAgentClient(async_credential=get_credential())

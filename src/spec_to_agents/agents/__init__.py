@@ -37,7 +37,10 @@ def export_agents() -> list[ChatAgent]:
     )
     from spec_to_agents.utils.clients import create_agent_client
 
-    # Create client for agents - DevUI will handle cleanup via FastAPI lifespan
+    # Create client for agents
+    # DevUI's FastAPI lifespan hooks call close() on each agent's chat_client
+    # during shutdown, ensuring proper cleanup of Azure AI resources.
+    # See: agent_framework_devui/_server.py::_cleanup_entities()
     client = create_agent_client()
 
     # Create code interpreter tool for budget analyst

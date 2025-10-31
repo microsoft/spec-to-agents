@@ -207,7 +207,10 @@ def __getattr__(name: str) -> Workflow:
     if name == "workflow":
         global _workflow_cache
         if _workflow_cache is None:
-            # Create client for DevUI - DevUI will handle cleanup via FastAPI lifespan
+            # Create client for workflow agents
+            # DevUI's FastAPI lifespan hooks call close() on the workflow's agents
+            # during shutdown, ensuring proper cleanup of Azure AI resources.
+            # See: agent_framework_devui/_server.py::_cleanup_entities()
             client = create_agent_client()
             _workflow_cache = build_event_planning_workflow(client, mcp_tool=None)
         return _workflow_cache

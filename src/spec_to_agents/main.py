@@ -28,7 +28,9 @@ def main() -> None:
     logger.info(f"Available at: http://0.0.0.0:{port}")
 
     # Combine workflows and individual agents for DevUI
-    # DevUI's serve() handles cleanup via FastAPI lifespan hooks
+    # DevUI's FastAPI lifespan hooks call close() on each agent's chat_client
+    # during shutdown, ensuring proper cleanup of Azure AI resources.
+    # See: agent_framework_devui/_server.py::_cleanup_entities()
     entities = export_workflows() + export_agents()
     serve(entities=entities, port=port, host="0.0.0.0", auto_open=auto_open)
 
