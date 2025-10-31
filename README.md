@@ -132,6 +132,7 @@ uv run pytest
 The infrastructure is defined in the `infra/` directory using Azure Bicep templates. It includes:
 
 - **Azure AI Foundry**: AI Account and Project for agent orchestration
+- **Bing Grounding**: Web search capabilities with real-time information via Bing Search API
 - **Azure Cosmos DB**: NoSQL database for agent state and memory
 - **Azure Storage**: Blob storage for artifacts and data
 - **Azure AI Search**: Vector search capabilities
@@ -139,6 +140,10 @@ The infrastructure is defined in the `infra/` directory using Azure Bicep templa
 - **Azure Application Insights**: Monitoring and telemetry
 
 All resources are provisioned automatically when you run `azd provision` or `azd up`.
+
+## Bing Grounding Connection
+
+The Bing Grounding connection enables agents to search the web for real-time information. The connection is automatically created during infrastructure deployment with the name `bing-grounding`. This allows agents like the Venue Specialist and Catering Coordinator to search for current venue information, menu options, and pricing.
 
 # 🤝 Contributing
 
