@@ -1,0 +1,120 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.37.4.10188",
+      "templateHash": "15690500647843289038"
+    }
+  },
+  "parameters": {
+    "aiFoundryAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AI Foundry account to connect to"
+      }
+    },
+    "bingResourceName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name for the Bing Grounding resource"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "global",
+      "metadata": {
+        "description": "Location for the Bing Grounding resource. Bing resources are typically deployed to \"global\"."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags to apply to the Bing resource"
+      }
+    },
+    "newOrExisting": {
+      "type": "string",
+      "defaultValue": "new",
+      "allowedValues": [
+        "new",
+        "existing"
+      ],
+      "metadata": {
+        "description": "Whether to create a new Bing resource or use an existing one"
+      }
+    }
+  },
+  "resources": [
+    {
+      "condition": "[equals(parameters('newOrExisting'), 'new')]",
+      "type": "Microsoft.Bing/accounts",
+      "apiVersion": "2020-06-10",
+      "name": "[parameters('bingResourceName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "sku": {
+        "name": "G1"
+      },
+      "kind": "Bing.Grounding",
+      "properties": {
+        "statisticsEnabled": false
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/connections",
+      "apiVersion": "2025-04-01-preview",
+      "name": "[format('{0}/{1}', parameters('aiFoundryAccountName'), 'bing-grounding')]",
+      "properties": {
+        "authType": "ApiKey",
+        "target": "[if(equals(parameters('newOrExisting'), 'new'), reference(resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), '2020-06-10').endpoint, reference(resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), '2020-06-10').endpoint)]",
+        "category": "GroundingWithBingSearch",
+        "metadata": {
+          "type": "bing_grounding",
+          "ApiType": "Azure",
+          "ResourceId": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')))]",
+          "location": "[if(equals(parameters('newOrExisting'), 'new'), reference(resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), '2020-06-10', 'full').location, reference(resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), '2020-06-10', 'full').location)]"
+        },
+        "credentials": {
+          "key": "[if(equals(parameters('newOrExisting'), 'new'), listKeys(resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), '2020-06-10').key1, listKeys(resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), '2020-06-10').key1)]"
+        },
+        "isSharedToAll": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Bing/accounts', parameters('bingResourceName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "bingResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "The resource ID of the Bing Grounding resource"
+      },
+      "value": "[if(equals(parameters('newOrExisting'), 'new'), resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')), resourceId('Microsoft.Bing/accounts', parameters('bingResourceName')))]"
+    },
+    "bingResourceName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Bing Grounding resource"
+      },
+      "value": "[if(equals(parameters('newOrExisting'), 'new'), parameters('bingResourceName'), parameters('bingResourceName'))]"
+    },
+    "bingConnectionName": {
+      "type": "string",
+      "metadata": {
+        "description": "The connection name for Bing Grounding"
+      },
+      "value": "bing-grounding"
+    },
+    "bingConnectionId": {
+      "type": "string",
+      "metadata": {
+        "description": "The connection ID for use in agent configuration"
+      },
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts/connections', parameters('aiFoundryAccountName'), 'bing-grounding')]"
+    }
+  }
+}
