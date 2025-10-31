@@ -5,7 +5,6 @@
 from agent_framework import (
     AgentExecutor,
     HostedCodeInterpreterTool,
-    HostedWebSearchTool,
     Workflow,
     WorkflowBuilder,
 )
@@ -24,6 +23,7 @@ from spec_to_agents.tools import (
     get_sequential_thinking_tool,
     get_weather_forecast,
     list_calendar_events,
+    web_search,
 )
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
@@ -36,9 +36,9 @@ def build_event_planning_workflow() -> Workflow:
     ------------
     Uses coordinator-centric star topology with 5 executors:
     - EventPlanningCoordinator: Manages routing and human-in-the-loop using service-managed threads
-    - VenueSpecialist: Venue research via Bing Search
+    - VenueSpecialist: Venue research via custom web_search tool
     - BudgetAnalyst: Financial planning via Code Interpreter
-    - CateringCoordinator: Food planning via Bing Search
+    - CateringCoordinator: Food planning via custom web_search tool
     - LogisticsManager: Scheduling, weather, calendar management
 
     Conversation history is managed automatically by service-managed threads (store=True).
@@ -80,10 +80,6 @@ def build_event_planning_workflow() -> Workflow:
     mcp_tool = get_sequential_thinking_tool()
 
     # Create hosted tools
-    bing_search = HostedWebSearchTool(
-        description="Search the web for current information using Bing with grounding (source citations)",
-    )
-
     code_interpreter = HostedCodeInterpreterTool(
         description=(
             "Execute Python code for complex financial calculations, budget analysis, "
@@ -101,14 +97,15 @@ def build_event_planning_workflow() -> Workflow:
     # Create specialist agents with domain-specific tools
     # NOTE: MCP tool removed from specialists - it interferes with structured output (SpecialistOutput)
     # The thinking process doesn't return a final structured response, causing ValueError
-    venue_agent = venue_specialist.create_agent(client, bing_search)
+    # Using custom web_search @ai_function instead of HostedWebSearchTool for better LM formatting
+    venue_agent = venue_specialist.create_agent(client, web_search)
 
     budget_agent = budget_analyst.create_agent(
         client,
         code_interpreter,
     )
 
-    catering_agent = catering_coordinator.create_agent(client, bing_search)
+    catering_agent = catering_coordinator.create_agent(client, web_search)
 
     logistics_agent = logistics_manager.create_agent(
         client,
