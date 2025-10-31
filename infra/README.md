@@ -6,6 +6,39 @@ This directory contains Azure Bicep templates for deploying the Event Planning A
 
 The infrastructure is organized into modular Bicep templates:
 
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Azure Subscription                       │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │              Resource Group                         │     │
+│  │                                                     │     │
+│  │  ┌──────────────────┐    ┌────────────────────┐   │     │
+│  │  │  AI Foundry      │    │  Bing Grounding    │   │     │
+│  │  │  (AI Services)   │◄───│  (Web Search)      │   │     │
+│  │  │                  │    │  - SKU: G1         │   │     │
+│  │  │  - Account       │    │  - Location: global│   │     │
+│  │  │  - Project       │    └────────────────────┘   │     │
+│  │  │  - Model (GPT-4o)│                             │     │
+│  │  │  - Connection:   │                             │     │
+│  │  │    bing-grounding│                             │     │
+│  │  └──────────────────┘                             │     │
+│  │           │                                        │     │
+│  │           ▼                                        │     │
+│  │  ┌──────────────────┐    ┌────────────────────┐   │     │
+│  │  │  Container App   │◄───│  Container Registry│   │     │
+│  │  │  - Agent API     │    │  - Docker Images   │   │     │
+│  │  │  - DevUI         │    └────────────────────┘   │     │
+│  │  │  - Env Vars:     │                             │     │
+│  │  │    BING_CONNECTION│   ┌────────────────────┐   │     │
+│  │  └──────────────────┘   │  App Insights      │   │     │
+│  │           │              │  (Monitoring)      │   │     │
+│  │           └──────────────►                    │   │     │
+│  │                          └────────────────────┘   │     │
+│  └────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### Main Template (`main.bicep`)
 
 The main orchestration template that deploys all resources:
