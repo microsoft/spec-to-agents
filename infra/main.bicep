@@ -232,10 +232,10 @@ output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
 
 @description('The name of the Bing Grounding resource (if deployed).')
-output BING_GROUNDING_NAME string = !empty(bingGroundingName) ? bingGrounding[0].outputs.bingResourceName : ''
+output BING_GROUNDING_NAME string = !empty(bingGroundingName) ? bingGrounding.?outputs.?bingResourceName ?? '' : ''
 
 @description('The resource ID of the Bing Grounding resource (if deployed).')
-output BING_GROUNDING_ID string = !empty(bingGroundingName) ? bingGrounding[0].outputs.bingResourceId : ''
+output BING_GROUNDING_ID string = !empty(bingGroundingName) ? bingGrounding.?outputs.?bingResourceId ?? '' : ''
 
 @description('The name of the Bing Grounding connection (if deployed).')
-output BING_CONNECTION_NAME string = !empty(bingGroundingName) ? bingGrounding[0].outputs.bingConnectionName : ''
+output BING_CONNECTION_NAME string = !empty(bingGroundingName) ? bingGrounding.?outputs.?bingConnectionName ?? '' : ''
