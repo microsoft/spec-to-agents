@@ -4,31 +4,31 @@
 
 from agent_framework import Workflow
 
-from spec_to_agents.clients import create_agent_client
+from spec_to_agents.utils.clients import create_agent_client_for_devui
 from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
 
 
-def test_workflow_builds_successfully():
+def test_workflow_builds_successfully() -> None:
     """Test that the workflow can be constructed without errors."""
-    client = create_agent_client()
+    client = create_agent_client_for_devui()
     test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
     assert isinstance(test_workflow, Workflow)
 
 
-def test_workflow_module_export():
+def test_workflow_module_export() -> None:
     """Test that the workflow module exports a workflow instance."""
     assert workflow is not None
     assert isinstance(workflow, Workflow)
 
 
-def test_workflow_has_correct_id():
+def test_workflow_has_correct_id() -> None:
     """Test that workflow has the expected ID."""
     assert workflow is not None
     assert workflow.id == "event-planning-workflow"
 
 
-def test_workflow_uses_star_topology():
+def test_workflow_uses_star_topology() -> None:
     """
     Test that workflow uses coordinator-centric star topology.
 
@@ -37,7 +37,7 @@ def test_workflow_uses_star_topology():
     - 4 AgentExecutors (specialists)
     Total: 5 executors (down from 13)
     """
-    client = create_agent_client()
+    client = create_agent_client_for_devui()
     test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
 
@@ -46,7 +46,7 @@ def test_workflow_uses_star_topology():
     # Routing handled by EventPlanningCoordinator
 
 
-def test_coordinator_uses_service_managed_threads():
+def test_coordinator_uses_service_managed_threads() -> None:
     """
     Test that coordinator uses service-managed threads (no manual state tracking).
 
@@ -58,7 +58,7 @@ def test_coordinator_uses_service_managed_threads():
     - Should NOT have _current_index (obsolete)
     - Should NOT have _specialist_sequence (obsolete)
     """
-    client = create_agent_client()
+    client = create_agent_client_for_devui()
     test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
 
