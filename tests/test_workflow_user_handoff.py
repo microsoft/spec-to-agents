@@ -28,7 +28,7 @@ async def test_workflow_with_detailed_request_no_user_input():
     """
     import os
 
-    from spec_to_agents.clients import create_agent_client
+    from spec_to_agents.utils.clients import create_agent_client
 
     if not os.getenv("AZURE_OPENAI_ENDPOINT"):
         pytest.skip("Azure credentials not configured")
@@ -67,7 +67,7 @@ async def test_workflow_with_ambiguous_request_may_trigger_user_input():
     """
     import os
 
-    from spec_to_agents.clients import create_agent_client
+    from spec_to_agents.utils.clients import create_agent_client
 
     if not os.getenv("AZURE_OPENAI_ENDPOINT"):
         pytest.skip("Azure credentials not configured")

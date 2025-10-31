@@ -13,7 +13,7 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 @pytest.mark.asyncio
 async def test_workflow_execution_basic():
     """Test basic workflow execution with a simple event planning request."""
-    from spec_to_agents.clients import create_agent_client
+    from spec_to_agents.utils.clients import create_agent_client
 
     if not os.getenv("AZURE_OPENAI_ENDPOINT"):
         pytest.skip("Azure credentials not configured")
@@ -36,7 +36,7 @@ async def test_workflow_execution_basic():
 @pytest.mark.asyncio
 async def test_workflow_execution_contains_sections():
     """Test that workflow output contains expected sections from all agents."""
-    from spec_to_agents.clients import create_agent_client
+    from spec_to_agents.utils.clients import create_agent_client
 
     if not os.getenv("AZURE_OPENAI_ENDPOINT"):
         pytest.skip("Azure credentials not configured")
@@ -76,7 +76,7 @@ async def test_workflow_execution_contains_sections():
 @pytest.mark.asyncio
 async def test_workflow_execution_different_event_types():
     """Test workflow with different event types to ensure adaptability."""
-    from spec_to_agents.clients import create_agent_client
+    from spec_to_agents.utils.clients import create_agent_client
 
     if not os.getenv("AZURE_OPENAI_ENDPOINT"):
         pytest.skip("Azure credentials not configured")

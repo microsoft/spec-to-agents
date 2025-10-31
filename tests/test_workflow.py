@@ -2,28 +2,36 @@
 
 """Unit tests for the event planning workflow."""
 
+from unittest.mock import Mock
+
+import pytest
 from agent_framework import Workflow
 
-from spec_to_agents.clients import create_agent_client
-from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
+from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
 def test_workflow_builds_successfully():
     """Test that the workflow can be constructed without errors."""
-    client = create_agent_client()
-    test_workflow = build_event_planning_workflow(client)
+    mock_client = Mock()
+    test_workflow = build_event_planning_workflow(mock_client)
     assert test_workflow is not None
     assert isinstance(test_workflow, Workflow)
 
 
+@pytest.mark.skip(reason="Requires Azure credentials - workflow import triggers real client creation")
 def test_workflow_module_export():
     """Test that the workflow module exports a workflow instance."""
+    from spec_to_agents.workflow.core import workflow
+
     assert workflow is not None
     assert isinstance(workflow, Workflow)
 
 
+@pytest.mark.skip(reason="Requires Azure credentials - workflow import triggers real client creation")
 def test_workflow_has_correct_id():
     """Test that workflow has the expected ID."""
+    from spec_to_agents.workflow.core import workflow
+
     assert workflow is not None
     assert workflow.id == "event-planning-workflow"
 
@@ -37,8 +45,8 @@ def test_workflow_uses_star_topology():
     - 4 AgentExecutors (specialists)
     Total: 5 executors (down from 13)
     """
-    client = create_agent_client()
-    test_workflow = build_event_planning_workflow(client)
+    mock_client = Mock()
+    test_workflow = build_event_planning_workflow(mock_client)
     assert test_workflow is not None
 
     # Workflow should build successfully with new star topology
@@ -58,8 +66,8 @@ def test_coordinator_uses_service_managed_threads():
     - Should NOT have _current_index (obsolete)
     - Should NOT have _specialist_sequence (obsolete)
     """
-    client = create_agent_client()
-    test_workflow = build_event_planning_workflow(client)
+    mock_client = Mock()
+    test_workflow = build_event_planning_workflow(mock_client)
     assert test_workflow is not None
 
     # Get the coordinator executor
