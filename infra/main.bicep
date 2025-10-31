@@ -53,6 +53,10 @@ param modelSkuName string = 'GlobalStandard'
 @description('The capacity of the model deployment in TPM')
 param modelCapacity int = 30
 
+// Bing Grounding parameters
+@description('The name of the Bing Grounding resource for web search capabilities')
+param bingGroundingName string = ''
+
 // --- Load abbreviations and generate unique names ---
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
@@ -86,6 +90,19 @@ module aiFoundry './app/ai-foundry.bicep' = {
     modelCapacity: modelCapacity
     location: location
     tags: tags
+  }
+}
+
+// Deploy Bing Grounding connection for web search capabilities
+module bingGrounding './app/bing-grounding.bicep' = if (!empty(bingGroundingName)) {
+  name: 'bing-grounding'
+  scope: rg
+  params: {
+    aiFoundryAccountName: aiFoundry.outputs.accountName
+    bingResourceName: !empty(bingGroundingName) ? bingGroundingName : '${abbrs.bingAccounts}${resourceToken}'
+    location: 'global'  // Bing resources are deployed to global
+    tags: tags
+    newOrExisting: 'new'
   }
 }
 
@@ -213,3 +230,12 @@ output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 
 @description('URL of the deployed unified application.')
 output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
+
+@description('The name of the Bing Grounding resource (if deployed).')
+output BING_GROUNDING_NAME string = !empty(bingGroundingName) ? bingGrounding[0].outputs.bingResourceName : ''
+
+@description('The resource ID of the Bing Grounding resource (if deployed).')
+output BING_GROUNDING_ID string = !empty(bingGroundingName) ? bingGrounding[0].outputs.bingResourceId : ''
+
+@description('The name of the Bing Grounding connection (if deployed).')
+output BING_CONNECTION_NAME string = !empty(bingGroundingName) ? bingGrounding[0].outputs.bingConnectionName : ''

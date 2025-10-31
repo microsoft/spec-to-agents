@@ -57,18 +57,19 @@ resource bingConnection 'Microsoft.CognitiveServices/accounts/connections@2025-0
   name: 'bing-grounding'
   parent: aiFoundry
   properties: {
-    category: 'ApiKey'
-    target: 'https://api.bing.microsoft.com/'
     authType: 'ApiKey'
-    isSharedToAll: true
+    target: (newOrExisting == 'new') ? newBingGrounding.properties.endpoint : existingBingGrounding.properties.endpoint
+    category: 'GroundingWithBingSearch'
+    metadata: {
+      type: 'bing_grounding'
+      ApiType: 'Azure'
+      ResourceId: (newOrExisting == 'new') ? newBingGrounding.id : existingBingGrounding.id
+      location: (newOrExisting == 'new') ? newBingGrounding.location : existingBingGrounding.location
+    }
     credentials: {
       key: (newOrExisting == 'new') ? newBingGrounding.listKeys().key1 : existingBingGrounding.listKeys().key1
     }
-    metadata: {
-      ApiType: 'Azure'
-      Type: 'bing_grounding'
-      ResourceId: (newOrExisting == 'new') ? newBingGrounding.id : existingBingGrounding.id
-    }
+    isSharedToAll: false
   }
 }
 
