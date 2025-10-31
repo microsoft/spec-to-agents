@@ -37,6 +37,10 @@ param projectDescription string = 'AI Agents Event Planning Application'
 @description('The display name of your project.')
 param projectDisplayName string = 'Event Planning Agents'
 
+// Bing Grounding parameters
+@description('The name of the Bing Grounding resource.')
+param bingResourceName string = ''
+
 // Model deployment parameters
 @description('The name of the OpenAI model to deploy')
 param modelName string = 'gpt-4o'
@@ -86,6 +90,19 @@ module aiFoundry './app/ai-foundry.bicep' = {
     modelCapacity: modelCapacity
     location: location
     tags: tags
+  }
+}
+
+// Deploy Bing Grounding for web search capabilities
+module bingGrounding './app/bing-grounding.bicep' = {
+  name: 'bing-grounding'
+  scope: rg
+  params: {
+    aiFoundryAccountName: aiFoundry.outputs.accountName
+    bingResourceName: !empty(bingResourceName) ? bingResourceName : '${abbrs.bingAccounts}${resourceToken}'
+    location: 'global'
+    tags: tags
+    newOrExisting: 'new'
   }
 }
 
@@ -174,6 +191,11 @@ module app './app/container-app.bicep' = {
         name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
         value: aiFoundry.outputs.modelDeploymentName
       }
+      // Bing Grounding connection
+      {
+        name: 'BING_CONNECTION_NAME'
+        value: bingGrounding.outputs.bingConnectionName
+      }
       // Container environment settings
       {
         name: 'ENVIRONMENT'
@@ -213,3 +235,9 @@ output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 
 @description('URL of the deployed unified application.')
 output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
+
+@description('The name of the Bing Grounding resource.')
+output BING_RESOURCE_NAME string = bingGrounding.outputs.bingResourceName
+
+@description('The connection name for Bing Grounding.')
+output BING_CONNECTION_NAME string = bingGrounding.outputs.bingConnectionName
