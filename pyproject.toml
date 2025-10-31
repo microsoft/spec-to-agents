@@ -13,10 +13,10 @@ dependencies = [
     "agent-framework-mem0",
     "agent-framework-redis",
     "agent-framework-devui",
-    "agent-framework-lab",
     "azure-identity>=1.25.0",
     "python-dotenv>=1.1.1",
     "httpx>=0.27.0",
+    "aiohttp>=3.9.0",
     "icalendar>=5.0.11",
     "pytz>=2024.1",
 ]
@@ -66,7 +66,16 @@ dev = [
 "agent-framework-mem0" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/mem0" }
 "agent-framework-redis" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/redis" }
 "agent-framework-devui" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/devui" }
-"agent-framework-lab" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/lab" }
+
+# Use this to get Victor's latest changes
+#[tool.uv.sources]
+#"agent-framework-core" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/core" }
+#"agent-framework-azure-ai" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/azure-ai" }
+#"agent-framework-a2a" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/a2a" }
+#"agent-framework-copilotstudio" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/copilotstudio" }
+#"agent-framework-mem0" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/mem0" }
+#"agent-framework-redis" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/redis" }
+#"agent-framework-devui" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/devui" }
 
 # [tool.uv.sources]
 # "agent-framework-core" = { path = "third_party/agent-framework/python/packages/core", editable = true }
@@ -76,7 +85,6 @@ dev = [
 # "agent-framework-mem0" = { path = "third_party/agent-framework/python/packages/mem0", editable = true }
 # "agent-framework-redis" = { path = "third_party/agent-framework/python/packages/redis", editable = true }
 # "agent-framework-devui" = { path = "third_party/agent-framework/python/packages/devui", editable = true }
-# "agent-framework-lab" = { path = "third_party/agent-framework/python/packages/lab", editable = true }
 
 [tool.ruff]
 line-length = 120
