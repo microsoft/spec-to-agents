@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Test that agents module exports workflow correctly."""
+"""Test that agents and workflow modules export correctly."""
 
 
 def test_workflow_builder_accessible_from_workflow():
@@ -10,11 +10,18 @@ def test_workflow_builder_accessible_from_workflow():
     assert callable(build_event_planning_workflow)
 
 
-def test_export_entities_accessible_from_agents():
-    """Test that export_entities is accessible from agents module."""
-    from spec_to_agents.agents import export_entities
+def test_export_workflows_accessible_from_workflow():
+    """Test that export_workflows is accessible from workflow module."""
+    from spec_to_agents.workflow import export_workflows
 
-    assert callable(export_entities)
+    assert callable(export_workflows)
+
+
+def test_export_agents_accessible_from_agents():
+    """Test that export_agents is accessible from agents module."""
+    from spec_to_agents.agents import export_agents
+
+    assert callable(export_agents)
 
 
 def test_workflow_builder_returns_workflow():

@@ -7,13 +7,14 @@ load_dotenv()
 
 
 def main() -> None:
-    """Launch the branching workflow in DevUI."""
+    """Launch the event planning workflow and agents in DevUI."""
     import logging
     import os
 
     from agent_framework.devui import serve
 
-    from spec_to_agents.agents import export_entities
+    from spec_to_agents.agents import export_agents
+    from spec_to_agents.workflow import export_workflows
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     logger = logging.getLogger(__name__)
@@ -26,8 +27,10 @@ def main() -> None:
     logger.info("Starting Agent Workflow DevUI...")
     logger.info(f"Available at: http://0.0.0.0:{port}")
 
+    # Combine workflows and individual agents for DevUI
     # DevUI's serve() handles cleanup via FastAPI lifespan hooks
-    serve(entities=export_entities(), port=port, host="0.0.0.0", auto_open=auto_open)
+    entities = export_workflows() + export_agents()
+    serve(entities=entities, port=port, host="0.0.0.0", auto_open=auto_open)
 
 
 if __name__ == "__main__":
