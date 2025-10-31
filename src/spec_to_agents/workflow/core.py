@@ -11,12 +11,12 @@ from agent_framework import (
 )
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.agents import (
-    budget_analyst,
-    catering_coordinator,
-    event_coordinator,
-    logistics_manager,
-    venue_specialist,
+from spec_to_agents.agents.factory import (
+    create_budget_analyst_agent,
+    create_catering_coordinator_agent,
+    create_event_coordinator_agent,
+    create_logistics_manager_agent,
+    create_venue_specialist_agent,
 )
 from spec_to_agents.tools import (
     create_calendar_event,
@@ -108,25 +108,27 @@ def build_event_planning_workflow(
         ),
     )
 
-    coordinator_agent = event_coordinator.create_agent(
+    # Create all agents using centralized factory
+    # Tool configuration for each agent is documented in agents/factory.py
+    coordinator_agent = create_event_coordinator_agent(
         client,
     )
 
-    venue_agent = venue_specialist.create_agent(
-        client,
-        web_search,
-        mcp_tool,
-    )
-
-    budget_agent = budget_analyst.create_agent(client, code_interpreter, mcp_tool)
-
-    catering_agent = catering_coordinator.create_agent(
+    venue_agent = create_venue_specialist_agent(
         client,
         web_search,
         mcp_tool,
     )
 
-    logistics_agent = logistics_manager.create_agent(
+    budget_agent = create_budget_analyst_agent(client, code_interpreter, mcp_tool)
+
+    catering_agent = create_catering_coordinator_agent(
+        client,
+        web_search,
+        mcp_tool,
+    )
+
+    logistics_agent = create_logistics_manager_agent(
         client,
         get_weather_forecast,  # type: ignore
         create_calendar_event,  # type: ignore

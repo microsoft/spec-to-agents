@@ -3,7 +3,7 @@
 from agent_framework import ChatAgent
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.prompts import event_coordinator
+from spec_to_agents.agents.factory import create_event_coordinator_agent
 
 
 def create_agent(
@@ -11,6 +11,9 @@ def create_agent(
 ) -> ChatAgent:
     """
     Create Event Coordinator agent for workflow orchestration.
+
+    Deprecated: Use create_event_coordinator_agent from agents.factory instead.
+    This function is maintained for backward compatibility.
 
     Parameters
     ----------
@@ -22,8 +25,4 @@ def create_agent(
     ChatAgent
         Configured event coordinator agent for workflow orchestration
     """
-    return client.create_agent(
-        name="EventCoordinator",
-        instructions=event_coordinator.SYSTEM_PROMPT,
-        store=True,
-    )
+    return create_event_coordinator_agent(client)

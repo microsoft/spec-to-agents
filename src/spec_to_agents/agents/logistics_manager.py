@@ -5,8 +5,7 @@ from collections.abc import Callable
 from agent_framework import ChatAgent, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.models.messages import SpecialistOutput
-from spec_to_agents.prompts import logistics_manager
+from spec_to_agents.agents.factory import create_logistics_manager_agent
 
 
 def create_agent(
@@ -19,6 +18,9 @@ def create_agent(
 ) -> ChatAgent:
     """
     Create Logistics Manager agent for event planning workflow.
+
+    Deprecated: Use create_logistics_manager_agent from agents.factory instead.
+    This function is maintained for backward compatibility.
 
     Parameters
     ----------
@@ -48,18 +50,6 @@ def create_agent(
     its thinking process but fail to return a final structured response,
     causing ValueError in the workflow.
     """
-    tools = [
-        get_weather_forecast,
-        create_calendar_event,
-        list_calendar_events,
-        delete_calendar_event,
-    ]
-    if mcp_tool is not None:
-        tools.append(mcp_tool)  # type: ignore
-    return client.create_agent(
-        name="LogisticsManager",
-        instructions=logistics_manager.SYSTEM_PROMPT,
-        tools=tools,
-        response_format=SpecialistOutput,
-        store=True,
+    return create_logistics_manager_agent(
+        client, get_weather_forecast, create_calendar_event, list_calendar_events, delete_calendar_event, mcp_tool
     )

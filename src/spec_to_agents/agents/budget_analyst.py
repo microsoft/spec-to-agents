@@ -3,8 +3,7 @@
 from agent_framework import ChatAgent, HostedCodeInterpreterTool, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.models.messages import SpecialistOutput
-from spec_to_agents.prompts import budget_analyst
+from spec_to_agents.agents.factory import create_budget_analyst_agent
 
 
 def create_agent(
@@ -12,6 +11,9 @@ def create_agent(
 ) -> ChatAgent:
     """
     Create Budget Analyst agent for event planning workflow.
+
+    Deprecated: Use create_budget_analyst_agent from agents.factory instead.
+    This function is maintained for backward compatibility.
 
     Parameters
     ----------
@@ -38,13 +40,4 @@ def create_agent(
     User input is handled through SpecialistOutput.user_input_needed field,
     not through a separate tool.
     """
-    tools = [code_interpreter]
-    if mcp_tool is not None:
-        tools.append(mcp_tool)  # type: ignore
-    return client.create_agent(
-        name="BudgetAnalyst",
-        instructions=budget_analyst.SYSTEM_PROMPT,
-        tools=tools,
-        response_format=SpecialistOutput,
-        store=True,
-    )
+    return create_budget_analyst_agent(client, code_interpreter, mcp_tool)

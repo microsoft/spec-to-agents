@@ -5,8 +5,7 @@ from typing import Any, Callable
 from agent_framework import ChatAgent, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.models.messages import SpecialistOutput
-from spec_to_agents.prompts import catering_coordinator
+from spec_to_agents.agents.factory import create_catering_coordinator_agent
 
 
 def create_agent(
@@ -14,6 +13,9 @@ def create_agent(
 ) -> ChatAgent:
     """
     Create Catering Coordinator agent for event planning workflow.
+
+    Deprecated: Use create_catering_coordinator_agent from agents.factory instead.
+    This function is maintained for backward compatibility.
 
     Parameters
     ----------
@@ -40,13 +42,4 @@ def create_agent(
     Uses custom web_search @ai_function instead of HostedWebSearchTool for
     better control over response formatting for language models.
     """
-    tools = [web_search]
-    if mcp_tool is not None:
-        tools.append(mcp_tool)  # type: ignore
-    return client.create_agent(
-        name="CateringCoordinator",
-        instructions=catering_coordinator.SYSTEM_PROMPT,
-        tools=tools,
-        response_format=SpecialistOutput,
-        store=True,
-    )
+    return create_catering_coordinator_agent(client, web_search, mcp_tool)

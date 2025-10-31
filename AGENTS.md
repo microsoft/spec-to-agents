@@ -39,6 +39,36 @@ Each agent also has access to specific tools to assist in their tasks. The diagr
   - Includes scratchpad creation for complex calculations and data analysis
 - Tool Orchestration MCP (sequential-thinking-tools)
 
+## Agent Creation
+
+Agent creation is centralized in `src/spec_to_agents/agents/factory.py` for easier configuration and maintenance. This centralized factory:
+
+- **Single source of truth**: All agent configuration (tools, prompts, response formats) is defined in one place
+- **Easier auditing**: Quickly see which tools each agent uses and their configuration
+- **Simplified modifications**: Change agent types or tool assignments in a single location
+- **Consistent patterns**: Ensures all agents follow the same creation pattern
+
+### Using the Factory
+
+Import agent creation functions from the factory module:
+
+```python
+from spec_to_agents.agents.factory import (
+    create_event_coordinator_agent,
+    create_venue_specialist_agent,
+    create_budget_analyst_agent,
+    create_catering_coordinator_agent,
+    create_logistics_manager_agent,
+)
+
+# Create agents with required tools
+coordinator = create_event_coordinator_agent(client)
+venue_agent = create_venue_specialist_agent(client, web_search, mcp_tool)
+budget_agent = create_budget_analyst_agent(client, code_interpreter, mcp_tool)
+```
+
+Individual agent modules (e.g., `budget_analyst.py`) maintain backward compatibility by delegating to the factory, but new code should use the factory directly.
+
 ## Directory Structure
 
 IMPORTANT: For your agents to be discovered by the DevUI, they must be organized in a directory structure like below. Each agent/workflow must have an `__init__.py` that exports the required variable (`agent` or `workflow`).
@@ -53,6 +83,7 @@ spec-to-agents/
 │       ├── clients.py # contains shared client code for AI Foundry
 │       ├── agents/ # contains core agent/workflow definitions
 │       │   ├── __init__.py
+│       │   ├── factory.py # centralized agent creation (use this!)
 │       │   ├── budget_analyst.py
 │       │   ├── catering_coordinator.py
 │       │   ├── event_coordinator.py
