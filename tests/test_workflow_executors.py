@@ -17,11 +17,13 @@ from agent_framework import ChatMessage, FunctionCallContent, FunctionResultCont
 
 from spec_to_agents.workflow.executors import convert_tool_content_to_text
 
+# Mark for skipping EventPlanningCoordinator tests (custom executor removed).
+skip_coordinator_tests = pytest.mark.skip(
+    reason="EventPlanningCoordinator removed in favor of declarative workflow pattern."
+)
 
-# Skip all tests that reference EventPlanningCoordinator since it's been removed
-pytestmark = pytest.mark.skip(reason="EventPlanningCoordinator removed in favor of declarative workflow pattern")
 
-
+@skip_coordinator_tests
 def test_parse_specialist_output_with_valid_structured_output():
     """Test parsing SpecialistOutput from agent response."""
     from agent_framework import AgentExecutorResponse, AgentRunResponse
@@ -48,6 +50,7 @@ def test_parse_specialist_output_with_valid_structured_output():
     assert result.user_input_needed is False
 
 
+@skip_coordinator_tests
 def test_parse_specialist_output_with_try_parse_fallback():
     """Test parsing with try_parse_value fallback when value is None."""
     from agent_framework import AgentExecutorResponse, AgentRunResponse
@@ -84,6 +87,7 @@ def test_parse_specialist_output_with_try_parse_fallback():
     assert result.user_input_needed is False
 
 
+@skip_coordinator_tests
 def test_parse_specialist_output_raises_when_missing():
     """Test error raised when no structured output present even after try_parse_value."""
     from agent_framework import AgentExecutorResponse, AgentRunResponse
@@ -106,6 +110,7 @@ def test_parse_specialist_output_raises_when_missing():
         coordinator._parse_specialist_output(mock_response)
 
 
+@skip_coordinator_tests
 def test_parse_specialist_output_with_tool_calls_but_no_text():
     """Test error when agent makes tool calls but doesn't generate final structured output."""
     from agent_framework import AgentExecutorResponse, AgentRunResponse, ChatMessage, FunctionCallContent, Role
@@ -144,6 +149,7 @@ def test_parse_specialist_output_with_tool_calls_but_no_text():
     assert "(empty)" in error_msg or "empty" in error_msg.lower()
 
 
+@skip_coordinator_tests
 @pytest.mark.asyncio
 async def test_route_to_agent_sends_single_message():
     """Test routing sends only new message (framework provides history via threads)."""
@@ -173,6 +179,7 @@ async def test_route_to_agent_sends_single_message():
     assert call_args[1]["target_id"] == "budget"
 
 
+@skip_coordinator_tests
 @pytest.mark.asyncio
 async def test_on_specialist_response_routes_to_next_agent():
     """Test routing to next agent based on structured output."""
@@ -205,6 +212,7 @@ async def test_on_specialist_response_routes_to_next_agent():
     assert call_args[1]["target_id"] == "budget"
 
 
+@skip_coordinator_tests
 @pytest.mark.asyncio
 async def test_on_specialist_response_requests_user_input():
     """Test requesting user input when specialist needs it."""
@@ -241,6 +249,7 @@ async def test_on_specialist_response_requests_user_input():
     assert request.requesting_agent == "venue"
 
 
+@skip_coordinator_tests
 @pytest.mark.asyncio
 async def test_on_specialist_response_synthesizes_when_done():
     """Test final synthesis when next_agent is None and no user input needed."""
@@ -277,6 +286,7 @@ async def test_on_specialist_response_synthesizes_when_done():
         assert isinstance(call_args[1], list)  # conversation list
 
 
+@skip_coordinator_tests
 @pytest.mark.asyncio
 async def test_on_human_feedback_routes_back():
     """Test human feedback is routed back to requester."""
@@ -302,6 +312,7 @@ async def test_on_human_feedback_routes_back():
     assert "Venue B" in request.messages[0].text
 
 
+@skip_coordinator_tests
 @pytest.mark.asyncio
 async def test_synthesize_plan_uses_framework_context():
     """Test final synthesis relies on framework-provided context via threads."""

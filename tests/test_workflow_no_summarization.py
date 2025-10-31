@@ -14,9 +14,10 @@ import pytest
 from agent_framework import AgentExecutorResponse, AgentRunResponse, WorkflowContext
 
 from spec_to_agents.models.messages import SpecialistOutput
+from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-# Skip all tests since EventPlanningCoordinator has been removed
-pytestmark = pytest.mark.skip(reason="EventPlanningCoordinator removed in favor of declarative workflow pattern")
+# Skip all tests since EventPlanningCoordinator has been removed.
+pytestmark = pytest.mark.skip(reason="EventPlanningCoordinator removed in favor of declarative workflow pattern.")
 
 
 @pytest.mark.asyncio
