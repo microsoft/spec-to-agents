@@ -78,14 +78,55 @@ def test_parse_specialist_output_raises_when_missing():
     mock_run_response = Mock(spec=AgentRunResponse)
     mock_run_response.value = None
     mock_run_response.try_parse_value = Mock()  # Does nothing, value stays None
+    mock_run_response.text = ""
+    mock_run_response.messages = []
 
     mock_response = Mock(spec=AgentExecutorResponse)
     mock_response.agent_run_response = mock_run_response
+    mock_response.executor_id = "test_specialist"
 
     coordinator = EventPlanningCoordinator(Mock())
 
-    with pytest.raises(ValueError, match="Specialist must return SpecialistOutput"):
+    with pytest.raises(ValueError, match=r"Specialist.*must return SpecialistOutput"):
         coordinator._parse_specialist_output(mock_response)
+
+
+def test_parse_specialist_output_with_tool_calls_but_no_text():
+    """Test error when agent makes tool calls but doesn't generate final structured output."""
+    from agent_framework import AgentExecutorResponse, AgentRunResponse, ChatMessage, FunctionCallContent, Role
+
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    # Simulate agent that made tool calls but didn't return final TextContent
+    tool_call_content = FunctionCallContent(
+        call_id="call_123",
+        name="web_search",
+        arguments='{"query": "venues in Seattle"}',
+    )
+
+    message_with_tool_call = Mock(spec=ChatMessage)
+    message_with_tool_call.role = Role.ASSISTANT
+    message_with_tool_call.contents = [tool_call_content]
+
+    mock_run_response = Mock(spec=AgentRunResponse)
+    mock_run_response.value = None
+    mock_run_response.try_parse_value = Mock()  # Does nothing, value stays None
+    mock_run_response.text = ""  # No TextContent in response
+    mock_run_response.messages = [message_with_tool_call]
+
+    mock_response = Mock(spec=AgentExecutorResponse)
+    mock_response.agent_run_response = mock_run_response
+    mock_response.executor_id = "venue"
+
+    coordinator = EventPlanningCoordinator(Mock())
+
+    with pytest.raises(ValueError) as exc_info:
+        coordinator._parse_specialist_output(mock_response)
+
+    error_msg = str(exc_info.value)
+    # Verify error includes debugging info about tool calls
+    assert "venue" in error_msg
+    assert "(empty)" in error_msg or "empty" in error_msg.lower()
 
 
 @pytest.mark.asyncio

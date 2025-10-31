@@ -2,7 +2,6 @@
 
 """Tests for Bing Search tool."""
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,7 +44,7 @@ async def test_web_search_success(mock_search_response):
     from spec_to_agents.tools.bing_search import _get_client, web_search
 
     with patch.object(_get_client().web, "search", return_value=mock_search_response):
-        result = await web_search("Microsoft Agent Framework")
+        result = web_search("Microsoft Agent Framework")
 
     assert 'Found 2 results for "Microsoft Agent Framework"' in result
     assert "Microsoft Agent Framework" in result
@@ -64,7 +63,7 @@ async def test_web_search_no_results(mock_empty_response):
     from spec_to_agents.tools.bing_search import _get_client, web_search
 
     with patch.object(_get_client().web, "search", return_value=mock_empty_response):
-        result = await web_search("xyzabc123nonexistent")
+        result = web_search("xyzabc123nonexistent")
 
     assert "No results found for query: xyzabc123nonexistent" in result
 
@@ -76,7 +75,7 @@ async def test_web_search_with_custom_count(mock_search_response):
     from spec_to_agents.tools.bing_search import _get_client, web_search
 
     with patch.object(_get_client().web, "search", return_value=mock_search_response) as mock_search:
-        result = await web_search("test query", count=5)
+        result = web_search("test query", count=5)
 
     # Verify count parameter was passed
     mock_search.assert_called_once_with(query="test query", count=5)
@@ -90,7 +89,7 @@ async def test_web_search_api_error():
     from spec_to_agents.tools.bing_search import _get_client, web_search
 
     with patch.object(_get_client().web, "search", side_effect=Exception("API rate limit exceeded")):
-        result = await web_search("test query")
+        result = web_search("test query")
 
     assert "Error performing web search" in result
     assert "Exception" in result
@@ -114,7 +113,7 @@ async def test_web_search_formatting():
     response.web_pages.value = [result_obj]
 
     with patch.object(_get_client().web, "search", return_value=response):
-        result = await web_search("test")
+        result = web_search("test")
 
     # Check formatting structure
     lines = result.split("\n")
@@ -136,7 +135,7 @@ async def test_web_search_empty_results_list():
     response.web_pages.value = []
 
     with patch.object(_get_client().web, "search", return_value=response):
-        result = await web_search("empty query")
+        result = web_search("empty query")
 
     assert "No results found for query: empty query" in result
 
@@ -148,7 +147,7 @@ async def test_web_search_result_numbering(mock_search_response):
     from spec_to_agents.tools.bing_search import _get_client, web_search
 
     with patch.object(_get_client().web, "search", return_value=mock_search_response):
-        result = await web_search("test")
+        result = web_search("test")
 
     assert "\n1. " in result
     assert "\n\n2. " in result

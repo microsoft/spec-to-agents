@@ -195,18 +195,68 @@ class EventPlanningCoordinator(Executor):
             response.agent_run_response.try_parse_value(SpecialistOutput)
 
         if response.agent_run_response.value and isinstance(response.agent_run_response.value, SpecialistOutput):
-            return response.agent_run_response.value
+            return response.agent_run_response.value  # type: ignore[no-any-return]
 
         # Enhanced error message with debugging information
         response_text = response.agent_run_response.text if response.agent_run_response.text else "(empty)"
         num_messages = len(response.agent_run_response.messages) if response.agent_run_response.messages else 0
+
+        # Analyze message contents to understand what's in the response
+        content_analysis = self._analyze_message_contents(response.agent_run_response.messages)
+
         error_msg = (
             f"Specialist '{response.executor_id}' must return SpecialistOutput.\n"
             f"Response text: '{response_text}'\n"
             f"Number of messages: {num_messages}\n"
-            f"Value is None: {response.agent_run_response.value is None}"
+            f"Value is None: {response.agent_run_response.value is None}\n"
+            f"\nMessage content analysis:\n{content_analysis}\n"
+            f"\nPossible causes:\n"
+            f"- Agent made tool calls but didn't generate final structured JSON output\n"
+            f"- Agent response was truncated or incomplete\n"
+            f"- Agent hit token limits before generating structured output\n"
+            f"- Tool execution failed, preventing agent from completing response"
         )
         raise ValueError(error_msg)
+
+    def _analyze_message_contents(self, messages: list[ChatMessage] | None) -> str:
+        """
+        Analyze message contents to understand what types of content are present.
+
+        Parameters
+        ----------
+        messages : list[ChatMessage] | None
+            List of ChatMessage objects from AgentRunResponse
+
+        Returns
+        -------
+        str
+            Human-readable analysis of message contents
+        """
+        if not messages:
+            return "  No messages in response"
+
+        analysis_lines: list[str] = []
+        for i, msg in enumerate(messages):
+            if not hasattr(msg, "contents") or not msg.contents:
+                analysis_lines.append(f"  Message {i}: No contents")
+                continue
+
+            content_types: list[str] = []
+            for content in msg.contents:
+                content_type = type(content).__name__
+                content_types.append(content_type)
+
+                # Add details for specific content types
+                if hasattr(content, "name"):  # FunctionCallContent
+                    content_types[-1] += f"(name={content.name})"
+                elif hasattr(content, "text") and content.text:  # TextContent
+                    preview = content.text[:50] + "..." if len(content.text) > 50 else content.text
+                    content_types[-1] += f'(text="{preview}")'
+
+            role = getattr(msg, "role", "unknown")
+            analysis_lines.append(f"  Message {i} ({role}): {', '.join(content_types)}")
+
+        return "\n".join(analysis_lines)
 
     async def _route_to_agent(
         self, agent_id: str, message: str, ctx: WorkflowContext[AgentExecutorRequest, str]

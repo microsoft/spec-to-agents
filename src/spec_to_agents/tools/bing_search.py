@@ -47,9 +47,9 @@ def _get_client() -> WebSearchClient:
 
 
 @ai_function
-async def web_search(
+def web_search(
     query: Annotated[str, Field(description="Search query to find information on the web")],
-    count: Annotated[int, Field(description="Number of search results to return (1-50)", ge=1, le=50)] = 10,
+    count: Annotated[int, Field(description="Number of search results to return (1-50)", ge=1, le=50)] = 3,
 ) -> str:
     """
     Search the web using Bing Search API and return formatted results.
@@ -59,7 +59,7 @@ async def web_search(
     query : str
         The search query string
     count : int, optional
-        Number of results to return (1-50), default is 10
+        Number of results to return (1-50), default is 3
 
     Returns
     -------
