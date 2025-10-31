@@ -45,8 +45,8 @@ azd up
 ```
 
 **Default behavior:**
-- If `BING_GROUNDING_NAME` is not set or is empty, Bing Grounding will not be deployed
-- The parameter in `main.parameters.json` has a default value of `mafbing`, which means Bing will be created unless explicitly disabled
+- The parameter in `main.parameters.json` has a default value of `mafbing`, which means Bing Grounding WILL be deployed by default
+- To prevent Bing Grounding from being deployed, you must set `BING_GROUNDING_NAME` to an empty string before running `azd up`
 
 **To disable Bing Grounding:**
 
