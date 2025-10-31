@@ -87,15 +87,10 @@ async def web_search(
         # Get the persistent agent ID
         agent_id = await _get_or_create_web_search_agent_id()
 
-        # Use context manager for client - agent persists on service
-        async with create_agent_client() as client:
-            # Retrieve the persistent agent by ID
-            agent = client.create_agent(
-                agent_id=agent_id,
-                tools=[HostedWebSearchTool(description="Search the web for current information using Bing")],
-                store=True,
-            )
-            response = await agent.run(f"Perform a web search for: {query}")
+        # Use context manager for client - retrieve existing agent by ID
+        async with create_agent_client(agent_id=agent_id) as client:
+            # Client is now connected to the persistent agent
+            response = await client.run(f"Perform a web search for: {query}")
             return response.text
 
     except Exception as e:

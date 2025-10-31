@@ -21,19 +21,17 @@ async def test_web_search_success():
     """Test successful web search with results."""
     from spec_to_agents.tools.bing_search import web_search
 
-    # Mock the agent's response
+    # Mock the client's response
     with (
         patch("spec_to_agents.tools.bing_search.create_agent_client") as mock_client_factory,
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
         # Setup async context manager
         mock_client = Mock()
-        mock_agent = Mock()
         mock_response = Mock()
         mock_response.text = 'Found 2 results for "Microsoft Agent Framework"\n\n1. Microsoft Agent Framework\n   Build intelligent multi-agent systems.\n   URL: https://github.com/microsoft/agent-framework'  # noqa: E501
 
-        mock_agent.run = AsyncMock(return_value=mock_response)
-        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
@@ -64,12 +62,10 @@ async def test_web_search_no_results():
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
         mock_client = Mock()
-        mock_agent = Mock()
         mock_response = Mock()
         mock_response.text = "No results found for query: xyzabc123nonexistent"
 
-        mock_agent.run = AsyncMock(return_value=mock_response)
-        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
@@ -90,7 +86,7 @@ async def test_web_search_no_results():
     clear=False,
 )
 async def test_web_search_with_custom_count():
-    """Test web search creates agent with web search tool."""
+    """Test web search retrieves agent and executes query."""
     from spec_to_agents.tools.bing_search import web_search
 
     with (
@@ -98,12 +94,10 @@ async def test_web_search_with_custom_count():
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
         mock_client = Mock()
-        mock_agent = Mock()
         mock_response = Mock()
         mock_response.text = "Found 2 results"
 
-        mock_agent.run = AsyncMock(return_value=mock_response)
-        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
@@ -111,8 +105,6 @@ async def test_web_search_with_custom_count():
         result = await web_search("test query")
 
     assert "Found 2 results" in result
-    # Verify agent was created with proper configuration
-    mock_client.create_agent.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -164,7 +156,6 @@ async def test_web_search_formatting():
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
         mock_client = Mock()
-        mock_agent = Mock()
         mock_response = Mock()
         mock_response.text = (
             'Found 1 results for "test"\n\n'
@@ -174,8 +165,7 @@ async def test_web_search_formatting():
             "   Source: example.com/test"
         )
 
-        mock_agent.run = AsyncMock(return_value=mock_response)
-        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
@@ -208,12 +198,10 @@ async def test_web_search_empty_results_list():
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
         mock_client = Mock()
-        mock_agent = Mock()
         mock_response = Mock()
         mock_response.text = "No results found for query: empty query"
 
-        mock_agent.run = AsyncMock(return_value=mock_response)
-        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
@@ -242,7 +230,6 @@ async def test_web_search_result_numbering():
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
         mock_client = Mock()
-        mock_agent = Mock()
         mock_response = Mock()
         mock_response.text = (
             'Found 2 results for "test"\n\n'
@@ -252,8 +239,7 @@ async def test_web_search_result_numbering():
             "   Second result snippet."
         )
 
-        mock_agent.run = AsyncMock(return_value=mock_response)
-        mock_client.create_agent.return_value = mock_agent
+        mock_client.run = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
@@ -290,8 +276,9 @@ async def test_web_search_agent_persistence():
         patch("spec_to_agents.tools.bing_search.create_agent_client") as mock_client_factory,
         patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
     ):
-        # Mock AzureAIAgentClient
-        mock_client = Mock()
+        # Mock two different clients - one for creation, one for retrieval
+        mock_create_client = Mock()
+        mock_retrieve_client = Mock()
         mock_agent = Mock()
 
         # Set the agent ID that will be stored
@@ -302,22 +289,38 @@ async def test_web_search_agent_persistence():
         response2 = Mock()
         response2.text = "Second search result"
 
-        mock_agent.run = AsyncMock(side_effect=[response1, response2])
-        mock_client.create_agent.return_value = mock_agent
+        # First client creates agent
+        mock_create_client.create_agent.return_value = mock_agent
+        mock_create_client.__aenter__ = AsyncMock(return_value=mock_create_client)
+        mock_create_client.__aexit__ = AsyncMock(return_value=None)
 
-        # Mock context manager behavior
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
+        # Second client retrieves agent by ID
+        mock_retrieve_client.run = AsyncMock(side_effect=[response1, response2])
+        mock_retrieve_client.__aenter__ = AsyncMock(return_value=mock_retrieve_client)
+        mock_retrieve_client.__aexit__ = AsyncMock(return_value=None)
 
-        mock_client_factory.return_value = mock_client
+        # Return create client for first call (no agent_id), retrieve client for subsequent calls
+        mock_client_factory.side_effect = lambda agent_id=None: (
+            mock_create_client if agent_id is None else mock_retrieve_client
+        )
 
         # First call - should create agent and store ID
         result1 = await web_search("query 1")
         assert result1 == "First search result"
         assert bing_search_module._web_search_agent_id == "test-agent-123"
 
-        # Second call - should reuse agent ID (no new agent creation)
+        # Second call - should reuse agent ID (retrieve existing agent)
         result2 = await web_search("query 2")
         assert result2 == "Second search result"
         # Agent ID should still be the same
         assert bing_search_module._web_search_agent_id == "test-agent-123"
+
+        # Verify create_agent_client was called with correct parameters
+        calls = mock_client_factory.call_args_list
+        assert len(calls) == 3  # One for creation, two for retrieval
+        # First call creates (agent_id defaults to None)
+        assert calls[0].kwargs.get("agent_id") is None
+        # Second call retrieves by ID
+        assert calls[1].kwargs.get("agent_id") == "test-agent-123"
+        # Third call retrieves by ID
+        assert calls[2].kwargs.get("agent_id") == "test-agent-123"

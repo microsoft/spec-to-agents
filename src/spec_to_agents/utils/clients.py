@@ -24,9 +24,16 @@ async def ad_token_provider() -> str:
     return token.token
 
 
-def create_agent_client() -> AzureAIAgentClient:
+def create_agent_client(agent_id: str | None = None) -> AzureAIAgentClient:
     """
     Create a new AzureAIAgentClient for agent lifecycle management.
+
+    Parameters
+    ----------
+    agent_id : str | None, optional
+        The ID of an existing agent to retrieve. If provided, the client will
+        connect to the existing persistent agent. If None, the client can be
+        used to create new agents.
 
     Returns
     -------
@@ -39,11 +46,17 @@ def create_agent_client() -> AzureAIAgentClient:
     The returned client should be used as an async context manager to ensure
     proper cleanup of created agents when the program terminates:
 
+        # Creating a new agent
         async with create_agent_client() as client:
             agent = client.create_agent(...)
             # Agent automatically deleted on context exit
 
+        # Retrieving an existing agent
+        async with create_agent_client(agent_id="existing_id") as client:
+            response = await client.run("query")
+            # Existing agent not deleted on context exit
+
     This follows the Agent Framework best practice for resource management
     documented in the Azure AI Foundry integration guide.
     """
-    return AzureAIAgentClient(async_credential=get_credential())
+    return AzureAIAgentClient(async_credential=get_credential(), agent_id=agent_id)

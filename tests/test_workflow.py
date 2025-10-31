@@ -4,7 +4,7 @@
 
 from agent_framework import Workflow
 
-from spec_to_agents.clients import create_agent_client
+from spec_to_agents.utils.clients import create_agent_client
 from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
 
 
@@ -75,7 +75,7 @@ def test_all_executors_are_simple_agent_executors():
 
     # Verify all executors are simple AgentExecutor instances (not custom subclasses)
     for executor_id, executor in test_workflow.executors.items():
-        assert type(executor) == AgentExecutor, (
+        assert type(executor) is AgentExecutor, (
             f"Executor '{executor_id}' should be AgentExecutor, got {type(executor).__name__}"
         )
         assert hasattr(executor, "agent"), f"Executor '{executor_id}' should have agent attribute"
