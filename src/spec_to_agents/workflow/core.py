@@ -15,6 +15,7 @@ from spec_to_agents.agents import (
     budget_analyst,
     catering_coordinator,
     event_coordinator,
+    event_synthesizer,
     logistics_manager,
     venue_specialist,
 )
@@ -26,7 +27,6 @@ from spec_to_agents.tools import (
     web_search,
 )
 from spec_to_agents.utils.clients import create_agent_client
-from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
 # Declare lazy-loaded attribute for type checking
 workflow: Workflow
@@ -42,34 +42,39 @@ def build_event_planning_workflow(
     mcp_tool: MCPStdioTool | None = None,
 ) -> Workflow:
     """
-    Build the multi-agent event planning workflow with human-in-the-loop capabilities.
+    Build the multi-agent event planning workflow with declarative fan-out/fan-in pattern.
 
     Architecture
     ------------
-    Uses coordinator-centric star topology with 5 executors:
-    - EventPlanningCoordinator: Manages routing and human-in-the-loop using service-managed threads
+    Uses a simple, declarative fan-out/fan-in topology with 6 executors:
+    - InitialCoordinator: Receives user request and provides initial context
     - VenueSpecialist: Venue research via custom web_search tool
     - BudgetAnalyst: Financial planning via Code Interpreter
     - CateringCoordinator: Food planning via custom web_search tool
     - LogisticsManager: Scheduling, weather, calendar management
+    - EventSynthesizer: Consolidates all specialist outputs into final plan
 
     Conversation history is managed automatically by service-managed threads (store=True).
     No manual message tracking or summarization overhead.
 
     Workflow Pattern
     ----------------
-    Star topology with bidirectional edges:
-    - Coordinator ←→ Venue Specialist
-    - Coordinator ←→ Budget Analyst
-    - Coordinator ←→ Catering Coordinator
-    - Coordinator ←→ Logistics Manager
+    Declarative fan-out/fan-in pattern:
+    - InitialCoordinator → (fan-out to all specialists in parallel)
+    - Venue Specialist →
+    - Budget Analyst → (fan-in to synthesizer)
+    - Catering Coordinator →
+    - Logistics Manager →
+    - EventSynthesizer → Final Plan
+
+    This pattern is fully declarative using WorkflowBuilder edges, with no custom
+    Executor classes. All routing logic is handled by agent prompts and the framework.
 
     Human-in-the-Loop
     ------------------
-    Specialists can call request_user_input tool when they need clarification,
-    selection, or approval. The coordinator intercepts these tool calls and uses
-    ctx.request_info() + @response_handler to pause the workflow, emit
-    RequestInfoEvent, and resume with user responses via DevUI.
+    Specialists can request user input when they need clarification, selection, or
+    approval. This is handled natively by the framework through the agent's interaction
+    patterns, not through custom routing logic.
 
     Parameters
     ----------
@@ -77,8 +82,8 @@ def build_event_planning_workflow(
         Azure AI agent client for creating workflow agents.
         Should be managed via async context manager in calling code for automatic cleanup.
     mcp_tool : MCPStdioTool | None, optional
-        Connected MCP tool for coordinator's sequential thinking capabilities.
-        If None, coordinator operates without MCP tool assistance.
+        Connected MCP tool for specialist sequential thinking capabilities.
+        If None, specialists operate without MCP tool assistance.
         Must be connected (within async context manager) before passing to workflow.
 
     Returns
@@ -89,9 +94,8 @@ def build_event_planning_workflow(
 
     Notes
     -----
-    The workflow uses sequential orchestration managed by the coordinator.
-    Human-in-the-loop is optional: the workflow can complete autonomously
-    if agents have sufficient context and choose not to request user input.
+    The workflow uses parallel execution for specialists followed by a synthesis step.
+    This is more efficient than sequential routing and easier to understand.
 
     Requires Azure AI Foundry credentials configured via environment variables
     or Azure CLI authentication.
@@ -108,10 +112,12 @@ def build_event_planning_workflow(
         ),
     )
 
+    # Create initial coordinator agent (simple AgentExecutor, no custom routing logic)
     coordinator_agent = event_coordinator.create_agent(
         client,
     )
 
+    # Create specialist agents
     venue_agent = venue_specialist.create_agent(
         client,
         web_search,
@@ -135,37 +141,42 @@ def build_event_planning_workflow(
         mcp_tool,
     )
 
-    # Create coordinator executor with routing logic
-    coordinator = EventPlanningCoordinator(coordinator_agent)
+    # Create synthesizer agent to consolidate all specialist outputs
+    synthesizer_agent = event_synthesizer.create_agent(
+        client,
+    )
 
-    # Create specialist executors
+    # Create executors - all using simple AgentExecutor (no custom routing logic)
+    coordinator_exec = AgentExecutor(agent=coordinator_agent, id="coordinator")
     venue_exec = AgentExecutor(agent=venue_agent, id="venue")
     budget_exec = AgentExecutor(agent=budget_agent, id="budget")
     catering_exec = AgentExecutor(agent=catering_agent, id="catering")
     logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
+    synthesizer_exec = AgentExecutor(agent=synthesizer_agent, id="synthesizer")
 
-    # Build workflow with bidirectional star topology
+    # Build workflow with declarative fan-out/fan-in pattern
     workflow = (
         WorkflowBuilder(
             name="Event Planning Workflow",
             description=(
                 "Multi-agent event planning workflow with venue selection, budgeting, "
-                "catering, and logistics coordination. Supports human-in-the-loop for "
-                "clarification and approval."
+                "catering, and logistics coordination. Uses declarative fan-out/fan-in "
+                "pattern for parallel specialist execution."
             ),
-            max_iterations=30,  # Prevent infinite loops
+            max_iterations=10,  # Simpler flow, fewer iterations needed
         )
         # Set coordinator as start executor
-        .set_start_executor(coordinator)
-        # Bidirectional edges: Coordinator ←→ Each Specialist
-        .add_edge(coordinator, venue_exec)
-        .add_edge(venue_exec, coordinator)
-        .add_edge(coordinator, budget_exec)
-        .add_edge(budget_exec, coordinator)
-        .add_edge(coordinator, catering_exec)
-        .add_edge(catering_exec, coordinator)
-        .add_edge(coordinator, logistics_exec)
-        .add_edge(logistics_exec, coordinator)
+        .set_start_executor(coordinator_exec)
+        # Fan-out: Coordinator to all specialists (parallel execution)
+        .add_edge(coordinator_exec, venue_exec)
+        .add_edge(coordinator_exec, budget_exec)
+        .add_edge(coordinator_exec, catering_exec)
+        .add_edge(coordinator_exec, logistics_exec)
+        # Fan-in: All specialists to synthesizer
+        .add_edge(venue_exec, synthesizer_exec)
+        .add_edge(budget_exec, synthesizer_exec)
+        .add_edge(catering_exec, synthesizer_exec)
+        .add_edge(logistics_exec, synthesizer_exec)
         .build()
     )
 
