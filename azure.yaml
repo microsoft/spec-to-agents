@@ -6,15 +6,14 @@ metadata:
 
 # Services to deploy
 services:
-  backend:
-    project: ./backend
+  app:
+    project: ./
     language: py
-    host: appservice
-
-  frontend:
-    project: ./frontend
-    language: js
-    host: appservice
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: ./
+      remoteBuild: true
 
 # Infrastructure as Code
 infra:
