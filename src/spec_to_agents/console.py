@@ -58,7 +58,7 @@ from agent_framework import (
     WorkflowStatusEvent,
 )
 
-from spec_to_agents.tools import close_sequential_thinking_tool
+from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
 from spec_to_agents.workflow.core import build_event_planning_workflow
 from spec_to_agents.workflow.messages import HumanFeedbackRequest
 
@@ -121,7 +121,7 @@ async def main() -> None:
     This function implements the main event loop pattern from
     guessing_game_with_human_input.py, adapted for event planning:
 
-    1. Build the workflow
+    1. Build the workflow with connected MCP tool
     2. Loop until workflow completes:
        - Stream workflow events (run_stream or send_responses_streaming)
        - Collect RequestInfoEvents for human feedback
@@ -129,26 +129,27 @@ async def main() -> None:
        - Prompt user for input when needed
        - Send responses back to workflow
     3. Display final event plan
-    4. Cleanup MCP tool resources
+    4. MCP tool cleanup handled automatically by async context manager
 
     The workflow alternates between executing agent logic and pausing
     for human input via the request_info/response_handler pattern.
     """
-    try:
-        print("\n" + "=" * 70)
-        print("Event Planning Workflow - Interactive CLI")
-        print("=" * 70)
-        print()
-        print("This workflow will help you plan an event with assistance from")
-        print("specialized agents (Venue, Budget, Catering, Logistics).")
-        print()
-        print("You may be asked for clarification or approval at various steps.")
-        print("Type 'exit' at any prompt to quit.")
-        print()
+    print("\n" + "=" * 70)
+    print("Event Planning Workflow - Interactive CLI")
+    print("=" * 70)
+    print()
+    print("This workflow will help you plan an event with assistance from")
+    print("specialized agents (Venue, Budget, Catering, Logistics).")
+    print()
+    print("You may be asked for clarification or approval at various steps.")
+    print("Type 'exit' at any prompt to quit.")
+    print()
 
-        # Build workflow
+    # Use async context manager for MCP tool lifecycle
+    async with create_sequential_thinking_tool() as mcp_tool:
+        # Build workflow with connected MCP tool
         print("Loading workflow...", end="", flush=True)
-        workflow = build_event_planning_workflow()
+        workflow = build_event_planning_workflow(mcp_tool)
         print(" ✓")
         print()
 
@@ -311,16 +312,7 @@ async def main() -> None:
         print("Event planning complete!")
         print("=" * 70)
 
-    finally:
-        # Always cleanup MCP tools on exit
-        # Suppress cleanup errors due to asyncio context mismatches
-        import contextlib
-
-        with contextlib.suppress(RuntimeError, Exception):
-            # MCP tool cleanup can fail due to asyncio.run() context issues
-            # This is a known limitation when mixing stdio MCP tools with asyncio.run()
-            # The subprocess will be cleaned up by the OS on exit
-            await close_sequential_thinking_tool()
+    # MCP tool automatically cleaned up by async context manager
 
 
 def cli() -> None:
