@@ -3,7 +3,11 @@
 ## Prerequisites
 
 ```bash
+# Windows
 $env:GIT_LFS_SKIP_SMUDGE = "1"; uv sync --extra dev
+
+# MacOS/Linux
+GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev
 
 # Install pre-commit hooks
 uv run pre-commit install
