@@ -5,6 +5,7 @@
 from agent_framework import (
     AgentExecutor,
     HostedCodeInterpreterTool,
+    MCPStdioTool,
     Workflow,
     WorkflowBuilder,
 )
@@ -20,7 +21,6 @@ from spec_to_agents.clients import get_chat_client
 from spec_to_agents.tools import (
     create_calendar_event,
     delete_calendar_event,
-    get_sequential_thinking_tool,
     get_weather_forecast,
     list_calendar_events,
     web_search,
@@ -28,7 +28,9 @@ from spec_to_agents.tools import (
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
 
-def build_event_planning_workflow() -> Workflow:
+def build_event_planning_workflow(
+    mcp_tool: MCPStdioTool | None = None,
+) -> Workflow:
     """
     Build the multi-agent event planning workflow with human-in-the-loop capabilities.
 
@@ -59,6 +61,13 @@ def build_event_planning_workflow() -> Workflow:
     ctx.request_info() + @response_handler to pause the workflow, emit
     RequestInfoEvent, and resume with user responses via DevUI.
 
+    Parameters
+    ----------
+    mcp_tool : MCPStdioTool | None, optional
+        Connected MCP tool for coordinator's sequential thinking capabilities.
+        If None, coordinator operates without MCP tool assistance.
+        Must be connected (within async context manager) before passing to workflow.
+
     Returns
     -------
     Workflow
@@ -76,9 +85,6 @@ def build_event_planning_workflow() -> Workflow:
     """
     client = get_chat_client()
 
-    # Get MCP tool for coordinator only (removed from specialists - see note below)
-    mcp_tool = get_sequential_thinking_tool()
-
     # Create hosted tools
     code_interpreter = HostedCodeInterpreterTool(
         description=(
@@ -88,7 +94,7 @@ def build_event_planning_workflow() -> Workflow:
         ),
     )
 
-    # Create coordinator agent with MCP tool for advanced reasoning
+    # Create coordinator agent with optional MCP tool for advanced reasoning
     coordinator_agent = event_coordinator.create_agent(
         client,
         mcp_tool,
