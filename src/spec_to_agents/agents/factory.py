@@ -62,7 +62,7 @@ def create_venue_specialist_agent(
         Custom web search function decorated with @ai_function
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
-        If None, coordinator operates without MCP tool assistance.
+        If None, venue specialist operates without MCP tool assistance.
 
     Returns
     -------
@@ -105,7 +105,7 @@ def create_budget_analyst_agent(
         Python code execution tool for financial calculations
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
-        If None, coordinator operates without MCP tool assistance.
+        If None, the budget analyst agent operates without MCP tool assistance.
 
     Returns
     -------
@@ -148,7 +148,7 @@ def create_catering_coordinator_agent(
         Custom web search function decorated with @ai_function
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
-        If None, coordinator operates without MCP tool assistance.
+        If None, catering coordinator agent operates without MCP tool assistance.
 
     Returns
     -------
@@ -202,7 +202,7 @@ def create_logistics_manager_agent(
         Calendar event deletion tool
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
-        If None, coordinator operates without MCP tool assistance.
+        If None, the logistics manager agent operates without MCP tool assistance.
 
     Returns
     -------
