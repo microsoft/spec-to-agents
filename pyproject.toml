@@ -67,7 +67,7 @@ dev = [
 "agent-framework-redis" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/redis" }
 "agent-framework-devui" = { git = "https://github.com/microsoft/agent-framework.git", branch = "main", subdirectory = "python/packages/devui" }
 
-# Use this to get Victors latest changes
+# Use this to get Victor's latest changes
 #[tool.uv.sources]
 #"agent-framework-core" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/core" }
 #"agent-framework-azure-ai" = { git = "https://github.com/victordibia/agent-framework.git", branch = "devui_oai_responses", subdirectory = "python/packages/azure-ai" }
