@@ -38,9 +38,9 @@ async def web_search(
     Uses a temporary agent with auto-cleanup via async context manager.
     """
     # Ensure conflicting environment variables are not set
-    del os.environ["BING_CONNECTION_ID"]
-    del os.environ["BING_CUSTOM_CONNECTION_NAME"]
-    del os.environ["BING_CUSTOM_INSTANCE_NAME"]
+    os.environ.pop("BING_CONNECTION_ID", None)
+    os.environ.pop("BING_CUSTOM_CONNECTION_NAME", None)
+    os.environ.pop("BING_CUSTOM_INSTANCE_NAME", None)
     try:
         web_search_tool = HostedWebSearchTool(description="Search the web for current information using Bing")
 
