@@ -38,7 +38,7 @@ resource existingBingGrounding 'Microsoft.Bing/accounts@2020-06-10' existing = i
 }
 
 // Conditionally create a new Bing Grounding resource
-resource newBingGrounding 'Microsoft.Bing/accounts@2020-06-10' = if (newOrExisting == 'new') {
+resource bingGrounding 'Microsoft.Bing/accounts@2020-06-10' = if (newOrExisting == 'new') {
   name: bingResourceName
   location: location
   tags: tags
@@ -58,16 +58,16 @@ resource bingConnection 'Microsoft.CognitiveServices/accounts/connections@2025-0
   parent: aiFoundry
   properties: {
     authType: 'ApiKey'
-    target: (newOrExisting == 'new') ? newBingGrounding.properties.endpoint : existingBingGrounding.properties.endpoint
+    target: newOrExisting == 'new' ? bingGrounding.properties.endpoint : existingBingGrounding.properties.endpoint
     category: 'GroundingWithBingSearch'
     metadata: {
       type: 'bing_grounding'
       ApiType: 'Azure'
-      ResourceId: (newOrExisting == 'new') ? newBingGrounding.id : existingBingGrounding.id
-      location: (newOrExisting == 'new') ? newBingGrounding.location : existingBingGrounding.location
+      ResourceId: newOrExisting == 'new' ? bingGrounding.id : existingBingGrounding.id
+      location: newOrExisting == 'new' ? bingGrounding.location : existingBingGrounding.location
     }
     credentials: {
-      key: (newOrExisting == 'new') ? newBingGrounding.listKeys().key1 : existingBingGrounding.listKeys().key1
+      key: newOrExisting == 'new' ? bingGrounding.listKeys().key1 : existingBingGrounding.listKeys().key1
     }
     isSharedToAll: false
   }
@@ -75,10 +75,10 @@ resource bingConnection 'Microsoft.CognitiveServices/accounts/connections@2025-0
 
 // Outputs
 @description('The resource ID of the Bing Grounding resource')
-output bingResourceId string = (newOrExisting == 'new') ? newBingGrounding.id : existingBingGrounding.id
+output bingResourceId string = newOrExisting == 'new' ? bingGrounding.id : existingBingGrounding.id
 
 @description('The name of the Bing Grounding resource')
-output bingResourceName string = (newOrExisting == 'new') ? newBingGrounding.name : existingBingGrounding.name
+output bingResourceName string = newOrExisting == 'new' ? bingGrounding.name : existingBingGrounding.name
 
 @description('The connection name for Bing Grounding')
 output bingConnectionName string = bingConnection.name
