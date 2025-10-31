@@ -99,7 +99,7 @@ module bingGrounding './app/bing-grounding.bicep' = if (!empty(bingGroundingName
   scope: rg
   params: {
     aiFoundryAccountName: aiFoundry.outputs.accountName
-    bingResourceName: !empty(bingGroundingName) ? bingGroundingName : '${abbrs.bingAccounts}${resourceToken}'
+    bingResourceName: bingGroundingName
     location: 'global'  // Bing resources are deployed to global
     tags: tags
     newOrExisting: 'new'
