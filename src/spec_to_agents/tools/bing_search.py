@@ -54,7 +54,7 @@ async def web_search(
                 ),
                 tool_choice=ToolMode.REQUIRED(function_name="web_search"),
                 store=True,
-                model_id=os.getenv("WEB_SEARCH_MODEL", "gpt-4.1-mini"),
+                model_id=os.getenv("WEB_SEARCH_MODEL", "gpt-4o-mini"),
             )
             response = await agent.run(f"Perform a web search for: {query}")
             return response.text
