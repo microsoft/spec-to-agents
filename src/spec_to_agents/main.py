@@ -1,7 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+from dotenv import load_dotenv
 
-def main():
+# Load environment variables at module import
+load_dotenv()
+
+
+def main() -> None:
     """Launch the branching workflow in DevUI."""
     import logging
     import os

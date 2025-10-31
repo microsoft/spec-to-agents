@@ -131,38 +131,59 @@ The workflow follows an orchestrated sequential pattern where the Event Coordina
   - Manual SharedState management (rejected: unnecessary when conversation history suffices)
 - **Impact**: Current workflow implementation is correct; spec updated to accurately document the automatic handoff mechanism
 
-### D6: User Handoff Integration Pattern (UPDATED)
-- **Date**: 2025-10-27 (Updated 2025-10-28)
-- **Decision**: Use tool-based approach with custom executor wrappers to enable optional user elicitation by any specialist agent
+### D6: User Handoff Integration Pattern (CORRECTED 2025-10-30)
+- **Date**: 2025-10-27 (Updated 2025-10-28, Revised 2025-10-30, **CORRECTED 2025-10-30**)
+- **Decision**: Use **coordinator-centric pattern with structured output routing and stateless chained summarization**
 - **Rationale**:
-  - **Reliability**: Tool calls provide programmatic detection of user input needs (agents cannot directly emit RequestInfoMessage)
-  - **Framework Native**: Leverages Agent Framework's built-in `RequestInfoExecutor` and `RequestInfoEvent` mechanisms
-  - **DevUI Integration**: DevUI automatically handles `RequestInfoEvent`s, no custom UI needed
-  - **Minimal Disruption**: Preserves existing sequential workflow structure
-  - **Agent Autonomy**: Agents call `request_user_input` tool when clarification needed
-  - **Graceful Degradation**: Workflow can run without user input if agents don't call the tool
-- **Alternatives Considered**:
-  - **Marker-Based Detection**: Parse agent text responses for markers like "REQUEST_USER_INPUT:" (rejected: unreliable, requires complex parsing)
-  - **Structured Output Parsing**: Agents output JSON for user requests (rejected: requires valid JSON production, error-prone)
-  - **Tool-Based Pattern**: Give agents "request_user_input" tool (✅ SELECTED: most reliable, clear agent interface)
-  - **Prompt-Only Approach**: Agents instructed to request input via prompts (rejected: agents cannot emit RequestInfoMessage directly)
-- **Implementation Approach**:
-  - Create `request_user_input` tool that agents can call
-  - Implement `HumanInLoopAgentExecutor` custom wrappers to intercept tool calls
-  - Wrappers detect `request_user_input` in `FunctionCallContent` and emit `UserElicitationRequest`
-  - Add bidirectional edges between HITL wrappers and shared `RequestInfoExecutor`
+  - **Framework-Native Pattern**: Uses `ctx.request_info()` + `@response_handler` as shown in `guessing_game_with_human_input.py` sample
+  - **Structured Output Routing**: Specialists use Pydantic `response_format=SpecialistOutput` with `next_agent` field for dynamic routing (no hardcoded sequence)
+  - **Stateless Chained Summarization**: Internal summarizer agent (not workflow node) chains summaries: `summarize(prev_summary + new_output) -> updated_summary` to prevent context overflow
+  - **Thread-Based Context**: AgentExecutors use internal threads (managed by framework), coordinator doesn't store conversation history
+  - **Minimal State**: Coordinator only tracks `_current_summary` (bounded at ~150 words), not full conversation
+  - **Context Passing**: Specialists receive condensed summary via `AgentExecutorRequest(messages=[context_msg])`, not full history
+  - **Tool-Based HITL**: Specialists signal user input needs via `user_input_needed` field in structured output
+- **Alternatives Considered** (Previous Implementation):
+  - **Custom HITL Wrappers** (REJECTED): `HumanInLoopAgentExecutor` added complexity with 9+ executors, bidirectional HITL edges, manual message parsing
+  - **Sequential Chain with Wrappers** (REJECTED): AgentExec → HITL Wrapper → AgentExec pattern doubled executor count
+  - **RequestInfoExecutor Pattern** (DEPRECATED): Framework moved to `ctx.request_info()` in handlers
+  - **Manual Conversation History** (REJECTED): Framework manages conversation via threads, not manual arrays
+  - **Hardcoded Routing Sequence** (REJECTED): Specialists should control their own routing via structured output
+- **Implementation Approach** (CORRECTED):
+  - Create Pydantic models: `SpecialistOutput` (with `next_agent` field), `SummarizedContext`
+  - Configure specialist agents with `response_format=SpecialistOutput` for structured JSON output
+  - Create summarizer agent with `response_format=SummarizedContext` for bounded context
+  - Coordinator uses `_chain_summarize(prev_summary, new_output)` after each specialist
+  - Specialists receive `AgentExecutorRequest(messages=[context_msg])` with condensed summary (~150 words)
+  - No manual conversation history - framework handles via AgentExecutor threads
+  - Route based on `specialist_output.next_agent` field (dynamic, not hardcoded)
+  - Create `EventPlanningCoordinator(Executor)` class with three key handlers:
+    - `@handler async def start(prompt: str)` - Initial user request
+    - `@handler async def on_specialist_response(AgentExecutorResponse)` - Route to next agent or request user input
+    - `@response_handler async def on_human_feedback(HumanFeedbackRequest, feedback: str)` - Handle user responses
+  - Coordinator uses `ctx.request_info()` when specialists call `request_user_input` tool
+  - Coordinator uses `ctx.send_message(..., target_id="venue")` for dynamic routing
+  - Build workflow with bidirectional edges: coordinator ←→ each specialist
 - **Impact**:
-  - Requires new `UserElicitationRequest` message type (single general-purpose type)
-  - Requires `request_user_input` tool definition
-  - Requires `HumanInLoopAgentExecutor` custom executor class
-  - Workflow builder needs HITL wrappers and bidirectional edges to RequestInfoExecutor
-  - Agent prompts need guidance on when/how to use the tool
-  - Tests need to handle RequestInfoEvent scenarios and tool call detection
+  - **DELETE**: `HumanInLoopAgentExecutor` class (replaced by coordinator)
+  - **DELETE**: `UserElicitationRequest` message type (replaced by `HumanFeedbackRequest`)
+  - **DELETE**: Complex HITL wrapper chain and bidirectional HITL edges
+  - **ADD**: `EventPlanningCoordinator` executor with routing logic
+  - **ADD**: `HumanFeedbackRequest` dataclass (simpler, with `requesting_agent` field)
+  - **UPDATE**: Workflow builder to star topology (5 executors total)
+  - **UPDATE**: Coordinator system prompt with routing guidance
+  - **KEEP**: `request_user_input` tool (no changes)
+  - **KEEP**: Specialist system prompts (already have tool guidance)
 - **Research Sources**:
-  - `third_party/agent-framework/python/samples/getting_started/workflows/human-in-the-loop/guessing_game_with_human_input.py`
-  - `third_party/agent-framework/python/samples/getting_started/workflows/agents/workflow_as_agent_human_in_the_loop.py`
-  - `azure_chat_agents_tool_calls_with_feedback.py` for DraftFeedbackCoordinator pattern
-  - DeepWiki documentation on RequestInfoExecutor, FunctionCallContent, and human-in-the-loop patterns
+  - `guessing_game_with_human_input.py` - Core pattern for `@handler` and `@response_handler`
+  - `_workflow_context.py:351` - Source code for `ctx.request_info()` method
+  - `_request_info_mixin.py` - Source code for `@response_handler` decorator
+  - `_magentic.py` - Conditional routing pattern with `_route_to_agent()` functions
+
+**Clarification 2025-10-30**:
+  - Verified both `ctx.request_info()` and `@response_handler` exist in agent_framework source code
+  - These are NOT deprecated - they are the current recommended pattern
+  - Previous confusion: DeepWiki docs mentioned `RequestInfoExecutor` which uses `ctx.send_message(RequestInfoMessage)` pattern
+  - Current approach (`ctx.request_info()` + `@response_handler`) is cleaner and more direct than `RequestInfoExecutor` pattern
 
 ## Outcomes & Retrospective
 
@@ -503,171 +524,287 @@ Create tests and validation for the workflow.
 - Submit test requests
 - Validate agent interactions and final outputs
 
-### Phase 6: Human-in-the-Loop User Handoff (NEW)
+### Phase 6: Human-in-the-Loop User Handoff (UPDATED)
 
 Integrate user elicitation capabilities into the workflow to enable agents to request clarification or approval when needed.
 
-**Background**: 
-Based on research into the Agent Framework's human-in-the-loop capabilities, the framework provides `RequestInfoExecutor` as a workflow-native mechanism for pausing execution, requesting user input, and resuming with the user's response. DevUI automatically handles `RequestInfoEvent`s by prompting the user and sending responses back to the workflow.
+**Background**:
+The Agent Framework provides `ctx.request_info()` and `@response_handler` decorator for human-in-the-loop workflows. The framework handles pausing execution, emitting `RequestInfoEvent`s, and resuming with user responses automatically.
+
+**Framework API Verification** (Source: `third_party/agent-framework/python`):
+- ✅ `ctx.request_info(request_data, request_type, response_type)`: Method on `WorkflowContext` that emits `RequestInfoEvent` and pauses workflow
+  - Source: `packages/core/agent_framework/_workflows/_workflow_context.py:351`
+  - Signature: `async def request_info(self, request_data: Any, request_type: type, response_type: type) -> None`
+- ✅ `@response_handler`: Decorator for methods that handle human responses to `request_info()` calls
+  - Source: `packages/core/agent_framework/_workflows/_request_info_mixin.py`
+  - Usage: Decorator on executor methods with signature `async def method(self, original_request: RequestType, response: ResponseType, ctx: WorkflowContext)`
+- ✅ Pattern demonstrated in: `samples/getting_started/workflows/human-in-the-loop/guessing_game_with_human_input.py`
+
+**How It Works**:
+1. Executor calls `await ctx.request_info(HumanFeedbackRequest(...), HumanFeedbackRequest, str)`
+2. Framework emits `RequestInfoEvent` with request_id, pauses workflow
+3. External system (DevUI) captures event and prompts user
+4. User responds, framework resumes workflow
+5. Framework invokes executor's `@response_handler` method with `(original_request, user_response, ctx)`
+6. Executor continues workflow logic with user's input
 
 **Design Decision**:
-Use **Custom Executor Wrapper Pattern** where specialist agents can conditionally request user input through a shared `RequestInfoExecutor`. This keeps the core workflow structure intact while adding flexible user interaction points.
+Use **Coordinator-Centric Star Topology** with intelligent routing and HIL via handler decorators. The `EventPlanningCoordinator` executor manages all routing decisions and human feedback, eliminating the need for custom wrapper classes.
+
+**Key Pattern** (from `guessing_game_with_human_input.py`):
+- `@handler` methods process incoming messages (agent responses, user input)
+- `@response_handler` methods handle human feedback from `ctx.request_info()`
+- Bidirectional edges connect coordinator to each specialist
+- Routing logic lives in executor handlers, not workflow edges
 
 **Architecture Changes**:
 
-1. **Add RequestInfoExecutor to Workflow**
-   - Create a shared `RequestInfoExecutor` instance
-   - Add bidirectional edges between each specialist and the RequestInfoExecutor
-   - This allows any agent to pause and request user input when needed
+1. **Create EventPlanningCoordinator Executor** (`src/spec_to_agents/workflow/executors.py`):
+   - Replace `HumanInLoopAgentExecutor` with intelligent coordinator
+   - Manages routing to specialists based on workflow state
+   - Detects when specialists call `request_user_input` tool
+   - Handles human feedback via `@response_handler`
+   - Synthesizes final event plan
 
-2. **Create Custom RequestInfoMessage Types** (`src/spec_to_agents/workflow/messages.py`):
+   Core structure:
    ```python
-   from dataclasses import dataclass
-   from agent_framework import RequestInfoMessage
-   
-   @dataclass
-   class UserElicitationRequest(RequestInfoMessage):
-       """General-purpose request for user input during event planning."""
-       prompt: str  # Question to ask the user
-       context: dict  # Contextual information (e.g., venue options, budget breakdown)
-       request_type: str  # "venue_selection", "budget_approval", "catering_approval", etc.
-   
-   # Optional: Specialized request types for stronger typing
-   @dataclass
-   class VenueSelectionRequest(RequestInfoMessage):
-       prompt: str
-       venue_options: list[dict]  # Structured venue recommendations
-       
-   @dataclass
-   class BudgetApprovalRequest(RequestInfoMessage):
-       prompt: str
-       proposed_budget: dict  # Budget breakdown by category
-   ```
+   class EventPlanningCoordinator(Executor):
+       """Coordinates event planning workflow with routing and HIL."""
 
-3. **Create Custom Specialist Executors** (`src/spec_to_agents/workflow/executors.py`):
-   - Wrap AgentExecutor instances with custom logic
-   - Add handlers to check agent responses for signals requiring user input
-   - Send `UserElicitationRequest` to `RequestInfoExecutor` when needed
-   - Handle `RequestResponse` and forward to next agent
-   
-   Example structure:
-   ```python
-   class VenueSpecialistExecutor(Executor):
-       def __init__(self, agent, request_info_id: str):
-           self.agent_executor = AgentExecutor(agent=agent)
-           self.request_info_id = request_info_id
-           
+       def __init__(self, coordinator_agent):
+           super().__init__(id="event_coordinator")
+           self._agent = coordinator_agent
+           self._specialist_sequence = ["venue", "budget", "catering", "logistics"]
+           self._current_index = 0
+           self._conversation_history: list[ChatMessage] = []
+
        @handler
-       async def process(self, request: AgentExecutorRequest, ctx):
-           # Run agent
-           response = await self.agent_executor.run(request)
-           
-           # Check if user input needed (parse agent response)
-           if self._needs_user_selection(response):
-               # Request user input
-               await ctx.send_message(
-                   VenueSelectionRequest(
-                       prompt="Please select your preferred venue",
-                       venue_options=self._extract_venues(response)
+       async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
+           """Handle initial user request and route to first specialist."""
+           user_msg = ChatMessage(Role.USER, text=prompt)
+           self._conversation_history = [user_msg]
+           await ctx.send_message(
+               AgentExecutorRequest(messages=[user_msg], should_respond=True),
+               target_id="venue"
+           )
+
+       @handler
+       async def on_specialist_response(
+           self,
+           response: AgentExecutorResponse,
+           ctx: WorkflowContext[AgentExecutorRequest, HumanFeedbackRequest]
+       ) -> None:
+           """Handle specialist response and route to next agent or request user input."""
+           self._conversation_history.extend(response.full_conversation)
+
+           # Check for request_user_input tool call
+           user_request = self._extract_tool_call(response, "request_user_input")
+
+           if user_request:
+               # Specialist needs user input
+               await ctx.request_info(
+                   request_data=HumanFeedbackRequest(
+                       prompt=user_request["prompt"],
+                       context=user_request.get("context", {}),
+                       request_type=user_request.get("request_type", "clarification"),
+                       requesting_agent=self._specialist_sequence[self._current_index]
                    ),
-                   target_id=self.request_info_id
+                   request_type=HumanFeedbackRequest,
+                   response_type=str
                )
            else:
-               # Continue to next agent
-               await ctx.send_message(response)
+               # Continue to next specialist or synthesize
+               self._current_index += 1
+               if self._current_index < len(self._specialist_sequence):
+                   next_agent = self._specialist_sequence[self._current_index]
+                   await ctx.send_message(
+                       AgentExecutorRequest(messages=self._conversation_history, should_respond=True),
+                       target_id=next_agent
+                   )
+               else:
+                   await self._synthesize_plan(ctx)
+
+       @response_handler
+       async def on_human_feedback(
+           self,
+           original_request: HumanFeedbackRequest,
+           feedback: str,
+           ctx: WorkflowContext[AgentExecutorRequest]
+       ) -> None:
+           """Handle human feedback and route back to requesting specialist."""
+           feedback_msg = ChatMessage(Role.USER, text=f"User feedback: {feedback}")
+           self._conversation_history.append(feedback_msg)
+
+           # Send back to specialist that requested input
+           await ctx.send_message(
+               AgentExecutorRequest(messages=self._conversation_history, should_respond=True),
+               target_id=original_request.requesting_agent
+           )
    ```
 
-4. **Update Workflow Builder** (`src/spec_to_agents/workflow/core.py`):
+2. **Create HumanFeedbackRequest Message Type** (`src/spec_to_agents/workflow/messages.py`):
    ```python
-   # Add RequestInfoExecutor
-   request_info = RequestInfoExecutor(id="user_input")
-   
-   # Create custom executors (or keep simple AgentExecutors if logic in prompts)
-   venue_exec = AgentExecutor(agent=venue, id="venue")
-   budget_exec = AgentExecutor(agent=budget, id="budget")
-   # ... other agents
-   
-   # Build workflow with bidirectional edges to RequestInfoExecutor
-   workflow = (
-       WorkflowBuilder()
-       .set_start_executor(coordinator)
-       .add_edge(coordinator, venue_exec)
-       .add_edge(venue_exec, request_info)      # Venue can request input
-       .add_edge(request_info, venue_exec)      # Input flows back to venue
-       .add_edge(venue_exec, budget_exec)       # Venue continues to budget
-       .add_edge(budget_exec, request_info)     # Budget can request input
-       .add_edge(request_info, budget_exec)     # Input flows back to budget
-       .add_edge(budget_exec, catering_exec)
-       # ... continue pattern for all specialists
-       .build()
-   )
+   from dataclasses import dataclass
+   from typing import Any
+
+   @dataclass
+   class HumanFeedbackRequest:
+       """Request for human input during event planning workflow."""
+       prompt: str  # Question to ask the user
+       context: dict[str, Any]  # Supporting information (options, data, etc.)
+       request_type: str  # "clarification", "selection", "approval"
+       requesting_agent: str  # Which specialist requested this input
    ```
 
-5. **Update Agent Prompts with User Elicitation Guidance**:
-   Each specialist prompt should include guidance on when to request user input:
-   
+3. **Update Workflow Builder with Star Topology** (`src/spec_to_agents/workflow/core.py`):
+   ```python
+   async def build_event_planning_workflow() -> Workflow:
+       client = get_chat_client()
+
+       # Create coordinator with routing capabilities
+       coordinator_agent = client.create_agent(
+           name="EventCoordinator",
+           instructions=COORDINATOR_ROUTING_PROMPT,
+           store=True
+       )
+
+       # Create specialists (with request_user_input tool)
+       venue_agent = client.create_agent(
+           name="VenueSpecialist",
+           instructions=venue_specialist.SYSTEM_PROMPT,
+           tools=[bing_search, request_user_input],
+           store=True
+       )
+       # ... create other specialists ...
+
+       # Create coordinator executor
+       coordinator = EventPlanningCoordinator(coordinator_agent)
+
+       # Create specialist executors
+       venue_exec = AgentExecutor(agent=venue_agent, id="venue")
+       budget_exec = AgentExecutor(agent=budget_agent, id="budget")
+       catering_exec = AgentExecutor(agent=catering_agent, id="catering")
+       logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
+
+       # Build workflow with bidirectional star topology
+       workflow = (
+           WorkflowBuilder(name="Event Planning Workflow")
+           .set_start_executor(coordinator)
+           # Bidirectional edges: Coordinator ←→ Each Specialist
+           .add_edge(coordinator, venue_exec)
+           .add_edge(venue_exec, coordinator)
+           .add_edge(coordinator, budget_exec)
+           .add_edge(budget_exec, coordinator)
+           .add_edge(coordinator, catering_exec)
+           .add_edge(catering_exec, coordinator)
+           .add_edge(coordinator, logistics_exec)
+           .add_edge(logistics_exec, coordinator)
+           .build()
+       )
+
+       workflow.id = "event-planning-workflow"
+       return workflow
    ```
-   When to request user clarification:
-   - If event requirements are ambiguous or incomplete
-   - If you need the user to make a selection between options
-   - If you need approval for significant decisions (e.g., budget allocation)
-   
-   To request user input:
-   - Clearly state what information you need
-   - Provide context and options if applicable
-   - Use structured format for easy user response
-   
-   After receiving user input:
-   - Acknowledge the user's choice
-   - Incorporate their input into your recommendations
-   - Continue with your analysis
+
+4. **Update Coordinator System Prompt with Routing Guidance**:
+   Update `src/spec_to_agents/prompts/event_coordinator.py` with routing responsibilities:
+
    ```
+   You are the Event Coordinator, responsible for orchestrating the event planning workflow.
+
+   Your responsibilities:
+   - Receive initial user requests and delegate to specialists
+   - Route between specialists in this sequence: Venue → Budget → Catering → Logistics
+   - Detect when specialists need user input and handle feedback
+   - Synthesize final event plan from all specialist recommendations
+
+   Workflow state tracking:
+   - Track which specialist has completed their work
+   - Maintain conversation history for context passing
+   - Know which specialist requested user input for proper feedback routing
+
+   After receiving specialist responses:
+   - Check if they called request_user_input tool (indicates user input needed)
+   - If yes: Request human feedback and route response back to specialist
+   - If no: Continue to next specialist in sequence
+   - After all specialists complete: Synthesize final integrated plan
+   ```
+
+5. **Keep Specialist Prompts with Tool Usage Guidance**:
+   Specialists already have `request_user_input` tool guidance. No changes needed to:
+   - `src/spec_to_agents/prompts/venue_specialist.py`
+   - `src/spec_to_agents/prompts/budget_analyst.py`
+   - `src/spec_to_agents/prompts/catering_coordinator.py`
+   - `src/spec_to_agents/prompts/logistics_manager.py`
 
 **Workflow Execution Flow with User Handoff**:
 ```
 User Input: "Plan a corporate party for 50 people, budget $5000"
     ↓
-EventCoordinator: Analyzes requirements, delegates to specialists
+EventPlanningCoordinator.start(): Routes to VenueSpecialist
     ↓
-VenueSpecialist: Researches 3 venue options
+VenueSpecialist: Researches 3 venue options, calls request_user_input tool
     ↓
-RequestInfoExecutor: "Please select preferred venue: A, B, or C?"
-    ⏸ WORKFLOW PAUSES (DevUI prompts user)
+EventPlanningCoordinator.on_specialist_response(): Detects tool call
     ↓
-User: Selects "Venue B"
+ctx.request_info(HumanFeedbackRequest): "Please select preferred venue: A, B, or C?"
+    ⏸ WORKFLOW PAUSES (DevUI emits RequestInfoEvent)
     ↓
-RequestInfoExecutor: Sends response back to workflow
+User: Selects "Venue B" via DevUI
     ↓
-VenueSpecialist: Confirms selection, provides details
+EventPlanningCoordinator.on_human_feedback(): Receives feedback
     ↓
-BudgetAnalyst: Creates budget allocation
+Routes feedback back to VenueSpecialist
     ↓
-RequestInfoExecutor: "Approve this budget breakdown? [details]"
-    ⏸ WORKFLOW PAUSES
+VenueSpecialist: Confirms selection "Venue B", provides details
     ↓
-User: Approves or modifies
+EventPlanningCoordinator.on_specialist_response(): No tool call, continue
     ↓
-[Continue through catering, logistics, final synthesis]
+Routes to BudgetAnalyst with full conversation history
+    ↓
+BudgetAnalyst: Creates budget allocation, may call request_user_input
+    ↓
+[Continue through catering, logistics]
+    ↓
+EventPlanningCoordinator._synthesize_plan(): Generate final integrated plan
+    ↓
+ctx.yield_output(): Final event plan returned to user
 ```
 
 **DevUI Integration**:
-- DevUI automatically detects `RequestInfoEvent` emissions
-- Displays user-friendly prompts based on `RequestInfoMessage.prompt`
+- DevUI automatically detects `RequestInfoEvent` emissions from `ctx.request_info()`
+- Displays user-friendly prompts based on `HumanFeedbackRequest.prompt`
 - Captures user responses via UI forms/inputs
-- Sends `RequestResponse` back to workflow
-- Workflow resumes automatically
+- Framework calls `@response_handler` method with user feedback
+- Workflow resumes automatically after human input
 
 **Testing Strategy**:
-- **Unit tests**: Mock `RequestInfoExecutor` and validate message routing
-- **Integration tests**: Use pre-supplied responses to test pause/resume without manual input
-- **Manual DevUI tests**: Validate actual user interaction flows
+- **Unit tests**: Test `EventPlanningCoordinator` handlers with mock responses
+- **Integration tests**: Use `send_responses_streaming()` API to simulate user input
+- **Manual DevUI tests**: Validate actual user interaction flows end-to-end
 
 **Key Design Principles**:
-1. **Optional User Interaction**: Agents decide when user input is needed, not hardcoded
-2. **Graceful Degradation**: Workflow can run without user input if agents have sufficient context
-3. **Clear Communication**: User prompts are explicit and provide necessary context
-4. **Type Safety**: Use Pydantic/dataclass for RequestInfoMessage types
-5. **Minimal Code Changes**: Leverage framework's built-in capabilities rather than custom implementation
+1. **Coordinator-Centric**: Single executor manages all routing and HIL logic
+2. **Handler-Based Routing**: Use `@handler` and `@response_handler`, not workflow edges
+3. **Star Topology**: Bidirectional edges between coordinator and each specialist
+4. **Tool-Based Detection**: Specialists call `request_user_input` tool for autonomy
+5. **Stateful Coordinator**: Tracks workflow position and routes intelligently
+6. **Framework-Native**: Uses `ctx.request_info()` and `@response_handler` patterns
+
+**What Gets Removed**:
+1. ✂️ **Delete** Manual `self._conversation_history` array in `EventPlanningCoordinator`
+2. ✂️ **Delete** `self._current_index` tracking in coordinator
+3. ✂️ **Remove** Hardcoded specialist sequence routing
+4. ✂️ **Remove** Manual message accumulation and forwarding
+
+**What Gets Added**:
+1. ✅ **Add** Pydantic models: `SpecialistOutput`, `SummarizedContext` in `workflow/messages.py`
+2. ✅ **Add** Summarizer agent creation in `workflow/core.py`
+3. ✅ **Add** `response_format=SpecialistOutput` to all specialist agents
+4. ✅ **Add** `_chain_summarize()` method to coordinator for stateless chained summarization
+5. ✅ **Add** `_current_summary` field (bounded string) to coordinator
+6. ✅ **Update** Coordinator to route based on `specialist_output.next_agent` field
+7. ✅ **Update** Specialist prompts to guide structured output with `next_agent` decisions
 
 ## Concrete Steps
 

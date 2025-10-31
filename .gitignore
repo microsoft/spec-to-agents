@@ -3,6 +3,8 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+/data
+
 # User-specific files
 *.rsuser
 *.suo
@@ -488,8 +490,6 @@ target/
 profile_default/
 ipython_config.py
 
-# pyenv
-.python-version
 
 # pipenv
 Pipfile.lock

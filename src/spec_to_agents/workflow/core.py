@@ -1,16 +1,17 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+"""Event planning multi-agent workflow definition and lazy initialization."""
+
 from agent_framework import (
     AgentExecutor,
     HostedCodeInterpreterTool,
-    HostedWebSearchTool,
-    RequestInfoExecutor,
+    MCPStdioTool,
     Workflow,
     WorkflowBuilder,
 )
+from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.clients import get_chat_client
-from spec_to_agents.prompts import (
+from spec_to_agents.agents import (
     budget_analyst,
     catering_coordinator,
     event_coordinator,
@@ -20,29 +21,65 @@ from spec_to_agents.prompts import (
 from spec_to_agents.tools import (
     create_calendar_event,
     delete_calendar_event,
-    get_sequential_thinking_tool,
     get_weather_forecast,
     list_calendar_events,
-    request_user_input,
+    web_search,
 )
-from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
+from spec_to_agents.utils.clients import create_agent_client
+from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+# Declare lazy-loaded attribute for type checking
+workflow: Workflow
+
+__all__ = ["build_event_planning_workflow", "workflow"]
+
+# Private cache for lazy initialization
+_workflow_cache: Workflow | None = None
 
 
-async def build_event_planning_workflow() -> Workflow:
+def build_event_planning_workflow(
+    client: AzureAIAgentClient,
+    mcp_tool: MCPStdioTool | None = None,
+) -> Workflow:
     """
     Build the multi-agent event planning workflow with human-in-the-loop capabilities.
 
-    The workflow orchestrates five specialized agents with optional user interaction:
-    - Event Coordinator: Primary orchestrator and synthesizer (MCP sequential-thinking)
-    - Venue Specialist: Venue research via Bing Search (can request user input)
-    - Budget Analyst: Financial planning via Code Interpreter (can request user input)
-    - Catering Coordinator: Food planning via Bing Search (can request user input)
-    - Logistics Manager: Scheduling, weather, calendar management (can request user input)
+    Architecture
+    ------------
+    Uses coordinator-centric star topology with 5 executors:
+    - EventPlanningCoordinator: Manages routing and human-in-the-loop using service-managed threads
+    - VenueSpecialist: Venue research via custom web_search tool
+    - BudgetAnalyst: Financial planning via Code Interpreter
+    - CateringCoordinator: Food planning via custom web_search tool
+    - LogisticsManager: Scheduling, weather, calendar management
 
-    Agents can call the request_user_input tool when they need clarification,
-    selection, or approval from the user. HumanInLoopAgentExecutor wrappers
-    intercept these tool calls and emit UserElicitationRequest to a shared
-    RequestInfoExecutor, which pauses the workflow until the user responds via DevUI.
+    Conversation history is managed automatically by service-managed threads (store=True).
+    No manual message tracking or summarization overhead.
+
+    Workflow Pattern
+    ----------------
+    Star topology with bidirectional edges:
+    - Coordinator ←→ Venue Specialist
+    - Coordinator ←→ Budget Analyst
+    - Coordinator ←→ Catering Coordinator
+    - Coordinator ←→ Logistics Manager
+
+    Human-in-the-Loop
+    ------------------
+    Specialists can call request_user_input tool when they need clarification,
+    selection, or approval. The coordinator intercepts these tool calls and uses
+    ctx.request_info() + @response_handler to pause the workflow, emit
+    RequestInfoEvent, and resume with user responses via DevUI.
+
+    Parameters
+    ----------
+    client : AzureAIAgentClient
+        Azure AI agent client for creating workflow agents.
+        Should be managed via async context manager in calling code for automatic cleanup.
+    mcp_tool : MCPStdioTool | None, optional
+        Connected MCP tool for coordinator's sequential thinking capabilities.
+        If None, coordinator operates without MCP tool assistance.
+        Must be connected (within async context manager) before passing to workflow.
 
     Returns
     -------
@@ -52,26 +89,17 @@ async def build_event_planning_workflow() -> Workflow:
 
     Notes
     -----
-    The workflow uses sequential orchestration where the Event Coordinator
-    delegates to each specialist in sequence, then synthesizes the final plan.
-
+    The workflow uses sequential orchestration managed by the coordinator.
     Human-in-the-loop is optional: the workflow can complete autonomously
     if agents have sufficient context and choose not to request user input.
 
     Requires Azure AI Foundry credentials configured via environment variables
     or Azure CLI authentication.
+
+    The client parameter should be managed as an async context manager in the
+    calling code to ensure proper cleanup of agents when the workflow is done.
     """
-    client = get_chat_client()
-
-    # Get MCP tool for all agents
-    mcp_tool = await get_sequential_thinking_tool()
-
     # Create hosted tools
-    bing_search = HostedWebSearchTool(
-        name="Bing Search",
-        description="Search the web for current information using Bing with grounding (source citations)",
-    )
-
     code_interpreter = HostedCodeInterpreterTool(
         description=(
             "Execute Python code for complex financial calculations, budget analysis, "
@@ -80,96 +108,64 @@ async def build_event_planning_workflow() -> Workflow:
         ),
     )
 
-    # Create coordinator agent with MCP tool for advanced reasoning
-    coordinator_agent = client.create_agent(
-        name="EventCoordinator",
-        instructions=event_coordinator.SYSTEM_PROMPT,
-        tools=[mcp_tool],
-        store=True,
+    coordinator_agent = event_coordinator.create_agent(
+        client,
     )
 
-    # Create specialist agents with domain-specific tools
-    venue_agent = client.create_agent(
-        name="VenueSpecialist",
-        instructions=venue_specialist.SYSTEM_PROMPT,
-        tools=[bing_search, mcp_tool, request_user_input],
-        store=True,
+    venue_agent = venue_specialist.create_agent(
+        client,
+        web_search,
+        mcp_tool,
     )
 
-    budget_agent = client.create_agent(
-        name="BudgetAnalyst",
-        instructions=budget_analyst.SYSTEM_PROMPT,
-        tools=[code_interpreter, mcp_tool, request_user_input],
-        store=True,
+    budget_agent = budget_analyst.create_agent(client, code_interpreter, mcp_tool)
+
+    catering_agent = catering_coordinator.create_agent(
+        client,
+        web_search,
+        mcp_tool,
     )
 
-    catering_agent = client.create_agent(
-        name="CateringCoordinator",
-        instructions=catering_coordinator.SYSTEM_PROMPT,
-        tools=[bing_search, mcp_tool, request_user_input],
-        store=True,
+    logistics_agent = logistics_manager.create_agent(
+        client,
+        get_weather_forecast,  # type: ignore
+        create_calendar_event,  # type: ignore
+        list_calendar_events,  # type: ignore
+        delete_calendar_event,  # type: ignore
+        mcp_tool,
     )
 
-    logistics_agent = client.create_agent(
-        name="LogisticsManager",
-        instructions=logistics_manager.SYSTEM_PROMPT,
-        tools=[
-            get_weather_forecast,
-            create_calendar_event,
-            list_calendar_events,
-            delete_calendar_event,
-            mcp_tool,
-            request_user_input,
-        ],
-        store=True,
-    )
+    # Create coordinator executor with routing logic
+    coordinator = EventPlanningCoordinator(coordinator_agent)
 
-    # Create AgentExecutors
-    coordinator_exec = AgentExecutor(agent=coordinator_agent, id="coordinator")
+    # Create specialist executors
     venue_exec = AgentExecutor(agent=venue_agent, id="venue")
     budget_exec = AgentExecutor(agent=budget_agent, id="budget")
     catering_exec = AgentExecutor(agent=catering_agent, id="catering")
     logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
 
-    # Create RequestInfoExecutor for human-in-the-loop
-    request_info = RequestInfoExecutor(id="user_input")
-
-    # Create HITL wrappers for specialist agents
-    venue_hitl = HumanInLoopAgentExecutor(agent_id="venue", request_info_id="user_input")
-    budget_hitl = HumanInLoopAgentExecutor(agent_id="budget", request_info_id="user_input")
-    catering_hitl = HumanInLoopAgentExecutor(agent_id="catering", request_info_id="user_input")
-    logistics_hitl = HumanInLoopAgentExecutor(agent_id="logistics", request_info_id="user_input")
-
-    # Build workflow with HITL integration
+    # Build workflow with bidirectional star topology
     workflow = (
         WorkflowBuilder(
             name="Event Planning Workflow",
             description=(
                 "Multi-agent event planning workflow with venue selection, budgeting, "
-                "catering, and logistics coordination"
+                "catering, and logistics coordination. Supports human-in-the-loop for "
+                "clarification and approval."
             ),
+            max_iterations=30,  # Prevent infinite loops
         )
-        # Set starting point
-        .set_start_executor(coordinator_exec)
-        # Sequential flow: Agent → HITL Wrapper → Next Agent
-        .add_edge(coordinator_exec, venue_exec)
-        .add_edge(venue_exec, venue_hitl)
-        .add_edge(venue_hitl, budget_exec)
-        .add_edge(budget_exec, budget_hitl)
-        .add_edge(budget_hitl, catering_exec)
-        .add_edge(catering_exec, catering_hitl)
-        .add_edge(catering_hitl, logistics_exec)
-        .add_edge(logistics_exec, logistics_hitl)
-        .add_edge(logistics_hitl, coordinator_exec)  # Back to coordinator for synthesis
-        # Bidirectional HITL edges: Wrapper ←→ RequestInfoExecutor
-        .add_edge(venue_hitl, request_info)
-        .add_edge(request_info, venue_hitl)
-        .add_edge(budget_hitl, request_info)
-        .add_edge(request_info, budget_hitl)
-        .add_edge(catering_hitl, request_info)
-        .add_edge(request_info, catering_hitl)
-        .add_edge(logistics_hitl, request_info)
-        .add_edge(request_info, logistics_hitl)
+        # Set coordinator as start executor
+        .set_start_executor(coordinator)
+        # Bidirectional edges: Coordinator ←→ Each Specialist
+        .add_edge(coordinator, venue_exec)
+        .add_edge(venue_exec, coordinator)
+        .add_edge(coordinator, budget_exec)
+        .add_edge(budget_exec, coordinator)
+        .add_edge(coordinator, catering_exec)
+        .add_edge(catering_exec, coordinator)
+        .add_edge(coordinator, logistics_exec)
+        .add_edge(logistics_exec, coordinator)
         .build()
     )
 
@@ -178,35 +174,41 @@ async def build_event_planning_workflow() -> Workflow:
     return workflow
 
 
-# Export workflow instance for DevUI discovery
-# Note: Workflow is built asynchronously, so we create a placeholder
-# that will be initialized when imported
-workflow: Workflow | None = None
-
-
-def _get_workflow() -> Workflow:
+def __getattr__(name: str) -> Workflow:
     """
-    Get or build the workflow instance.
+    Lazy initialization hook for the workflow module attribute.
+
+    This enables lazy loading of the workflow instance for DevUI integration.
+    The workflow is created with a non-context-managed client, which will be
+    cleaned up by DevUI's FastAPI lifespan hooks.
+
+    Parameters
+    ----------
+    name : str
+        The attribute name being accessed
 
     Returns
     -------
     Workflow
-        The event planning workflow instance
+        The workflow instance
+
+    Raises
+    ------
+    AttributeError
+        If the attribute name is not 'workflow'
 
     Notes
     -----
-    This function handles the async workflow building.
-    The workflow instance is cached after first call.
+    For programmatic usage (console.py, tests), prefer using
+    build_event_planning_workflow() with an async context-managed client
+    for proper cleanup. This lazy-loaded instance is intended for DevUI,
+    which handles cleanup through FastAPI lifespan hooks.
     """
-    import asyncio
-
-    global workflow
-    if workflow is None:
-        workflow = asyncio.run(build_event_planning_workflow())
-    return workflow
-
-
-# Initialize workflow on module import
-workflow = _get_workflow()
-
-__all__ = ["build_event_planning_workflow", "workflow"]
+    if name == "workflow":
+        global _workflow_cache
+        if _workflow_cache is None:
+            # Create client for DevUI - DevUI will handle cleanup via FastAPI lifespan
+            client = create_agent_client()
+            _workflow_cache = build_event_planning_workflow(client, mcp_tool=None)
+        return _workflow_cache
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

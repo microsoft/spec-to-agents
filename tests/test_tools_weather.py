@@ -2,7 +2,7 @@
 
 """Unit tests for weather tool."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -27,19 +27,22 @@ async def test_get_weather_forecast_success():
     }
 
     with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
+        # Setup async context manager for httpx.AsyncClient()
+        mock_client = Mock()
+        mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Mock geocoding response
-        geocode_mock = AsyncMock()
-        geocode_mock.json = AsyncMock(return_value=mock_geocode_response)
-        geocode_mock.raise_for_status = AsyncMock()
+        geocode_mock = Mock()
+        geocode_mock.json = Mock(return_value=mock_geocode_response)
+        geocode_mock.raise_for_status = Mock()
 
         # Mock weather response
-        weather_mock = AsyncMock()
-        weather_mock.json = AsyncMock(return_value=mock_weather_response)
-        weather_mock.raise_for_status = AsyncMock()
+        weather_mock = Mock()
+        weather_mock.json = Mock(return_value=mock_weather_response)
+        weather_mock.raise_for_status = Mock()
 
+        # Mock client.get to return the mocks
         mock_client.get = AsyncMock(side_effect=[geocode_mock, weather_mock])
 
         result = await get_weather_forecast(location="Seattle", days=1)
@@ -64,12 +67,13 @@ async def test_get_weather_forecast_coordinates():
     }
 
     with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_client = Mock()
+        mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        weather_mock = AsyncMock()
-        weather_mock.json = AsyncMock(return_value=mock_weather_response)
-        weather_mock.raise_for_status = AsyncMock()
+        weather_mock = Mock()
+        weather_mock.json = Mock(return_value=mock_weather_response)
+        weather_mock.raise_for_status = Mock()
 
         mock_client.get = AsyncMock(return_value=weather_mock)
 
@@ -86,12 +90,13 @@ async def test_get_weather_forecast_location_not_found():
     mock_geocode_response = {"results": []}
 
     with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_client = Mock()
+        mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        geocode_mock = AsyncMock()
-        geocode_mock.json = AsyncMock(return_value=mock_geocode_response)
-        geocode_mock.raise_for_status = AsyncMock()
+        geocode_mock = Mock()
+        geocode_mock.json = Mock(return_value=mock_geocode_response)
+        geocode_mock.raise_for_status = Mock()
 
         mock_client.get = AsyncMock(return_value=geocode_mock)
 
@@ -126,16 +131,17 @@ async def test_get_weather_forecast_multiple_days():
     }
 
     with patch("httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_client = Mock()
+        mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        geocode_mock = AsyncMock()
-        geocode_mock.json = AsyncMock(return_value=mock_geocode_response)
-        geocode_mock.raise_for_status = AsyncMock()
+        geocode_mock = Mock()
+        geocode_mock.json = Mock(return_value=mock_geocode_response)
+        geocode_mock.raise_for_status = Mock()
 
-        weather_mock = AsyncMock()
-        weather_mock.json = AsyncMock(return_value=mock_weather_response)
-        weather_mock.raise_for_status = AsyncMock()
+        weather_mock = Mock()
+        weather_mock.json = Mock(return_value=mock_weather_response)
+        weather_mock.raise_for_status = Mock()
 
         mock_client.get = AsyncMock(side_effect=[geocode_mock, weather_mock])
 

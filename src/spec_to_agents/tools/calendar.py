@@ -5,7 +5,7 @@
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Final
 
 import pytz
 from agent_framework import ai_function
@@ -13,11 +13,11 @@ from icalendar import Calendar, Event
 from pydantic import Field
 
 # Get calendar storage path from environment
-CALENDAR_PATH = Path(os.getenv("CALENDAR_STORAGE_PATH", "./data/calendars"))
+CALENDAR_PATH: Final[Path] = Path(os.getenv("CALENDAR_STORAGE_PATH", "./data/calendars"))
 CALENDAR_PATH.mkdir(parents=True, exist_ok=True)
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def create_calendar_event(  # noqa: RUF029
     event_title: Annotated[str, Field(description="Title of the calendar event")],
     start_date: Annotated[str, Field(description="Start date in ISO format (YYYY-MM-DD)")],
@@ -68,29 +68,29 @@ async def create_calendar_event(  # noqa: RUF029
         calendar_file = CALENDAR_PATH / f"{calendar_name}.ics"
         if calendar_file.exists():
             with open(calendar_file, "rb") as f:  # noqa: ASYNC230
-                cal = Calendar.from_ical(f.read())
+                cal = Calendar.from_ical(f.read())  # type: ignore
         else:
-            cal = Calendar()
-            cal.add("prodid", "-//Event Planning Agent//EN")
-            cal.add("version", "2.0")
+            cal = Calendar()  # type: ignore[no-untyped-call]
+            cal.add("prodid", "-//Event Planning Agent//EN")  # type: ignore
+            cal.add("version", "2.0")  # type: ignore
 
         # Create event
-        event = Event()
-        event.add("summary", event_title)
-        event.add("dtstart", start_dt)
-        event.add("dtend", end_dt)
-        event.add("dtstamp", datetime.now(pytz.UTC))
+        event = Event()  # type: ignore[no-untyped-call]
+        event.add("summary", event_title)  # type: ignore
+        event.add("dtstart", start_dt)  # type: ignore
+        event.add("dtend", end_dt)  # type: ignore
+        event.add("dtstamp", datetime.now(pytz.UTC))  # type: ignore
         if location:
-            event.add("location", location)
+            event.add("location", location)  # type: ignore
         if description:
-            event.add("description", description)
+            event.add("description", description)  # type: ignore
 
         # Add event to calendar
-        cal.add_component(event)
+        cal.add_component(event)  # type: ignore
 
         # Save calendar
         with open(calendar_file, "wb") as f:  # noqa: ASYNC230
-            f.write(cal.to_ical())
+            f.write(cal.to_ical())  # type: ignore
 
         return (
             f"Successfully created event '{event_title}' on {start_date} at {start_time} in calendar '{calendar_name}'"
@@ -102,7 +102,7 @@ async def create_calendar_event(  # noqa: RUF029
         return f"Error creating calendar event: {e!s}"
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def list_calendar_events(  # noqa: RUF029
     calendar_name: Annotated[str, Field(description="Calendar name (filename without .ics)")] = "event_planning",
     start_date: Annotated[str | None, Field(description="Optional: Filter events from this date (YYYY-MM-DD)")] = None,
@@ -136,7 +136,7 @@ async def list_calendar_events(  # noqa: RUF029
             return f"Calendar '{calendar_name}' does not exist"
 
         with open(calendar_file, "rb") as f:  # noqa: ASYNC230
-            cal = Calendar.from_ical(f.read())
+            cal = Calendar.from_ical(f.read())  # type: ignore
 
         # Parse date filters
         start_filter = datetime.strptime(start_date, "%Y-%m-%d") if start_date else None
@@ -144,39 +144,39 @@ async def list_calendar_events(  # noqa: RUF029
 
         # Extract events
         events = []
-        for component in cal.walk():
-            if component.name == "VEVENT":
-                summary = str(component.get("summary", "Untitled"))
-                dtstart = component.get("dtstart").dt
-                dtend = component.get("dtend").dt
-                location_val = component.get("location")
-                location_str = str(location_val) if location_val else ""
+        for component in cal.walk():  # type: ignore
+            if component.name == "VEVENT":  # type: ignore
+                summary = str(component.get("summary", "Untitled"))  # type: ignore
+                dtstart = component.get("dtstart").dt  # type: ignore
+                dtend = component.get("dtend").dt  # type: ignore
+                location_val = component.get("location")  # type: ignore
+                location_str = str(location_val) if location_val else ""  # type: ignore
 
                 # Apply date filters
-                if start_filter and dtstart.date() < start_filter.date():
+                if start_filter and dtstart.date() < start_filter.date():  # type: ignore
                     continue
-                if end_filter and dtstart.date() > end_filter.date():
+                if end_filter and dtstart.date() > end_filter.date():  # type: ignore
                     continue
 
                 # Format event
                 event_str = f"- {summary}"
-                event_str += f"\n  Date: {dtstart.strftime('%Y-%m-%d %H:%M')}"
+                event_str += f"\n  Date: {dtstart.strftime('%Y-%m-%d %H:%M')}"  # type: ignore
                 if dtend:
-                    event_str += f" to {dtend.strftime('%H:%M')}"
+                    event_str += f" to {dtend.strftime('%H:%M')}"  # type: ignore
                 if location_str:
                     event_str += f"\n  Location: {location_str}"
-                events.append(event_str)
+                events.append(event_str)  # type: ignore
 
         if not events:
             return f"No events found in calendar '{calendar_name}'"
 
-        return f"Events in '{calendar_name}':\n" + "\n\n".join(events)
+        return f"Events in '{calendar_name}':\n" + "\n\n".join(events)  # type: ignore
 
     except Exception as e:
         return f"Error listing calendar events: {e!s}"
 
 
-@ai_function
+@ai_function  # type: ignore[arg-type]
 async def delete_calendar_event(  # noqa: RUF029
     event_title: Annotated[str, Field(description="Title of the event to delete")],
     calendar_name: Annotated[str, Field(description="Calendar name (filename without .ics)")] = "event_planning",
@@ -206,15 +206,15 @@ async def delete_calendar_event(  # noqa: RUF029
             return f"Calendar '{calendar_name}' does not exist"
 
         with open(calendar_file, "rb") as f:  # noqa: ASYNC230
-            cal = Calendar.from_ical(f.read())
+            cal = Calendar.from_ical(f.read())  # type: ignore
 
         # Find and remove event
         events_removed = 0
-        for component in cal.walk():
-            if component.name == "VEVENT":
-                summary = str(component.get("summary", ""))
+        for component in cal.walk():  # type: ignore
+            if component.name == "VEVENT":  # type: ignore
+                summary = str(component.get("summary", ""))  # type: ignore
                 if summary == event_title:
-                    cal.subcomponents.remove(component)
+                    cal.subcomponents.remove(component)  # type: ignore
                     events_removed += 1
 
         if events_removed == 0:
@@ -222,7 +222,7 @@ async def delete_calendar_event(  # noqa: RUF029
 
         # Save updated calendar
         with open(calendar_file, "wb") as f:  # noqa: ASYNC230
-            f.write(cal.to_ical())
+            f.write(cal.to_ical())  # type: ignore
 
         return (
             f"Successfully deleted {events_removed} event(s) with title '{event_title}' from calendar '{calendar_name}'"

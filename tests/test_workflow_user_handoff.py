@@ -2,59 +2,22 @@
 
 """Tests for human-in-the-loop workflow functionality."""
 
-import json
 from unittest.mock import Mock
 
 import pytest
-from agent_framework import FunctionCallContent, RequestInfoEvent
+from agent_framework import RequestInfoEvent
 
 from spec_to_agents.workflow.core import build_event_planning_workflow
-from spec_to_agents.workflow.executors import HumanInLoopAgentExecutor
-
-
-def test_hitl_executor_detects_tool_call():
-    """Test HumanInLoopAgentExecutor correctly detects request_user_input calls."""
-    executor = HumanInLoopAgentExecutor(agent_id="test", request_info_id="user_input")
-
-    # Mock AgentExecutorResponse with tool call
-    mock_response = Mock()
-    mock_agent_run_response = Mock()
-    mock_message = Mock()
-    mock_content = Mock(spec=FunctionCallContent)
-    mock_content.name = "request_user_input"
-    mock_content.arguments = json.dumps({"prompt": "test", "context": {}, "request_type": "clarification"})
-    mock_message.contents = [mock_content]
-    mock_agent_run_response.messages = [mock_message]
-    mock_response.agent_run_response = mock_agent_run_response
-
-    # Extract should find the tool call
-    result = executor._extract_user_request(mock_response)
-    assert result is not None
-    assert result["prompt"] == "test"
-
-
-def test_hitl_executor_returns_none_without_tool_call():
-    """Test HumanInLoopAgentExecutor returns None when no tool call."""
-    executor = HumanInLoopAgentExecutor(agent_id="test", request_info_id="user_input")
-
-    # Mock response without tool calls
-    mock_response = Mock()
-    mock_agent_run_response = Mock()
-    mock_message = Mock()
-    mock_message.contents = []
-    mock_agent_run_response.messages = [mock_message]
-    mock_response.agent_run_response = mock_agent_run_response
-
-    result = executor._extract_user_request(mock_response)
-    assert result is None
 
 
 def test_workflow_builds_with_hitl_components():
     """Test that workflow builds successfully with HITL components."""
-    workflow = build_event_planning_workflow()
+    mock_client = Mock()
+    workflow = build_event_planning_workflow(mock_client)
     assert workflow is not None
 
 
+@pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
 async def test_workflow_with_detailed_request_no_user_input():
     """
@@ -63,7 +26,15 @@ async def test_workflow_with_detailed_request_no_user_input():
     NOTE: This test requires Azure credentials and makes real API calls.
     It may be skipped in CI if credentials are not available.
     """
-    workflow = build_event_planning_workflow()
+    import os
+
+    from spec_to_agents.clients import create_agent_client
+
+    if not os.getenv("AZURE_OPENAI_ENDPOINT"):
+        pytest.skip("Azure credentials not configured")
+
+    async with create_agent_client() as client:
+        workflow = build_event_planning_workflow(client)
 
     detailed_request = """
     Plan a corporate team building event:
@@ -85,6 +56,7 @@ async def test_workflow_with_detailed_request_no_user_input():
     # But this depends on LLM behavior, so we just verify workflow completes
 
 
+@pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
 async def test_workflow_with_ambiguous_request_may_trigger_user_input():
     """
@@ -93,7 +65,15 @@ async def test_workflow_with_ambiguous_request_may_trigger_user_input():
     NOTE: This test requires Azure credentials and makes real API calls.
     Whether user input is requested depends on agent LLM behavior.
     """
-    workflow = build_event_planning_workflow()
+    import os
+
+    from spec_to_agents.clients import create_agent_client
+
+    if not os.getenv("AZURE_OPENAI_ENDPOINT"):
+        pytest.skip("Azure credentials not configured")
+
+    async with create_agent_client() as client:
+        workflow = build_event_planning_workflow(client)
 
     # Ambiguous request that could trigger user input
     request = "Plan a party for 30 people"
