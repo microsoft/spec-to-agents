@@ -8,3 +8,4 @@ This document outlines the specifications for the unified components of the proj
 
 - [Workflow Skeleton](workflow-skeleton.md) - Multi-agent event planning workflow architecture and implementation specification
 - [Agent Tools Integration](agent-tools.md) - Comprehensive specification for integrating Bing Search, Weather, Calendar, Code Interpreter, and MCP sequential-thinking-tools with Azure AI Foundry agents
+- [Declarative Workflow Refactor](declarative-workflow-refactor.md) - Refactoring from complex procedural coordinator to simple declarative fan-out/fan-in pattern

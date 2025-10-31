@@ -1,6 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Tests for simplified coordinator without summarization."""
+"""Tests for simplified coordinator without summarization.
+
+NOTE: These tests are now obsolete after refactoring to declarative fan-out/fan-in pattern.
+The EventPlanningCoordinator custom executor has been removed in favor of simple AgentExecutor
+instances with declarative workflow edges. The new workflow doesn't require manual conversation
+history tracking or summarization - this is all handled by the framework's service-managed threads.
+"""
 
 from unittest.mock import AsyncMock, Mock
 
@@ -8,7 +14,9 @@ import pytest
 from agent_framework import AgentExecutorResponse, AgentRunResponse, WorkflowContext
 
 from spec_to_agents.models.messages import SpecialistOutput
-from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+# Skip all tests since EventPlanningCoordinator has been removed
+pytestmark = pytest.mark.skip(reason="EventPlanningCoordinator removed in favor of declarative workflow pattern")
 
 
 @pytest.mark.asyncio

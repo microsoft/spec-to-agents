@@ -28,60 +28,54 @@ def test_workflow_has_correct_id():
     assert workflow.id == "event-planning-workflow"
 
 
-def test_workflow_uses_star_topology():
+def test_workflow_uses_fanout_fanin_topology():
     """
-    Test that workflow uses coordinator-centric star topology.
+    Test that workflow uses declarative fan-out/fan-in topology.
 
     The new architecture uses:
-    - 1 EventPlanningCoordinator (custom executor)
-    - 4 AgentExecutors (specialists)
-    Total: 5 executors (down from 13)
+    - 1 Initial Coordinator (AgentExecutor)
+    - 4 Specialist agents (AgentExecutors) - venue, budget, catering, logistics
+    - 1 Synthesizer (AgentExecutor)
+    Total: 6 executors
+
+    Pattern: Coordinator → (fan-out to specialists) → (fan-in to synthesizer)
+    Fully declarative using WorkflowBuilder edges, no custom Executor classes
     """
     client = create_agent_client()
     test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
 
-    # Workflow should build successfully with new star topology
-    # No RequestInfoExecutor or HumanInLoopAgentExecutor wrappers
-    # Routing handled by EventPlanningCoordinator
+    # Workflow should build successfully with fan-out/fan-in topology
+    # All executors are simple AgentExecutor instances
+    # Routing is declarative through workflow edges
 
 
-def test_coordinator_uses_service_managed_threads():
+def test_all_executors_are_simple_agent_executors():
     """
-    Test that coordinator uses service-managed threads (no manual state tracking).
+    Test that all executors in the workflow are simple AgentExecutor instances.
 
-    After refactoring to use service-managed threads:
-    - Should have _agent (agent for synthesis and coordination)
-    - Should NOT have _summarizer (removed)
-    - Should NOT have _current_summary (removed)
-    - Should NOT have _conversation_history (removed)
-    - Should NOT have _current_index (obsolete)
-    - Should NOT have _specialist_sequence (obsolete)
+    After refactoring to declarative pattern:
+    - All executors should be AgentExecutor (no custom Executor subclasses)
+    - Should have coordinator, venue, budget, catering, logistics, and synthesizer
+    - Routing is handled declaratively by workflow edges, not by executor logic
     """
+    from agent_framework import AgentExecutor
+
     client = create_agent_client()
     test_workflow = build_event_planning_workflow(client)
     assert test_workflow is not None
 
-    # Get the coordinator executor
-    coordinator = None
-    for executor in test_workflow.executors.values():
-        if executor.id == "event_coordinator":
-            coordinator = executor
-            break
+    # Check that we have the expected number of executors
+    expected_executor_ids = {"coordinator", "venue", "budget", "catering", "logistics", "synthesizer"}
+    actual_executor_ids = set(test_workflow.executors.keys())
 
-    assert coordinator is not None, "Coordinator not found in workflow"
-
-    # Should have only the agent
-    assert hasattr(coordinator, "_agent"), "Coordinator should have _agent attribute"
-    assert coordinator._agent is not None, "Coordinator _agent should not be None"
-
-    # Should NOT have manual state tracking
-    assert not hasattr(coordinator, "_summarizer"), "Coordinator should not have _summarizer (removed)"
-    assert not hasattr(coordinator, "_current_summary"), "Coordinator should not have _current_summary (removed)"
-    assert not hasattr(coordinator, "_conversation_history"), (
-        "Coordinator should not have _conversation_history (removed)"
+    assert expected_executor_ids == actual_executor_ids, (
+        f"Expected executors {expected_executor_ids}, got {actual_executor_ids}"
     )
 
-    # Should NOT have obsolete attributes
-    assert not hasattr(coordinator, "_current_index"), "Coordinator should not have _current_index"
-    assert not hasattr(coordinator, "_specialist_sequence"), "Coordinator should not have _specialist_sequence"
+    # Verify all executors are simple AgentExecutor instances (not custom subclasses)
+    for executor_id, executor in test_workflow.executors.items():
+        assert type(executor) == AgentExecutor, (
+            f"Executor '{executor_id}' should be AgentExecutor, got {type(executor).__name__}"
+        )
+        assert hasattr(executor, "agent"), f"Executor '{executor_id}' should have agent attribute"

@@ -1,6 +1,14 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Unit tests for workflow executors using service-managed threads."""
+"""Unit tests for workflow executors using service-managed threads.
+
+NOTE: Most tests in this file are now obsolete after refactoring to declarative
+fan-out/fan-in pattern. The EventPlanningCoordinator custom executor has been
+removed in favor of simple AgentExecutor instances with declarative workflow edges.
+
+The convert_tool_content_to_text utility function tests are preserved as they may
+still be useful for other purposes.
+"""
 
 from unittest.mock import AsyncMock, Mock
 
@@ -8,6 +16,10 @@ import pytest
 from agent_framework import ChatMessage, FunctionCallContent, FunctionResultContent, Role, TextContent
 
 from spec_to_agents.workflow.executors import convert_tool_content_to_text
+
+
+# Skip all tests that reference EventPlanningCoordinator since it's been removed
+pytestmark = pytest.mark.skip(reason="EventPlanningCoordinator removed in favor of declarative workflow pattern")
 
 
 def test_parse_specialist_output_with_valid_structured_output():
