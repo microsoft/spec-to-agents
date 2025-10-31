@@ -75,9 +75,9 @@ When prompted:
 - **Azure subscription**: Select your subscription
 
 **What `azd up` does:**
-- Provisions Azure resources (AI Foundry, Cosmos DB, Storage, App Services, etc.)
-- Builds and deploys the backend API
-- Builds and deploys the frontend application
+- Provisions Azure resources (AI Foundry, Container Apps, Container Registry, etc.)
+- Optionally provisions Bing Grounding for web search capabilities (enabled by default)
+- Builds and deploys the application
 - Configures all connections and settings
 
 **Alternative commands:**
@@ -93,6 +93,9 @@ azd show
 
 # Set environment variables
 azd env set AZURE_LOCATION eastus2
+
+# Optional: Disable Bing Grounding if you don't need web search
+azd env set BING_GROUNDING_NAME ""
 ```
 
 ## Running Locally
