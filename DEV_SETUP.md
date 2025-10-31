@@ -3,9 +3,7 @@
 ## Prerequisites
 
 ```bash
-git submodule update --init --recursive
-
-GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev
+$env:GIT_LFS_SKIP_SMUDGE = "1"; uv sync --extra dev
 
 # Install pre-commit hooks
 uv run pre-commit install
@@ -35,7 +33,7 @@ This starts an interactive session where you can:
 Example interaction:
 ```
 Enter your event planning request:
-> Plan a corporate holiday party for 50 people with a budget of $5000
+> Plan a corporate holiday party for 50 people on 6th December 2025 in Seattle with a budget of $5000
 
 [Workflow executes...]
 
