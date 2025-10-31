@@ -6,52 +6,39 @@ import os
 
 from agent_framework import MCPStdioTool
 
-# Global MCP tool instance
-_mcp_sequential_thinking: MCPStdioTool | None = None
 
-
-def get_sequential_thinking_tool() -> MCPStdioTool:
+def create_sequential_thinking_tool() -> MCPStdioTool:
     """
-    Get or create the sequential-thinking-tools MCP server connection.
+    Create a new sequential-thinking-tools MCP server instance.
+
+    Returns an unconnected MCPStdioTool that should be used with
+    async context manager pattern for proper lifecycle management.
 
     Returns
     -------
     MCPStdioTool
-        MCP tool for advanced reasoning and tool orchestration
+        Unconnected MCP tool for advanced reasoning and tool orchestration
+
+    Example
+    -------
+    >>> async with create_sequential_thinking_tool() as tool:
+    ...     workflow = build_event_planning_workflow(tool)
+    ...     # tool auto-cleanup on exit
 
     Notes
     -----
-    The MCP tool lifecycle is managed by the Agent Framework.
-    Connection is established automatically when the tool is first used.
-    The MCP server is spawned as a subprocess using npx.
+    The MCP tool must be used within an async context manager to ensure
+    proper connection establishment and cleanup. The tool connects on
+    __aenter__ and closes on __aexit__.
     """
-    global _mcp_sequential_thinking
-
-    if _mcp_sequential_thinking is None:
-        _mcp_sequential_thinking = MCPStdioTool(
-            name="sequential-thinking-tools",
-            command="npx",
-            args=["-y", "mcp-sequentialthinking-tools"],
-            env={
-                "MAX_HISTORY_SIZE": os.getenv("MAX_HISTORY_SIZE", "1000"),
-            },
-        )
-
-    return _mcp_sequential_thinking
+    return MCPStdioTool(
+        name="sequential-thinking-tools",
+        command="npx",
+        args=["-y", "mcp-sequentialthinking-tools"],
+        env={
+            "MAX_HISTORY_SIZE": os.getenv("MAX_HISTORY_SIZE", "1000"),
+        },
+    )
 
 
-async def close_sequential_thinking_tool() -> None:
-    """
-    Close the sequential-thinking-tools MCP server connection.
-
-    Notes
-    -----
-    Should be called during application shutdown to cleanup resources.
-    """
-    global _mcp_sequential_thinking
-    if _mcp_sequential_thinking is not None:
-        await _mcp_sequential_thinking.close()
-        _mcp_sequential_thinking = None
-
-
-__all__ = ["close_sequential_thinking_tool", "get_sequential_thinking_tool"]
+__all__ = ["create_sequential_thinking_tool"]
