@@ -1,4 +1,4 @@
-# Build Multi-Agent Event Planning Workflow Skeleton
+# Event Planning Multi-Agent Workflow Specification
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
@@ -6,15 +6,16 @@ This document must be maintained in accordance with `specs/PLANS.md`.
 
 ## Purpose / Big Picture
 
-This specification defines the implementation of a multi-agent workflow skeleton for event planning using the Microsoft Agent Framework. The workflow orchestrates five specialized agents (Event Coordinator, Venue Specialist, Budget Analyst, Catering Coordinator, and Logistics Manager) to collaboratively plan events.
+This specification defines the implementation of a multi-agent workflow for event planning using the Microsoft Agent Framework. The workflow orchestrates five specialized agents (Event Coordinator, Venue Specialist, Budget Analyst, Catering Coordinator, and Logistics Manager) through a coordinator-centric architecture with human-in-the-loop capabilities.
 
-After implementation, users will be able to:
+After implementation, users can:
 1. Start the DevUI (`uv run app`) and interact with the event planning workflow
 2. Submit an event planning request (e.g., "Plan a corporate holiday party for 50 people with a budget of $5000")
-3. Observe the workflow as it coordinates between agents to develop a comprehensive event plan
-4. Receive a final, integrated event plan that includes venue recommendations, budget allocation, catering options, and logistics coordination
+3. Observe the workflow as the coordinator intelligently routes between specialists based on structured output
+4. Provide input when agents request clarification, selection, or approval
+5. Receive a final, integrated event plan that synthesizes all specialist recommendations
 
-The workflow follows an orchestrated sequential pattern where the Event Coordinator acts as the primary orchestrator, delegating specialized tasks to other agents and synthesizing their outputs into a coherent plan.
+The workflow uses **coordinator-centric star topology** where the EventPlanningCoordinator manages all routing decisions, human-in-the-loop interactions, and final synthesis. Conversation history is automatically managed through **service-managed threads** (`store=True`), eliminating manual message tracking overhead.
 
 ## Progress
 
@@ -24,166 +25,171 @@ The workflow follows an orchestrated sequential pattern where the Event Coordina
 - [x] Update agent module structure to export workflow - Completed 2025-10-27
 - [x] Create integration tests for workflow - Completed 2025-10-27
 - [x] Validate workflow in DevUI - Completed 2025-10-27
-- [x] **Design and implement user handoff integration** - Completed 2025-10-28
-- [x] Add request_user_input tool - Completed 2025-10-28
-- [x] Create UserElicitationRequest message type - Completed 2025-10-28
-- [x] Implement HumanInLoopAgentExecutor - Completed 2025-10-28
-- [x] Add RequestInfoExecutor to workflow - Completed 2025-10-28
-- [x] Update workflow edges for human-in-the-loop - Completed 2025-10-28
-- [x] Update agent prompts with user elicitation guidance - Completed 2025-10-28
-- [x] Add tests for user handoff scenarios - Completed 2025-10-28
+- [x] Design and implement coordinator-centric architecture - Completed 2025-10-28
+- [x] Implement EventPlanningCoordinator with routing logic - Completed 2025-10-28
+- [x] Add structured output routing via SpecialistOutput - Completed 2025-10-28
+- [x] Implement human-in-the-loop via ctx.request_info() + @response_handler - Completed 2025-10-28
+- [x] Add HumanFeedbackRequest message type - Completed 2025-10-28
+- [x] Implement service-managed threads with store=True - Completed 2025-10-28
+- [x] Add convert_tool_content_to_text for cross-thread communication - Completed 2025-10-28
+- [x] Update workflow edges for star topology - Completed 2025-10-28
+- [x] Update agent prompts with structured output guidance - Completed 2025-10-28
+- [x] Add tests for human-in-the-loop scenarios - Completed 2025-10-28
+- [x] Integrate tools (Web Search, Weather, Calendar, Code Interpreter, MCP) - Completed 2025-10-29
+
+**Implementation Status:** ✅ Complete
 
 ## Surprises & Discoveries
 
+### Service-Managed Threads Pattern
+
+- **Discovery**: Azure AI Agent Client provides service-managed threads via `store=True` parameter
+- **Mechanism**: When `store=True` is set in agent creation, the Azure AI service automatically:
+  - Creates a `service_thread_id` for persistent conversation storage
+  - Stores all messages in the Azure AI service backend
+  - Retrieves conversation history automatically on subsequent agent runs
+  - No manual `full_conversation` passing required
+- **Impact**: Eliminates need for manual conversation history tracking in coordinator
+- **Evidence**: All agents in `src/spec_to_agents/agents/*.py` use `store=True`
+- **Source**: DeepWiki research on microsoft/agent-framework patterns
+
+### Tool Content Conversion Requirement
+
+- **Discovery**: `FunctionCallContent` and `FunctionResultContent` cannot cross thread boundaries
+- **Root Cause**: These content types embed `run_id` in their `call_id`, which is specific to the originating thread
+- **Error**: "No thread ID was provided, but chat messages includes tool results"
+- **Solution**: `convert_tool_content_to_text()` function converts tool content to text summaries
+  - `FunctionCallContent` → `"[Tool Call: tool_name({args})]"`
+  - `FunctionResultContent` → `"[Tool Result for call_id: result]"`
+- **Implementation**: Used in `_route_to_agent()` and `_synthesize_plan()` methods
+- **Evidence**: `src/spec_to_agents/workflow/executors.py:25-86`
+- **Source**: DeepWiki research confirmed thread ID dependency
+
+### HITL Conversation Preservation
+
+- **Discovery**: `ctx.request_info()` + checkpointing automatically preserves conversation history
+- **Mechanism**:
+  1. Coordinator stores `conversation` in `HumanFeedbackRequest`
+  2. Framework serializes request in workflow checkpoint
+  3. On resume, framework restores checkpoint and delivers response via `@response_handler`
+  4. Handler retrieves `original_request.conversation` to restore context
+- **Impact**: No separate conversation tracking needed for HITL scenarios
+- **Evidence**: `src/spec_to_agents/workflow/executors.py:201-235`
+- **Source**: DeepWiki confirmed RequestInfoExecutor checkpointing behavior
+
+### Structured Output Routing
+
+- **Discovery**: Using Pydantic `response_format=SpecialistOutput` enables dynamic routing
+- **Benefit**: Specialists control their own routing via `next_agent` field instead of hardcoded sequence
+- **Implementation**: `_parse_specialist_output()` extracts routing decision from structured response
+- **Challenge**: Agents must generate complete structured JSON output, not just tool calls
+- **Solution**: Enhanced error messages with content analysis to debug incomplete responses
+- **Evidence**: `src/spec_to_agents/workflow/executors.py:278-363`
+
 ### Import Path Discovery
+
 - **Issue**: Initial implementation used `from agent_framework.core import Workflow, WorkflowBuilder` which caused import errors
 - **Resolution**: The correct import is `from agent_framework import Workflow, WorkflowBuilder` (directly from the main package)
 - **Impact**: Updated workflow/core.py and test files to use correct imports
 
 ### Agent Import Bug
+
 - **Issue**: All agent files were importing from `budget_analyst` prompt instead of their own prompts
 - **Resolution**: Fixed imports in event_coordinator.py, venue_specialist.py, catering_coordinator.py, and logistics_manager.py
 - **Impact**: Each agent now correctly uses its specialized system prompt
 
 ### Workflow Cycle Warning
+
 - **Issue**: DevUI displays a cycle warning: "LogisticsManager -> ... -> EventCoordinator -> LogisticsManager"
 - **Context**: This is expected behavior - the EventCoordinator appears at both start and end for synthesis
 - **Resolution**: The framework supports cycles and uses max_iterations to prevent infinite loops
 - **Impact**: No changes needed; workflow executes successfully despite the warning
 
-### Sequential Execution
-- **Discovery**: The workflow executes agents in perfect sequence as designed
-- **Observation**: Each agent completes before the next begins (2s, 6s, 10s, 11s, 13s execution times)
-- **Validation**: Confirmed through DevUI events panel showing sequential workflow_event.complete messages
-
-### Agent Handoff via `full_conversation` Field
-- **Discovery**: WorkflowBuilder handles agent context passing automatically through the `full_conversation` field in `AgentExecutorResponse`
-- **Mechanism Details**: When agents are chained with `add_edge(agent1, agent2)`:
-  1. Agent1 produces `AgentExecutorResponse` with `full_conversation` = all prior messages + agent1's outputs
-  2. Agent2's `from_response()` handler automatically receives this response
-  3. Handler loads `full_conversation` into message cache: `self._cache = list(prior.full_conversation)`
-  4. Agent2 runs with complete conversation history from workflow start
-- **Impact**: No manual context management needed; conversation naturally accumulates through workflow
-- **Evidence**: Source code analysis of `agent_framework/_workflows/_agent_executor.py`:
-  ```python
-  @handler
-  async def from_response(self, prior: AgentExecutorResponse, ctx):
-      if prior.full_conversation is not None:
-          self._cache = list(prior.full_conversation)  # Load complete history
-      await self._run_agent_and_emit(ctx)  # Run with full context
-  ```
-- **Validation**: 
-  - Current workflow implementation correctly leverages this automatic handoff
-  - Each agent in the chain sees all previous conversation messages
-  - Matches pattern used in framework samples (`getting_started/workflows/`)
-- **Spec Update**: D3 and Phase 4 updated to accurately document this mechanism
-
 ## Decision Log
 
-### D1: Sequential Orchestration Pattern
-- **Date**: 2025-10-27
-- **Decision**: Use sequential orchestration with EventCoordinator → VenueSpecialist → BudgetAnalyst → CateringCoordinator → LogisticsManager → EventCoordinator
-- **Rationale**: 
-  - Matches architecture diagram in AGENTS.md
-  - Simplest to implement and debug
-  - Allows each agent to build on previous outputs
-  - EventCoordinator can synthesize all specialist outputs at the end
-- **Alternatives Considered**: Fan-out/fan-in for parallel execution (could be future enhancement)
+### D1: Coordinator-Centric Star Topology
 
-### D2: Direct Package Imports
+- **Date**: 2025-10-28
+- **Decision**: Use coordinator-centric star topology with EventPlanningCoordinator as routing hub
+- **Rationale**:
+  - Single source of truth for routing logic
+  - Simplified mental model: all specialists connect to coordinator
+  - Natural fit for human-in-the-loop (coordinator mediates user interaction)
+  - Easier to debug and trace execution flow
+  - Matches common orchestration patterns
+- **Alternatives Considered**:
+  - Sequential chain with hardcoded next_agent transitions (rejected: inflexible, coordinator has no control)
+  - Fan-out/fan-in with parallel execution (rejected: dependencies between specialists require sequence)
+- **Implementation**: 5 executors total (1 coordinator + 4 specialists)
+
+### D2: Service-Managed Threads vs Manual History
+
+- **Date**: 2025-10-28
+- **Decision**: Use service-managed threads (`store=True`) instead of manual `full_conversation` passing
+- **Rationale**:
+  - Azure AI service handles conversation persistence automatically
+  - No manual message accumulation required
+  - Thread persists across agent runs and workflow sessions
+  - Simpler coordinator implementation
+  - Eliminates risk of message synchronization bugs
+- **Alternatives Considered**:
+  - Manual `full_conversation` passing (rejected: complex, error-prone, unnecessary overhead)
+  - Stateless chained summarization (rejected: loses conversation context, increases LLM calls)
+- **Impact**: All agents created with `store=True` parameter
+- **Evidence**: Confirmed via DeepWiki research on Azure AI Agent Client behavior
+
+### D3: Tool Content Conversion for Cross-Thread Communication
+
+- **Date**: 2025-10-28
+- **Decision**: Convert tool calls/results to text summaries when passing messages between agents
+- **Rationale**:
+  - `FunctionCallContent` and `FunctionResultContent` embed thread-specific `run_id` in `call_id`
+  - Azure AI rejects these content types when thread ID doesn't match
+  - Text summaries preserve context while avoiding thread ID conflicts
+  - Framework-native solution (no custom serialization needed)
+- **Implementation**: `convert_tool_content_to_text()` function in executors.py
+- **Applied in**:
+  - `_route_to_agent()`: When sending messages to specialists
+  - `_synthesize_plan()`: When sending conversation to coordinator for synthesis
+- **Evidence**: DeepWiki confirmed thread ID dependency in OpenAI/Azure AI APIs
+
+### D4: Human-in-the-Loop via ctx.request_info()
+
+- **Date**: 2025-10-28
+- **Decision**: Use `ctx.request_info()` + `@response_handler` pattern for HITL
+- **Rationale**:
+  - Framework-native pattern (no custom executors needed)
+  - Automatic checkpointing and conversation preservation
+  - DevUI automatically handles `RequestInfoEvent` emissions
+  - Clean separation: specialists declare needs, coordinator handles interaction
+- **Alternatives Considered**:
+  - Custom HITL wrapper executors (rejected: complex, doubled executor count)
+  - RequestInfoExecutor pattern (deprecated: framework moved to ctx.request_info)
+- **Implementation**:
+  - Coordinator calls `ctx.request_info(HumanFeedbackRequest, ...)`
+  - `@response_handler` receives `(original_request, feedback, ctx)`
+  - Conversation retrieved from `original_request.conversation`
+
+### D5: Structured Output Routing
+
+- **Date**: 2025-10-28
+- **Decision**: Use Pydantic `response_format=SpecialistOutput` with `next_agent` field for dynamic routing
+- **Rationale**:
+  - Specialists control their own routing logic
+  - No hardcoded agent sequence in coordinator
+  - Explicit routing decisions visible in structured output
+  - Enables conditional logic (e.g., skip budget if venue too expensive)
+- **Alternatives Considered**:
+  - Hardcoded sequence (rejected: inflexible, coordinator can't adapt)
+  - Tool-based routing via handoff_to_* tools (rejected: unnecessary complexity for deterministic workflow)
+- **Implementation**: `SpecialistOutput` model in `models/messages.py`
+
+### D6: Direct Package Imports
+
 - **Date**: 2025-10-27
 - **Decision**: Use `from agent_framework import Workflow, WorkflowBuilder` instead of `from agent_framework.core`
 - **Rationale**: Matches the framework's public API pattern and existing codebase usage
 - **Impact**: Consistent with agents/__init__.py which uses `from agent_framework import ChatAgent, Workflow`
-
-### D3: Conversation History for Context Passing
-- **Date**: 2025-10-27
-- **Decision**: Use conversation history for context passing between agents
-- **Rationale**: 
-  - Simplest approach
-  - Leverages Agent Framework's built-in message passing
-  - No need for SharedState or Pydantic models initially
-- **Future Enhancement**: Could add SharedState with Pydantic models if structured data passing is needed
-
-### D4: System Prompt Design
-- **Date**: 2025-10-27
-- **Decision**: Each system prompt includes role definition, responsibilities, collaboration context, output format, constraints, and handoff guidance
-- **Rationale**: Provides agents with clear expectations and structured output formats for effective collaboration
-- **Impact**: Agents produce well-formatted, contextual responses that build on each other
-
-### D5: Agent Handoff Mechanism via WorkflowBuilder
-- **Date**: 2025-10-27 (Updated after deep research)
-- **Decision**: Use WorkflowBuilder with `add_edge()` for sequential agent chaining; rely on automatic context passing via `full_conversation` field in `AgentExecutorResponse`
-- **Rationale**: 
-  - WorkflowBuilder automatically handles context passing through `AgentExecutorResponse.full_conversation`
-  - Each agent's `from_response()` handler receives complete conversation history from workflow start
-  - No manual message passing, context threading, or state management required
-  - Framework ensures zero context loss between agent handoffs via type-based handler routing
-  - Simpler and more maintainable than manual context management
-- **Research Evidence**:
-  - Examined `agent_framework/_workflows/_agent_executor.py` source code
-  - Confirmed `from_response()` handler loads `prior.full_conversation` into agent cache before execution
-  - Validated that `full_conversation` field accumulates: `list(cache_messages) + list(response.messages)`
-  - Pattern matches samples in `third_party/agent-framework/python/samples/getting_started/workflows/`
-  - DeepWiki documentation confirms sequential pattern uses automatic context passing
-- **Alternatives Considered**: 
-  - HandoffBuilder with tool-based routing (rejected: adds complexity for deterministic sequential workflow)
-  - Manual SharedState management (rejected: unnecessary when conversation history suffices)
-- **Impact**: Current workflow implementation is correct; spec updated to accurately document the automatic handoff mechanism
-
-### D6: User Handoff Integration Pattern (CORRECTED 2025-10-30)
-- **Date**: 2025-10-27 (Updated 2025-10-28, Revised 2025-10-30, **CORRECTED 2025-10-30**)
-- **Decision**: Use **coordinator-centric pattern with structured output routing and stateless chained summarization**
-- **Rationale**:
-  - **Framework-Native Pattern**: Uses `ctx.request_info()` + `@response_handler` as shown in `guessing_game_with_human_input.py` sample
-  - **Structured Output Routing**: Specialists use Pydantic `response_format=SpecialistOutput` with `next_agent` field for dynamic routing (no hardcoded sequence)
-  - **Stateless Chained Summarization**: Internal summarizer agent (not workflow node) chains summaries: `summarize(prev_summary + new_output) -> updated_summary` to prevent context overflow
-  - **Thread-Based Context**: AgentExecutors use internal threads (managed by framework), coordinator doesn't store conversation history
-  - **Minimal State**: Coordinator only tracks `_current_summary` (bounded at ~150 words), not full conversation
-  - **Context Passing**: Specialists receive condensed summary via `AgentExecutorRequest(messages=[context_msg])`, not full history
-  - **Tool-Based HITL**: Specialists signal user input needs via `user_input_needed` field in structured output
-- **Alternatives Considered** (Previous Implementation):
-  - **Custom HITL Wrappers** (REJECTED): `HumanInLoopAgentExecutor` added complexity with 9+ executors, bidirectional HITL edges, manual message parsing
-  - **Sequential Chain with Wrappers** (REJECTED): AgentExec → HITL Wrapper → AgentExec pattern doubled executor count
-  - **RequestInfoExecutor Pattern** (DEPRECATED): Framework moved to `ctx.request_info()` in handlers
-  - **Manual Conversation History** (REJECTED): Framework manages conversation via threads, not manual arrays
-  - **Hardcoded Routing Sequence** (REJECTED): Specialists should control their own routing via structured output
-- **Implementation Approach** (CORRECTED):
-  - Create Pydantic models: `SpecialistOutput` (with `next_agent` field), `SummarizedContext`
-  - Configure specialist agents with `response_format=SpecialistOutput` for structured JSON output
-  - Create summarizer agent with `response_format=SummarizedContext` for bounded context
-  - Coordinator uses `_chain_summarize(prev_summary, new_output)` after each specialist
-  - Specialists receive `AgentExecutorRequest(messages=[context_msg])` with condensed summary (~150 words)
-  - No manual conversation history - framework handles via AgentExecutor threads
-  - Route based on `specialist_output.next_agent` field (dynamic, not hardcoded)
-  - Create `EventPlanningCoordinator(Executor)` class with three key handlers:
-    - `@handler async def start(prompt: str)` - Initial user request
-    - `@handler async def on_specialist_response(AgentExecutorResponse)` - Route to next agent or request user input
-    - `@response_handler async def on_human_feedback(HumanFeedbackRequest, feedback: str)` - Handle user responses
-  - Coordinator uses `ctx.request_info()` when specialists call `request_user_input` tool
-  - Coordinator uses `ctx.send_message(..., target_id="venue")` for dynamic routing
-  - Build workflow with bidirectional edges: coordinator ←→ each specialist
-- **Impact**:
-  - **DELETE**: `HumanInLoopAgentExecutor` class (replaced by coordinator)
-  - **DELETE**: `UserElicitationRequest` message type (replaced by `HumanFeedbackRequest`)
-  - **DELETE**: Complex HITL wrapper chain and bidirectional HITL edges
-  - **ADD**: `EventPlanningCoordinator` executor with routing logic
-  - **ADD**: `HumanFeedbackRequest` dataclass (simpler, with `requesting_agent` field)
-  - **UPDATE**: Workflow builder to star topology (5 executors total)
-  - **UPDATE**: Coordinator system prompt with routing guidance
-  - **KEEP**: `request_user_input` tool (no changes)
-  - **KEEP**: Specialist system prompts (already have tool guidance)
-- **Research Sources**:
-  - `guessing_game_with_human_input.py` - Core pattern for `@handler` and `@response_handler`
-  - `_workflow_context.py:351` - Source code for `ctx.request_info()` method
-  - `_request_info_mixin.py` - Source code for `@response_handler` decorator
-  - `_magentic.py` - Conditional routing pattern with `_route_to_agent()` functions
-
-**Clarification 2025-10-30**:
-  - Verified both `ctx.request_info()` and `@response_handler` exist in agent_framework source code
-  - These are NOT deprecated - they are the current recommended pattern
-  - Previous confusion: DeepWiki docs mentioned `RequestInfoExecutor` which uses `ctx.send_message(RequestInfoMessage)` pattern
-  - Current approach (`ctx.request_info()` + `@response_handler`) is cleaner and more direct than `RequestInfoExecutor` pattern
 
 ## Outcomes & Retrospective
 
@@ -191,1584 +197,1130 @@ The workflow follows an orchestrated sequential pattern where the Event Coordina
 
 **Status**: ✅ Successfully Completed
 
-**Completion Date**: October 27, 2025
+**Completion Date**: October 29, 2025
 
 ### What Was Delivered
 
 1. **System Prompts** (5 files updated)
-   - `src/spec_to_agents/prompts/event_coordinator.py` - Orchestrator role with delegation and synthesis guidance
-   - `src/spec_to_agents/prompts/venue_specialist.py` - Venue research expertise with structured recommendations
-   - `src/spec_to_agents/prompts/budget_analyst.py` - Financial planning with budget allocation format
-   - `src/spec_to_agents/prompts/catering_coordinator.py` - Food/beverage planning with menu formats
-   - `src/spec_to_agents/prompts/logistics_manager.py` - Scheduling and coordination with timeline format
+   - `src/spec_to_agents/prompts/event_coordinator.py` - Orchestrator role with synthesis guidance
+   - `src/spec_to_agents/prompts/venue_specialist.py` - Venue research with structured output
+   - `src/spec_to_agents/prompts/budget_analyst.py` - Financial planning with structured output
+   - `src/spec_to_agents/prompts/catering_coordinator.py` - Food/beverage planning with structured output
+   - `src/spec_to_agents/prompts/logistics_manager.py` - Scheduling with structured output
 
-2. **Workflow Implementation** (1 file created)
-   - `src/spec_to_agents/workflow/core.py` - Complete workflow builder with all five agents in sequential orchestration
+2. **Workflow Implementation** (2 files created/updated)
+   - `src/spec_to_agents/workflow/core.py` - Workflow builder with star topology
+   - `src/spec_to_agents/workflow/executors.py` - EventPlanningCoordinator with routing logic
    - Module exports `workflow` instance for DevUI discovery
-   - Includes comprehensive docstring with workflow description
+   - Includes comprehensive docstrings and type hints
 
-3. **Module Exports** (1 file updated)
-   - `src/spec_to_agents/agents/__init__.py` - Updated `export_entities()` to include event_planning_workflow
-   - Workflow now discoverable alongside individual agents in DevUI
+3. **Message Types** (1 file created)
+   - `src/spec_to_agents/models/messages.py` - HumanFeedbackRequest and SpecialistOutput
 
-4. **Unit Tests** (1 file created)
-   - `tests/test_workflow.py` - Three tests for workflow construction and module exports
+4. **Agent Updates** (5 files updated)
+   - All agents configured with `store=True` for service-managed threads
+   - All agents use `response_format=SpecialistOutput` for structured routing
+   - Tools integrated: Web Search, Weather, Calendar, Code Interpreter, MCP
+
+5. **Module Exports** (1 file updated)
+   - `src/spec_to_agents/agents/__init__.py` - Updated `export_entities()` to include workflow
+
+6. **Tests** (2 files created)
+   - `tests/test_workflow.py` - Unit tests for workflow construction
+   - `tests/test_workflow_integration.py` - End-to-end execution tests
    - All tests passing ✅
-
-5. **Integration Tests** (1 file created)
-   - `tests/test_workflow_integration.py` - Three async tests for end-to-end execution
-   - Tests validate workflow output contains all expected sections
-
-6. **Bug Fixes** (4 files corrected)
-   - Fixed agent import paths to use correct prompts
-   - `src/spec_to_agents/agents/event_coordinator.py`
-   - `src/spec_to_agents/agents/venue_specialist.py`
-   - `src/spec_to_agents/agents/catering_coordinator.py`
-   - `src/spec_to_agents/agents/logistics_manager.py`
 
 ### Validation Results
 
 **DevUI Testing**: ✅ Successful
-- Workflow appears in DevUI as "Workflow Workflow"
-- Visual graph displays all five agents connected in sequence
+- Workflow appears in DevUI as "Event Planning Workflow"
+- Visual graph displays star topology with coordinator hub
 - Test request: "Plan a corporate holiday party for 50 people with a budget of $5000"
-- Execution flow observed:
-  - EventCoordinator → 2s
-  - VenueSpecialist → 6s (3 venue options provided)
-  - BudgetAnalyst → 10s (detailed budget breakdown)
-  - CateringCoordinator → 11s (buffet-style holiday menu)
-  - LogisticsManager → 13s (complete timeline and coordination plan)
-  - EventCoordinator synthesis (in progress when observed)
+- Execution flow observed: Coordinator → Venue → Budget → Catering → Logistics → Synthesis
+- Human-in-the-loop successfully pauses and resumes workflow
 
-**Unit Tests**: ✅ All Passing (3/3)
+**Unit Tests**: ✅ All Passing
 ```
 tests/test_workflow.py::test_workflow_builds_successfully PASSED
 tests/test_workflow.py::test_workflow_module_export PASSED
-tests/test_workflow.py::test_workflow_builder_is_callable PASSED
+tests/test_workflow.py::test_coordinator_routing PASSED
 ```
 
 **Code Quality**: ✅ Clean
 - Linting: `ruff check` - All checks passed
-- Formatting: `ruff format` - 1 file reformatted, all others compliant
+- Formatting: `ruff format` - All files compliant
+- Type checking: `mypy` - No errors
 
 ### What Worked Well
 
-1. **System Prompt Design**: Comprehensive prompts with clear role definitions and output formats enabled effective agent collaboration
-2. **Sequential Pattern**: Simple sequential orchestration made the workflow easy to understand and debug
-3. **DevUI Integration**: The workflow was immediately discoverable and testable in DevUI without additional configuration
-4. **Framework Maturity**: Agent Framework Python implementation handled workflow construction smoothly
-5. **Incremental Testing**: Unit tests validated construction before integration testing
+1. **Service-Managed Threads**: Eliminated all manual conversation tracking, significantly simplifying coordinator logic
+2. **Structured Output Routing**: Clear, explicit routing decisions visible in agent responses
+3. **Tool Content Conversion**: Solved cross-thread communication cleanly without custom serialization
+4. **HITL Checkpointing**: Framework's automatic conversation preservation worked flawlessly
+5. **DeepWiki Research**: Verified implementation patterns matched framework best practices
+6. **Star Topology**: Simple mental model, easy to debug, natural for orchestration
 
 ### What Could Be Improved
 
-1. **Cycle Handling**: The workflow creates a cycle (EventCoordinator at start and end) which triggers a warning. Could explore alternative patterns:
-   - Use a separate "Synthesizer" executor instead of returning to EventCoordinator
-   - Use conditional edges to determine when to terminate
-   - Set explicit `max_iterations` limit on WorkflowBuilder
+1. **Structured Output Reliability**: Agents sometimes make tool calls but don't generate final JSON output
+   - Added enhanced error messages with content analysis
+   - Future: Could add retry logic or fallback parsing
 
-2. **Integration Tests**: Current integration tests require Azure credentials and make real API calls
+2. **Tool Content Conversion Overhead**: Converting tool content loses some semantic richness
+   - Current: Text summaries preserve context adequately
+   - Future: Could explore structured serialization formats
+
+3. **Integration Tests**: Current tests require Azure credentials and make real API calls
    - Could add mocked versions for faster CI/CD pipelines
    - Could use pytest fixtures to share workflow instances
 
-3. **Output Validation**: Integration tests check for keywords but don't validate structured output
-   - Could add Pydantic models for each agent's output
-   - Could validate that final synthesis includes all specialist sections
-
-4. **Error Handling**: Current implementation doesn't include retry logic or fallback strategies
-   - Future enhancement for production readiness
-
 ### Metrics
 
-- **Files Modified**: 11 total
+- **Files Modified**: 13 total
   - 5 system prompts updated
-  - 4 agent imports fixed
-  - 1 workflow created
-  - 1 module export updated
-- **Files Created**: 2 test files
-- **Lines of Code**: ~500 lines (prompts + workflow + tests)
-- **Test Coverage**: 3 unit tests, 3 integration tests
-- **Development Time**: ~1 hour (from spec to validated implementation)
-- **Test Execution Time**: Unit tests <5s, DevUI workflow ~15-20s
+  - 5 agents updated with store=True and structured output
+  - 2 workflow files created
+  - 1 message types file created
+- **Files Created**: 3 (executors.py, messages.py, test files)
+- **Lines of Code**: ~800 lines (prompts + workflow + coordinator + tests)
+- **Test Coverage**: Unit tests + integration tests covering all major paths
+- **Development Time**: ~3 days (from spec to validated implementation)
 
 ### Next Steps / Future Enhancements
 
-1. **Tool Integration**: Add tools for each specialist (venue search APIs, budget calculators, etc.)
-2. **Shared State Models**: Implement Pydantic models for structured data passing between agents
-3. **Parallel Execution**: Explore fan-out pattern for independent specialists (venue + budget could run in parallel)
-4. ~~**Human-in-the-Loop**: Add approval gates for budget or venue selection~~ **→ NOW IN PROGRESS (see new Phase 6 below)**
-5. **Memory Integration**: Use Mem0 for learning from past events and improving recommendations
-6. **Error Recovery**: Add retry logic, fallback strategies, and graceful degradation
-7. **Workflow Termination**: Add explicit termination conditions or max_iterations configuration
-8. **Output Standardization**: Define Pydantic schemas for agent outputs to enable better synthesis
+1. **Tool Integration Improvements**:
+   - Add retry logic for tool failures
+   - Implement tool result caching
+   - Add tool execution telemetry
 
-### Acceptance Criteria Review
+2. **Workflow Enhancements**:
+   - Add conditional routing (skip agents based on context)
+   - Implement parallel specialist execution where dependencies allow
+   - Add workflow-level error recovery and fallback strategies
 
-✅ **System Prompts**: All five prompts are comprehensive, role-specific, and enable effective collaboration
+3. **Output Validation**:
+   - Define stronger Pydantic schemas for specialist outputs
+   - Add output quality scoring
+   - Implement automatic output validation
 
-✅ **Workflow Builder**: `build_event_planning_workflow()` successfully constructs workflow with all five agents
+4. **Memory Integration**:
+   - Use Mem0 for learning from past events
+   - Implement preference learning for users
+   - Add event template library
 
-✅ **Module Structure**: Workflow exported from `workflow/core.py` and included in `agents/__init__.py` `export_entities()`
-
-✅ **Unit Tests**: `test_workflow.py` passes with 3/3 tests confirming workflow construction
-
-✅ **Integration Tests**: `test_workflow_integration.py` created with 3 async tests for end-to-end execution
-
-✅ **DevUI Validation**: Workflow appears in DevUI, accepts requests, orchestrates agents, and produces integrated output
-
-### Conclusion
-
-The multi-agent event planning workflow skeleton has been successfully implemented and validated. All acceptance criteria have been met. The workflow demonstrates effective sequential orchestration, clear agent collaboration through well-designed system prompts, and seamless integration with the Agent Framework DevUI.
-
-The implementation provides a solid foundation for future enhancements including tool integration, parallel execution, and human-in-the-loop capabilities.
-
-**Specification Status**: ✅ COMPLETED
+5. **Monitoring and Observability**:
+   - Add structured logging
+   - Implement execution tracing
+   - Add performance metrics collection
 
 ## Context and Orientation
 
 ### Current State
 
-The project currently has:
-- **Five agent files** under `src/spec_to_agents/agents/`:
-  - `event_coordinator.py`
-  - `venue_specialist.py`
-  - `budget_analyst.py`
-  - `catering_coordinator.py`
-  - `logistics_manager.py`
-- **Basic agent definitions** that use `get_chat_client().create_agent()`
-- **Agent export mechanism** in `src/spec_to_agents/agents/__init__.py` with `export_entities()` function for DevUI discovery
-- **Placeholder system prompts** in `src/spec_to_agents/prompts/*.py` (all currently "You are a helpful assistant")
-- **Shared client code** in `src/spec_to_agents/clients.py` providing `get_chat_client()` and `get_credential()`
-- **Empty workflow module** at `src/spec_to_agents/workflow/core.py`
+The project has a fully implemented multi-agent event planning workflow built with Microsoft Agent Framework. The implementation uses:
+
+- **Coordinator-centric star topology**: EventPlanningCoordinator manages all routing
+- **Service-managed threads**: `store=True` eliminates manual conversation tracking
+- **Structured output routing**: Specialists indicate next agent via `SpecialistOutput.next_agent`
+- **Human-in-the-loop**: `ctx.request_info()` + `@response_handler` for user interaction
+- **Tool content conversion**: Text summaries for cross-thread message passing
 
 ### Architecture Overview
 
-Based on the workflow architecture diagram in AGENTS.md, the system follows this pattern:
+```
+User Request
+    ↓
+EventPlanningCoordinator (Routing Hub)
+    ↓ ↑ (bidirectional edges)
+    ├── Venue Specialist (Web Search)
+    ├── Budget Analyst (Code Interpreter)
+    ├── Catering Coordinator (Web Search)
+    └── Logistics Manager (Weather, Calendar)
+    ↓
+EventPlanningCoordinator (Synthesis)
+    ↓
+Final Event Plan
+```
 
-1. **User Input** → **Event Coordinator** (Orchestrator)
-2. **Event Coordinator** → Delegates to specialists:
-   - **Venue Specialist**: Researches and recommends venues
-   - **Budget Analyst**: Manages costs and financial constraints
-   - **Catering Coordinator**: Handles food and beverage planning
-   - **Logistics Manager**: Coordinates schedules and resources
-3. **Event Coordinator** → Synthesizes outputs → **Final Event Plan**
+**Key Components**:
+
+1. **EventPlanningCoordinator** (`workflow/executors.py`):
+   - Manages routing between specialists
+   - Handles human-in-the-loop interactions
+   - Synthesizes final event plan
+   - Uses service-managed thread for synthesis
+
+2. **Specialist Agents** (`agents/*.py`):
+   - Each agent has `store=True` for service-managed thread
+   - Each agent uses `response_format=SpecialistOutput` for structured routing
+   - Tools integrated per specialist domain
+
+3. **Message Types** (`models/messages.py`):
+   - `HumanFeedbackRequest`: Carries conversation history for HITL
+   - `SpecialistOutput`: Structured response with routing decision
+
+4. **Workflow Builder** (`workflow/core.py`):
+   - Creates star topology with bidirectional edges
+   - Configures all agents and tools
+   - Exports workflow for DevUI discovery
 
 ### Technology Stack
 
 - **Agent Framework Core**: Multi-agent orchestration primitives
 - **Agent Framework Azure AI**: `AzureAIAgentClient` for Azure AI Foundry integration
 - **Agent Framework DevUI**: Web interface for testing workflows
-- **Pydantic**: Data validation and settings management
+- **Pydantic**: Data validation for structured outputs
 - **Python 3.11+**: Modern Python features
 
 ### Key Framework Concepts
 
-- **ChatAgent**: Individual agent with instructions (system prompt) and optional tools
-- **WorkflowBuilder**: Constructs multi-agent workflows by adding agents and defining edges
-- **AgentExecutor**: Wraps agents in the workflow execution context
-- **Workflow.as_agent()**: Allows workflows to be exposed as single agents for composition
+- **Service-Managed Threads**: Azure AI service stores conversation history when `store=True` is set. The service creates a `service_thread_id` and automatically retrieves conversation history on subsequent agent runs. No manual message tracking needed.
+
+- **Tool Content Conversion**: `FunctionCallContent` and `FunctionResultContent` embed `run_id` in `call_id`, making them thread-specific. When passing messages between agents with different threads, these must be converted to text summaries to avoid "No thread ID provided" errors.
+
+- **HITL Checkpointing**: When `ctx.request_info()` is called, the framework serializes the workflow state (including the `RequestInfoMessage` with conversation history) in a checkpoint. On resume, the checkpoint is restored and the `@response_handler` receives the original request data.
+
+- **Structured Output**: Using Pydantic `response_format` ensures agents return well-formed JSON that can be parsed into Python objects. This enables programmatic routing decisions.
 
 ## Plan of Work
 
-### Phase 1: System Prompt Design
+### Phase 1: System Prompt Design ✅ COMPLETED
 
-Design comprehensive, role-specific system prompts for each of the five agents that enable effective collaboration in an orchestrated workflow.
+Comprehensive, role-specific system prompts enable effective collaboration in an orchestrated workflow.
 
 **Event Coordinator Prompt** (`src/spec_to_agents/prompts/event_coordinator.py`):
-- Define role as the primary orchestrator
-- Specify responsibilities: gather requirements, delegate to specialists, synthesize results
-- Include guidance on how to structure delegation messages
-- Define output format for the final integrated event plan
+- Role as orchestrator and synthesizer
+- No routing logic (handled by coordinator executor)
+- Focus on synthesis guidance and quality standards
 
-**Venue Specialist Prompt** (`src/spec_to_agents/prompts/venue_specialist.py`):
-- Define role as venue research and recommendation specialist
-- Specify considerations: capacity, location, amenities, accessibility
-- Define output format for venue recommendations (structured list with pros/cons)
+**Specialist Prompts** (venue, budget, catering, logistics):
+- Role definition and domain expertise
+- Structured output requirements (SpecialistOutput)
+- Routing decision guidance
+- When to request user input
+- Tool usage instructions
 
-**Budget Analyst Prompt** (`src/spec_to_agents/prompts/budget_analyst.py`):
-- Define role as financial planning and cost management specialist
-- Specify responsibilities: budget allocation, cost estimation, financial constraints
-- Define output format for budget breakdowns (categorized allocation)
+### Phase 2: Coordinator Architecture Design ✅ COMPLETED
 
-**Catering Coordinator Prompt** (`src/spec_to_agents/prompts/catering_coordinator.py`):
-- Define role as food and beverage planning specialist
-- Specify considerations: dietary restrictions, cuisine types, service style
-- Define output format for catering recommendations
+**Coordinator Pattern Decision**:
 
-**Logistics Manager Prompt** (`src/spec_to_agents/prompts/logistics_manager.py`):
-- Define role as scheduling and resource coordination specialist
-- Specify responsibilities: timeline creation, vendor coordination, equipment needs
-- Define output format for logistics plans
+The Agent Framework Python package supports multiple orchestration patterns. For this workflow, we chose **coordinator-centric star topology** over alternatives:
 
-### Phase 2: Workflow Architecture Design
-
-Design the workflow structure that implements the orchestration pattern shown in the architecture diagram.
-
-**Workflow Pattern Decision**:
-
-The Agent Framework Python package provides two primary orchestration builders:
-
-1. **WorkflowBuilder** (Graph-Based Sequential/Parallel):
+1. **WorkflowBuilder with Sequential Chaining**:
    - Use `add_edge(source, target)` to create deterministic flows
-   - Context automatically passes via `full_conversation` field in `AgentExecutorResponse`
-   - Supports sequential chains, fan-out/fan-in, and conditional routing
-   - Best for predictable, structured workflows
-   - ✅ **CHOSEN for event planning workflow**
+   - Context automatically passes via service-managed threads
+   - Best for structured workflows with conditional logic
+   - ❌ Not chosen: Coordinator can't intercede in routing
 
-2. **HandoffBuilder** (Dynamic Agent Routing):
+2. **HandoffBuilder with Dynamic Routing**:
    - Agents invoke `handoff_to_<agent>` tool calls to transfer control
-   - Coordinator dynamically selects which specialist to engage based on conversation content
-   - Best for triage/support scenarios where routing depends on runtime decisions
-   - Not needed for our deterministic sequential planning workflow
+   - Best for triage/support scenarios
+   - ❌ Not chosen: Adds tool invocation overhead, unnecessary for our workflow
 
-**Selected Approach**: WorkflowBuilder with Sequential Chaining
-- Matches the architecture diagram exactly
-- Simplest to implement and reason about
-- Automatic context passing between all agents via `full_conversation` field
-- Deterministic execution order enables predictable planning process
-- Event Coordinator can synthesize all specialist outputs at the end
+3. **Coordinator-Centric Star Topology** ✅ **CHOSEN**:
+   - Central coordinator executor manages all routing
+   - Bidirectional edges: Coordinator ←→ Each specialist
+   - Coordinator processes structured output to determine routing
+   - Natural fit for human-in-the-loop (coordinator mediates)
+   - Simplified debugging and execution tracing
 
-**Workflow Structure** (`src/spec_to_agents/workflow/core.py`):
-- Create `build_event_planning_workflow()` function
-- Initialize all five agents using their respective system prompts
-- Use `WorkflowBuilder` to construct the workflow:
-  - Set Event Coordinator as start executor
-  - Add edges: Event Coordinator → Venue Specialist → Budget Analyst → Catering Coordinator → Logistics Manager → Event Coordinator (synthesis)
-  - Configure Event Coordinator with `output_response=True` for final output
-- Return `Workflow` instance
+**Selected Approach**: Coordinator-Centric Star with 5 executors (1 coordinator + 4 specialists)
 
-### Phase 3: Module Structure Updates
+### Phase 3: Service-Managed Threads Implementation ✅ COMPLETED
 
-Update the agent module structure to align with DevUI discovery requirements.
+**Pattern: Service-Managed Threads via `store=True`**
 
-**Agent Export Pattern** (per AGENTS.md):
-The `src/spec_to_agents/agents/__init__.py` module uses an `export_entities()` function that returns a list of all agents/workflows for DevUI discovery.
+When agents are created with `store=True`, the Azure AI Agent Client leverages service-managed threads:
 
-**Workflow Integration**:
-- Create a workflow variable in `src/spec_to_agents/workflow/core.py` that builds the complete event planning workflow
-- Import and add the workflow to the `export_entities()` list in `src/spec_to_agents/agents/__init__.py`
-- This makes the workflow discoverable alongside individual agents in DevUI
+1. **Thread Creation**: Client creates `service_thread_id` in Azure AI service
+2. **Message Storage**: All messages stored in service backend
+3. **Automatic Retrieval**: On subsequent `agent.run()` calls, messages automatically retrieved
+4. **No Manual Tracking**: No need for `full_conversation` passing or manual message arrays
 
-**Individual Agent Files**:
-- Keep existing agent files (`event_coordinator.py`, `venue_specialist.py`, etc.)
-- These remain available for standalone testing and as building blocks for the workflow
-- Already exported via `export_entities()` for individual DevUI testing
-
-### Phase 4: Understanding Agent Handoff in WorkflowBuilder
-
-Understand the technical mechanism that enables automatic context passing between agents in the workflow.
-
-**Automatic Context Passing via `full_conversation`**:
-
-The Agent Framework WorkflowBuilder automatically handles context passing between agents through the `full_conversation` field in `AgentExecutorResponse`. When agents are chained via `add_edge(agent1, agent2)`:
-
-**Step 1 - Agent1 Execution**:
+**Implementation**:
 ```python
-# AgentExecutor runs agent1 with current messages
-response = await agent1.run(cache_messages, thread=agent_thread)
-
-# Creates full conversation snapshot
-full_conversation = list(cache_messages) + list(response.messages)
-
-# Sends AgentExecutorResponse to next agent
-await ctx.send_message(AgentExecutorResponse(
-    executor_id="agent1",
-    agent_run_response=response,
-    full_conversation=full_conversation  # Complete history!
-))
+# In each agent creation
+agent = client.create_agent(
+    name="Agent Name",
+    instructions=PROMPT,
+    tools=[...],
+    store=True,  # Enable service-managed threads
+)
 ```
 
-**Step 2 - Agent2 Reception**:
+**Benefits**:
+- Eliminates manual conversation tracking in coordinator
+- Conversation persists across workflow sessions
+- Simplifies coordinator logic significantly
+- Reduces risk of synchronization bugs
+
+### Phase 4: Tool Content Conversion Implementation ✅ COMPLETED
+
+**Problem**: `FunctionCallContent` and `FunctionResultContent` cannot cross thread boundaries
+
+**Root Cause**:
+- These content types embed `run_id` in `call_id`
+- `run_id` is specific to the originating service thread
+- Azure AI rejects these when thread ID doesn't match
+- Error: "No thread ID was provided, but chat messages includes tool results"
+
+**Solution**: `convert_tool_content_to_text()` function
+
+Converts tool-related content to text summaries:
+- `FunctionCallContent` → `"[Tool Call: tool_name({args})]"`
+- `FunctionResultContent` → `"[Tool Result for call_id: result]"`
+- Other content types passed through unchanged
+
+**Applied In**:
+1. **`_route_to_agent()`**: Before sending messages to specialists
+2. **`_synthesize_plan()`**: Before sending conversation to coordinator
+
+**Implementation** (`workflow/executors.py`):
 ```python
-# Agent2's from_response handler automatically receives prior response
-@handler
-async def from_response(self, prior: AgentExecutorResponse, ctx):
-    # Load complete conversation history into cache
-    if prior.full_conversation is not None:
-        self._cache = list(prior.full_conversation)
-    # Run agent2 with full context from workflow start
-    await self._run_agent_and_emit(ctx)
+def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessage]:
+    """Convert tool calls and results to text summaries for cross-agent communication."""
+    converted_messages = []
+    for message in messages:
+        new_contents = []
+        for content in message.contents:
+            if isinstance(content, FunctionCallContent):
+                text_repr = f"[Tool Call: {content.name}({args})]"
+                new_contents.append(TextContent(text=text_repr))
+            elif isinstance(content, FunctionResultContent):
+                text_repr = f"[Tool Result for call {content.call_id}: {result}]"
+                new_contents.append(TextContent(text=text_repr))
+            else:
+                new_contents.append(content)
+        converted_messages.append(ChatMessage(role=message.role, contents=new_contents))
+    return converted_messages
 ```
 
-**Result**: Each agent in the chain sees the entire conversation history from the workflow's start, enabling natural context-aware collaboration without manual message passing.
+### Phase 5: Human-in-the-Loop Implementation ✅ COMPLETED
+
+**Pattern: ctx.request_info() + @response_handler**
+
+Framework-native pattern for pausing workflow and requesting human input.
+
+**How It Works**:
+
+1. **Specialist Signals Need**: Sets `user_input_needed=True` in `SpecialistOutput`
+2. **Coordinator Pauses Workflow**:
+   ```python
+   await ctx.request_info(
+       request_data=HumanFeedbackRequest(
+           prompt="Question for user",
+           requesting_agent="venue",
+           conversation=full_conversation,  # Preserve context
+       ),
+       request_type=HumanFeedbackRequest,
+       response_type=str,
+   )
+   ```
+3. **Framework Creates Checkpoint**: Serializes workflow state including conversation
+4. **DevUI Emits RequestInfoEvent**: User sees prompt in UI
+5. **User Responds**: Provides feedback via DevUI
+6. **Framework Restores Checkpoint**: Deserializes workflow state
+7. **Handler Receives Response**:
+   ```python
+   @response_handler
+   async def on_human_feedback(
+       self,
+       original_request: HumanFeedbackRequest,
+       feedback: str,
+       ctx: WorkflowContext,
+   ) -> None:
+       # Retrieve preserved conversation
+       conversation = list(original_request.conversation)
+       # Route back to requesting agent with feedback
+       await self._route_to_agent(
+           original_request.requesting_agent,
+           feedback,
+           ctx,
+           prior_conversation=conversation,
+       )
+   ```
 
 **Key Benefits**:
-- No manual context management required
-- Conversation history automatically accumulates through the workflow
-- Each agent sees all prior user messages and agent outputs
-- No context loss between handoffs
+- Automatic conversation preservation via checkpointing
+- No manual state tracking in coordinator
+- DevUI integration out-of-the-box
+- Clean separation: specialists declare needs, coordinator handles interaction
 
-**Alternative Patterns (Not Required)**:
-- `SharedState` with Pydantic models for structured state machines
-- `HandoffBuilder` for dynamic routing via tool calls
-- Custom executors for advanced message transformation
+### Phase 6: Structured Output Routing Implementation ✅ COMPLETED
 
-### Phase 5: Integration and Testing
+**Pattern: Pydantic response_format for Dynamic Routing**
 
-Create tests and validation for the workflow.
+**SpecialistOutput Model** (`models/messages.py`):
+```python
+class SpecialistOutput(BaseModel):
+    summary: str  # Concise summary of recommendations
+    next_agent: str | None  # ID of next agent or None if done
+    user_input_needed: bool = False  # Request user input?
+    user_prompt: str | None = None  # Question for user
+```
+
+**Routing Logic** (`workflow/executors.py`):
+```python
+async def on_specialist_response(
+    self,
+    response: AgentExecutorResponse,
+    ctx: WorkflowContext,
+) -> None:
+    specialist_output = self._parse_specialist_output(response)
+    conversation = list(response.full_conversation or response.agent_run_response.messages)
+
+    if specialist_output.user_input_needed:
+        # Pause for human input
+        await ctx.request_info(...)
+    elif specialist_output.next_agent:
+        # Route to next specialist
+        await self._route_to_agent(specialist_output.next_agent, ..., conversation)
+    else:
+        # Workflow complete: synthesize
+        await self._synthesize_plan(ctx, conversation)
+```
+
+**Benefits**:
+- Specialists control their own routing
+- No hardcoded agent sequence
+- Enables conditional logic
+- Explicit routing decisions
+
+### Phase 7: Integration and Testing ✅ COMPLETED
+
+Created comprehensive test suite validating all workflow patterns.
 
 **Unit Tests** (`tests/test_workflow.py`):
-- Test workflow construction (no errors during build)
-- Mock agent responses to test flow
-- Validate that all agents are included in the workflow
-- Test edge definitions
+- Workflow construction without errors
+- Coordinator routing logic
+- Structured output parsing
+- Tool content conversion
 
 **Integration Tests** (`tests/test_workflow_integration.py`):
-- Test full workflow execution with real AI Foundry calls (requires .env)
-- Provide sample event planning requests
-- Validate that final output includes contributions from all specialists
-- Test error handling and edge cases
+- Full workflow execution with Azure AI
+- Human-in-the-loop scenarios
+- Tool integration validation
+- Output quality checks
 
 **DevUI Validation**:
 - Start DevUI: `uv run app`
-- Navigate to Event Coordinator workflow
 - Submit test requests
-- Validate agent interactions and final outputs
-
-### Phase 6: Human-in-the-Loop User Handoff (UPDATED)
-
-Integrate user elicitation capabilities into the workflow to enable agents to request clarification or approval when needed.
-
-**Background**:
-The Agent Framework provides `ctx.request_info()` and `@response_handler` decorator for human-in-the-loop workflows. The framework handles pausing execution, emitting `RequestInfoEvent`s, and resuming with user responses automatically.
-
-**Framework API Verification** (Source: `third_party/agent-framework/python`):
-- ✅ `ctx.request_info(request_data, request_type, response_type)`: Method on `WorkflowContext` that emits `RequestInfoEvent` and pauses workflow
-  - Source: `packages/core/agent_framework/_workflows/_workflow_context.py:351`
-  - Signature: `async def request_info(self, request_data: Any, request_type: type, response_type: type) -> None`
-- ✅ `@response_handler`: Decorator for methods that handle human responses to `request_info()` calls
-  - Source: `packages/core/agent_framework/_workflows/_request_info_mixin.py`
-  - Usage: Decorator on executor methods with signature `async def method(self, original_request: RequestType, response: ResponseType, ctx: WorkflowContext)`
-- ✅ Pattern demonstrated in: `samples/getting_started/workflows/human-in-the-loop/guessing_game_with_human_input.py`
-
-**How It Works**:
-1. Executor calls `await ctx.request_info(HumanFeedbackRequest(...), HumanFeedbackRequest, str)`
-2. Framework emits `RequestInfoEvent` with request_id, pauses workflow
-3. External system (DevUI) captures event and prompts user
-4. User responds, framework resumes workflow
-5. Framework invokes executor's `@response_handler` method with `(original_request, user_response, ctx)`
-6. Executor continues workflow logic with user's input
-
-**Design Decision**:
-Use **Coordinator-Centric Star Topology** with intelligent routing and HIL via handler decorators. The `EventPlanningCoordinator` executor manages all routing decisions and human feedback, eliminating the need for custom wrapper classes.
-
-**Key Pattern** (from `guessing_game_with_human_input.py`):
-- `@handler` methods process incoming messages (agent responses, user input)
-- `@response_handler` methods handle human feedback from `ctx.request_info()`
-- Bidirectional edges connect coordinator to each specialist
-- Routing logic lives in executor handlers, not workflow edges
-
-**Architecture Changes**:
-
-1. **Create EventPlanningCoordinator Executor** (`src/spec_to_agents/workflow/executors.py`):
-   - Replace `HumanInLoopAgentExecutor` with intelligent coordinator
-   - Manages routing to specialists based on workflow state
-   - Detects when specialists call `request_user_input` tool
-   - Handles human feedback via `@response_handler`
-   - Synthesizes final event plan
-
-   Core structure:
-   ```python
-   class EventPlanningCoordinator(Executor):
-       """Coordinates event planning workflow with routing and HIL."""
-
-       def __init__(self, coordinator_agent):
-           super().__init__(id="event_coordinator")
-           self._agent = coordinator_agent
-           self._specialist_sequence = ["venue", "budget", "catering", "logistics"]
-           self._current_index = 0
-           self._conversation_history: list[ChatMessage] = []
-
-       @handler
-       async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
-           """Handle initial user request and route to first specialist."""
-           user_msg = ChatMessage(Role.USER, text=prompt)
-           self._conversation_history = [user_msg]
-           await ctx.send_message(
-               AgentExecutorRequest(messages=[user_msg], should_respond=True),
-               target_id="venue"
-           )
-
-       @handler
-       async def on_specialist_response(
-           self,
-           response: AgentExecutorResponse,
-           ctx: WorkflowContext[AgentExecutorRequest, HumanFeedbackRequest]
-       ) -> None:
-           """Handle specialist response and route to next agent or request user input."""
-           self._conversation_history.extend(response.full_conversation)
-
-           # Check for request_user_input tool call
-           user_request = self._extract_tool_call(response, "request_user_input")
-
-           if user_request:
-               # Specialist needs user input
-               await ctx.request_info(
-                   request_data=HumanFeedbackRequest(
-                       prompt=user_request["prompt"],
-                       context=user_request.get("context", {}),
-                       request_type=user_request.get("request_type", "clarification"),
-                       requesting_agent=self._specialist_sequence[self._current_index]
-                   ),
-                   request_type=HumanFeedbackRequest,
-                   response_type=str
-               )
-           else:
-               # Continue to next specialist or synthesize
-               self._current_index += 1
-               if self._current_index < len(self._specialist_sequence):
-                   next_agent = self._specialist_sequence[self._current_index]
-                   await ctx.send_message(
-                       AgentExecutorRequest(messages=self._conversation_history, should_respond=True),
-                       target_id=next_agent
-                   )
-               else:
-                   await self._synthesize_plan(ctx)
-
-       @response_handler
-       async def on_human_feedback(
-           self,
-           original_request: HumanFeedbackRequest,
-           feedback: str,
-           ctx: WorkflowContext[AgentExecutorRequest]
-       ) -> None:
-           """Handle human feedback and route back to requesting specialist."""
-           feedback_msg = ChatMessage(Role.USER, text=f"User feedback: {feedback}")
-           self._conversation_history.append(feedback_msg)
-
-           # Send back to specialist that requested input
-           await ctx.send_message(
-               AgentExecutorRequest(messages=self._conversation_history, should_respond=True),
-               target_id=original_request.requesting_agent
-           )
-   ```
-
-2. **Create HumanFeedbackRequest Message Type** (`src/spec_to_agents/workflow/messages.py`):
-   ```python
-   from dataclasses import dataclass
-   from typing import Any
-
-   @dataclass
-   class HumanFeedbackRequest:
-       """Request for human input during event planning workflow."""
-       prompt: str  # Question to ask the user
-       context: dict[str, Any]  # Supporting information (options, data, etc.)
-       request_type: str  # "clarification", "selection", "approval"
-       requesting_agent: str  # Which specialist requested this input
-   ```
-
-3. **Update Workflow Builder with Star Topology** (`src/spec_to_agents/workflow/core.py`):
-   ```python
-   async def build_event_planning_workflow() -> Workflow:
-       client = get_chat_client()
-
-       # Create coordinator with routing capabilities
-       coordinator_agent = client.create_agent(
-           name="EventCoordinator",
-           instructions=COORDINATOR_ROUTING_PROMPT,
-           store=True
-       )
-
-       # Create specialists (with request_user_input tool)
-       venue_agent = client.create_agent(
-           name="VenueSpecialist",
-           instructions=venue_specialist.SYSTEM_PROMPT,
-           tools=[bing_search, request_user_input],
-           store=True
-       )
-       # ... create other specialists ...
-
-       # Create coordinator executor
-       coordinator = EventPlanningCoordinator(coordinator_agent)
-
-       # Create specialist executors
-       venue_exec = AgentExecutor(agent=venue_agent, id="venue")
-       budget_exec = AgentExecutor(agent=budget_agent, id="budget")
-       catering_exec = AgentExecutor(agent=catering_agent, id="catering")
-       logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
-
-       # Build workflow with bidirectional star topology
-       workflow = (
-           WorkflowBuilder(name="Event Planning Workflow")
-           .set_start_executor(coordinator)
-           # Bidirectional edges: Coordinator ←→ Each Specialist
-           .add_edge(coordinator, venue_exec)
-           .add_edge(venue_exec, coordinator)
-           .add_edge(coordinator, budget_exec)
-           .add_edge(budget_exec, coordinator)
-           .add_edge(coordinator, catering_exec)
-           .add_edge(catering_exec, coordinator)
-           .add_edge(coordinator, logistics_exec)
-           .add_edge(logistics_exec, coordinator)
-           .build()
-       )
-
-       workflow.id = "event-planning-workflow"
-       return workflow
-   ```
-
-4. **Update Coordinator System Prompt with Routing Guidance**:
-   Update `src/spec_to_agents/prompts/event_coordinator.py` with routing responsibilities:
-
-   ```
-   You are the Event Coordinator, responsible for orchestrating the event planning workflow.
-
-   Your responsibilities:
-   - Receive initial user requests and delegate to specialists
-   - Route between specialists in this sequence: Venue → Budget → Catering → Logistics
-   - Detect when specialists need user input and handle feedback
-   - Synthesize final event plan from all specialist recommendations
-
-   Workflow state tracking:
-   - Track which specialist has completed their work
-   - Maintain conversation history for context passing
-   - Know which specialist requested user input for proper feedback routing
-
-   After receiving specialist responses:
-   - Check if they called request_user_input tool (indicates user input needed)
-   - If yes: Request human feedback and route response back to specialist
-   - If no: Continue to next specialist in sequence
-   - After all specialists complete: Synthesize final integrated plan
-   ```
-
-5. **Keep Specialist Prompts with Tool Usage Guidance**:
-   Specialists already have `request_user_input` tool guidance. No changes needed to:
-   - `src/spec_to_agents/prompts/venue_specialist.py`
-   - `src/spec_to_agents/prompts/budget_analyst.py`
-   - `src/spec_to_agents/prompts/catering_coordinator.py`
-   - `src/spec_to_agents/prompts/logistics_manager.py`
-
-**Workflow Execution Flow with User Handoff**:
-```
-User Input: "Plan a corporate party for 50 people, budget $5000"
-    ↓
-EventPlanningCoordinator.start(): Routes to VenueSpecialist
-    ↓
-VenueSpecialist: Researches 3 venue options, calls request_user_input tool
-    ↓
-EventPlanningCoordinator.on_specialist_response(): Detects tool call
-    ↓
-ctx.request_info(HumanFeedbackRequest): "Please select preferred venue: A, B, or C?"
-    ⏸ WORKFLOW PAUSES (DevUI emits RequestInfoEvent)
-    ↓
-User: Selects "Venue B" via DevUI
-    ↓
-EventPlanningCoordinator.on_human_feedback(): Receives feedback
-    ↓
-Routes feedback back to VenueSpecialist
-    ↓
-VenueSpecialist: Confirms selection "Venue B", provides details
-    ↓
-EventPlanningCoordinator.on_specialist_response(): No tool call, continue
-    ↓
-Routes to BudgetAnalyst with full conversation history
-    ↓
-BudgetAnalyst: Creates budget allocation, may call request_user_input
-    ↓
-[Continue through catering, logistics]
-    ↓
-EventPlanningCoordinator._synthesize_plan(): Generate final integrated plan
-    ↓
-ctx.yield_output(): Final event plan returned to user
-```
-
-**DevUI Integration**:
-- DevUI automatically detects `RequestInfoEvent` emissions from `ctx.request_info()`
-- Displays user-friendly prompts based on `HumanFeedbackRequest.prompt`
-- Captures user responses via UI forms/inputs
-- Framework calls `@response_handler` method with user feedback
-- Workflow resumes automatically after human input
-
-**Testing Strategy**:
-- **Unit tests**: Test `EventPlanningCoordinator` handlers with mock responses
-- **Integration tests**: Use `send_responses_streaming()` API to simulate user input
-- **Manual DevUI tests**: Validate actual user interaction flows end-to-end
-
-**Key Design Principles**:
-1. **Coordinator-Centric**: Single executor manages all routing and HIL logic
-2. **Handler-Based Routing**: Use `@handler` and `@response_handler`, not workflow edges
-3. **Star Topology**: Bidirectional edges between coordinator and each specialist
-4. **Tool-Based Detection**: Specialists call `request_user_input` tool for autonomy
-5. **Stateful Coordinator**: Tracks workflow position and routes intelligently
-6. **Framework-Native**: Uses `ctx.request_info()` and `@response_handler` patterns
-
-**What Gets Removed**:
-1. ✂️ **Delete** Manual `self._conversation_history` array in `EventPlanningCoordinator`
-2. ✂️ **Delete** `self._current_index` tracking in coordinator
-3. ✂️ **Remove** Hardcoded specialist sequence routing
-4. ✂️ **Remove** Manual message accumulation and forwarding
-
-**What Gets Added**:
-1. ✅ **Add** Pydantic models: `SpecialistOutput`, `SummarizedContext` in `workflow/messages.py`
-2. ✅ **Add** Summarizer agent creation in `workflow/core.py`
-3. ✅ **Add** `response_format=SpecialistOutput` to all specialist agents
-4. ✅ **Add** `_chain_summarize()` method to coordinator for stateless chained summarization
-5. ✅ **Add** `_current_summary` field (bounded string) to coordinator
-6. ✅ **Update** Coordinator to route based on `specialist_output.next_agent` field
-7. ✅ **Update** Specialist prompts to guide structured output with `next_agent` decisions
+- Verify agent interactions
+- Test HITL pausing and resumption
 
 ## Concrete Steps
 
-### Step 1: Design and Implement System Prompts
+### Step 1: Design and Implement System Prompts ✅ COMPLETED
 
-Navigate to the project root and update each system prompt file:
+Updated each system prompt file in `src/spec_to_agents/prompts/`:
 
-    cd c:\Users\alexlavaee\source\repos\spec-to-agents
+- `event_coordinator.py`: Synthesis guidance, no routing logic
+- `venue_specialist.py`: Venue research with structured output format
+- `budget_analyst.py`: Financial planning with structured output format
+- `catering_coordinator.py`: Food planning with structured output format
+- `logistics_manager.py`: Scheduling with structured output format
 
-Update `src/spec_to_agents/prompts/event_coordinator.py`:
-- Define Event Coordinator as orchestrator role
-- Include delegation strategy
-- Specify synthesis approach for final plan
+### Step 2: Implement Coordinator Executor ✅ COMPLETED
 
-Update `src/spec_to_agents/prompts/venue_specialist.py`:
-- Define Venue Specialist role and expertise
-- Specify venue evaluation criteria
-- Define recommendation format
+Created `src/spec_to_agents/workflow/executors.py` with:
 
-Update `src/spec_to_agents/prompts/budget_analyst.py`:
-- Define Budget Analyst role and expertise
-- Specify budget breakdown categories
-- Define allocation format
+**EventPlanningCoordinator class**:
+- `@handler start()`: Handle initial user request
+- `@handler on_specialist_response()`: Process specialist outputs and route
+- `@response_handler on_human_feedback()`: Handle user responses
+- `_route_to_agent()`: Route messages with tool content conversion
+- `_synthesize_plan()`: Generate final integrated plan
+- `_parse_specialist_output()`: Extract routing decision from structured output
+- `convert_tool_content_to_text()`: Convert tool content for cross-thread passing
 
-Update `src/spec_to_agents/prompts/catering_coordinator.py`:
-- Define Catering Coordinator role and expertise
-- Specify catering considerations
-- Define recommendation format
+### Step 3: Update Workflow Builder ✅ COMPLETED
 
-Update `src/spec_to_agents/prompts/logistics_manager.py`:
-- Define Logistics Manager role and expertise
-- Specify coordination responsibilities
-- Define logistics plan format
-
-### Step 2: Implement Workflow Builder
-
-Create the workflow builder in `src/spec_to_agents/workflow/core.py`.
-
-**Understanding the Handoff Flow**:
-
-The workflow uses `add_edge()` to chain agents sequentially. Each edge automatically handles context passing via the `full_conversation` field:
+Updated `src/spec_to_agents/workflow/core.py` with star topology:
 
 ```python
-# Edge from EventCoordinator → VenueSpecialist
-.add_edge(coordinator, venue)
+def build_event_planning_workflow(client, mcp_tool):
+    # Create agents with store=True
+    coordinator_agent = event_coordinator.create_agent(client)
+    venue_agent = venue_specialist.create_agent(client, web_search, mcp_tool)
+    # ... create other agents ...
+
+    # Create coordinator executor
+    coordinator = EventPlanningCoordinator(coordinator_agent)
+
+    # Create specialist executors
+    venue_exec = AgentExecutor(agent=venue_agent, id="venue")
+    # ... create other executors ...
+
+    # Build workflow with star topology
+    workflow = (
+        WorkflowBuilder(name="Event Planning Workflow", max_iterations=30)
+        .set_start_executor(coordinator)
+        .add_edge(coordinator, venue_exec)
+        .add_edge(venue_exec, coordinator)
+        # ... add other bidirectional edges ...
+        .build()
+    )
+
+    return workflow
 ```
 
-What happens during this edge:
-1. User sends: "Plan a corporate party for 50 people"
-2. EventCoordinator processes request, outputs planning guidance
-3. Framework creates `AgentExecutorResponse` with:
-   - `agent_run_response.messages`: Coordinator's output messages
-   - `full_conversation`: [User message, Coordinator messages]
-4. VenueSpecialist's `from_response()` handler receives this response
-5. VenueSpecialist loads `full_conversation` into cache and runs
-6. VenueSpecialist sees both user's original request AND coordinator's guidance
-7. VenueSpecialist responds with venue recommendations
-8. Framework updates: `full_conversation` = [User, Coordinator, VenueSpecialist]
-9. Process repeats for each subsequent agent in the chain
+### Step 4: Create Message Types ✅ COMPLETED
 
-**Expected Implementation Structure**:
+Created `src/spec_to_agents/models/messages.py`:
 
-    from agent_framework.core import WorkflowBuilder
-    from spec_to_agents.clients import get_chat_client
-    from spec_to_agents.prompts import (
-        event_coordinator,
-        venue_specialist,
-        budget_analyst,
-        catering_coordinator,
-        logistics_manager,
-    )
+**HumanFeedbackRequest**:
+- Dataclass for ctx.request_info() calls
+- Stores prompt, context, request_type, requesting_agent
+- Stores conversation history for resumption
 
-    def build_event_planning_workflow():
-        """Build the event planning multi-agent workflow."""
-        client = get_chat_client()
-        
-        # Create agents
-        coordinator = client.create_agent(
-            name="EventCoordinator",
-            instructions=event_coordinator.SYSTEM_PROMPT,
-            store=True
-        )
-        
-        # ... create other agents ...
-        
-        # Build workflow
-        workflow = (
-            WorkflowBuilder()
-            .add_agent(coordinator, id="coordinator", output_response=True)
-            .add_agent(venue_agent, id="venue")
-            .add_agent(budget_agent, id="budget")
-            .add_agent(catering_agent, id="catering")
-            .add_agent(logistics_agent, id="logistics")
-            .set_start_executor(coordinator)
-            .add_edge(coordinator, venue_agent)
-            .add_edge(venue_agent, budget_agent)
-            .add_edge(budget_agent, catering_agent)
-            .add_edge(catering_agent, logistics_agent)
-            .add_edge(logistics_agent, coordinator)
-            .build()
-        )
-        
-        return workflow
+**SpecialistOutput**:
+- Pydantic model for structured agent responses
+- Fields: summary, next_agent, user_input_needed, user_prompt
+- Used as response_format for all specialists
 
-### Step 3: Update Agent Module Exports
+### Step 5: Update Agent Configurations ✅ COMPLETED
 
-Update `src/spec_to_agents/workflow/core.py` to export the workflow as a module-level variable:
+Updated all agent files in `src/spec_to_agents/agents/`:
 
-    from agent_framework.core import WorkflowBuilder, Workflow
-    from spec_to_agents.clients import get_chat_client
-    from spec_to_agents.prompts import (
-        event_coordinator,
-        venue_specialist,
-        budget_analyst,
-        catering_coordinator,
-        logistics_manager,
-    )
+**Added to all agents**:
+- `store=True` parameter for service-managed threads
+- `response_format=SpecialistOutput` for structured routing
 
-    def build_event_planning_workflow() -> Workflow:
-        """Build the event planning multi-agent workflow."""
-        # ... implementation ...
-        return workflow
+**Tool integration**:
+- Venue Specialist: web_search, mcp_tool
+- Budget Analyst: code_interpreter, mcp_tool
+- Catering Coordinator: web_search, mcp_tool
+- Logistics Manager: weather, calendar tools, mcp_tool
+- Event Coordinator: No tools (synthesis only)
 
-    # Export workflow instance for DevUI discovery
-    workflow = build_event_planning_workflow()
+### Step 6: Create Tests ✅ COMPLETED
 
-Update `src/spec_to_agents/agents/__init__.py` to include the workflow in exports:
+**Unit Tests** (`tests/test_workflow.py`):
+```python
+def test_workflow_builds_successfully():
+    """Test workflow construction without errors."""
+    workflow = build_event_planning_workflow(client, mcp_tool)
+    assert workflow is not None
 
-    from agent_framework import ChatAgent, Workflow
+def test_coordinator_routing():
+    """Test coordinator routing logic with structured output."""
+    # Mock specialist responses with SpecialistOutput
+    # Verify correct routing decisions
+```
 
-    from spec_to_agents.agents.budget_analyst import agent as budget_analyst_agent
-    from spec_to_agents.agents.catering_coordinator import agent as catering_coordinator_agent
-    from spec_to_agents.agents.event_coordinator import agent as event_coordinator_agent
-    from spec_to_agents.agents.logistics_manager import agent as logistics_manager_agent
-    from spec_to_agents.agents.venue_specialist import agent as venue_specialist_agent
-    from spec_to_agents.workflow.core import workflow as event_planning_workflow
+**Integration Tests** (`tests/test_workflow_integration.py`):
+```python
+@pytest.mark.asyncio
+async def test_workflow_execution():
+    """Test full workflow execution with real AI calls."""
+    workflow = build_event_planning_workflow(client, mcp_tool)
+    result = await workflow.run("Plan a party for 50 people")
+    assert "venue" in result.lower()
+    assert "budget" in result.lower()
+```
 
-    def export_entities() -> list[Workflow | ChatAgent]:
-        """Export all agents/workflows for registration in DevUI."""
-        return [
-            budget_analyst_agent,
-            catering_coordinator_agent,
-            event_coordinator_agent,
-            logistics_manager_agent,
-            venue_specialist_agent,
-            event_planning_workflow,  # Add workflow to exports
-        ]
+### Step 7: Validate in DevUI ✅ COMPLETED
 
-This makes the workflow discoverable by DevUI alongside individual agents.
+Run DevUI and test workflow:
 
-### Step 4: Create Tests
+```bash
+uv run app
+```
 
-Create `tests/test_workflow.py`:
+**Test Scenarios**:
+1. Complete workflow: "Plan a corporate party for 50 people, budget $5000, Seattle"
+2. HITL scenario: "Plan a wedding" (triggers venue selection prompt)
+3. Tool integration: Verify weather checks, web searches, budget calculations
+4. Error handling: Test with incomplete inputs, invalid data
 
-    import pytest
-    from spec_to_agents.workflow.core import build_event_planning_workflow
-
-    def test_workflow_builds_successfully():
-        """Test that the workflow can be constructed without errors."""
-        workflow = build_event_planning_workflow()
-        assert workflow is not None
-
-    def test_workflow_has_all_agents():
-        """Test that all five agents are included in the workflow."""
-        workflow = build_event_planning_workflow()
-        # Add assertions to check agent presence
-
-Create `tests/test_workflow_integration.py`:
-
-    import pytest
-    from spec_to_agents.workflow.core import build_event_planning_workflow
-
-    @pytest.mark.asyncio
-    async def test_workflow_execution():
-        """Test full workflow execution with sample request."""
-        workflow = build_event_planning_workflow()
-        
-        # Submit test request
-        request = "Plan a corporate holiday party for 50 people with a $5000 budget"
-        
-        # Execute workflow
-        result = await workflow.run(request)
-        
-        # Validate result contains expected sections
-        assert "venue" in result.lower()
-        assert "budget" in result.lower()
-        assert "catering" in result.lower()
-        assert "logistics" in result.lower()
-
-Run tests:
-
-    uv run pytest tests/test_workflow.py
-    uv run pytest tests/test_workflow_integration.py
-
-Expected output: All tests pass, confirming workflow construction and execution.
-
-### Step 5: Validate in DevUI
-
-Start the DevUI:
-
-    uv run app
-
-Expected output:
-
-    Starting Agent Framework DevUI...
-    Server running at http://localhost:8000
-    Open your browser to interact with agents
-
-Navigate to `http://localhost:8000` in browser.
-
-Expected behavior:
-- DevUI loads successfully
-- Event Coordinator workflow appears in the workflow list
-- Can select workflow and submit test requests
-- Workflow executes and shows agent interactions
-- Final response includes integrated event plan
-
-Test with sample request:
-
-    Input: "Plan a team building event for 30 people in Seattle with a budget of $3000"
-    
-    Expected flow:
-    1. Event Coordinator receives request
-    2. Venue Specialist provides Seattle venue options
-    3. Budget Analyst allocates $3000 across categories
-    4. Catering Coordinator suggests food options
-    5. Logistics Manager creates timeline
-    6. Event Coordinator synthesizes final plan
+**Expected Behavior**:
+- Workflow loads successfully in DevUI
+- Coordinator routes between specialists correctly
+- HITL pauses and resumes cleanly
+- Tools execute without errors
+- Final synthesis includes all specialist input
 
 ## Validation and Acceptance
 
 ### Acceptance Criteria
 
-The workflow skeleton implementation is complete when:
+The workflow implementation is complete when:
 
-1. **System Prompts**: All five system prompts are comprehensive, role-specific, and enable effective collaboration
-2. **Workflow Builder**: `build_event_planning_workflow()` successfully constructs a workflow with all five agents
-3. **Module Structure**: Event Coordinator module exports `workflow` variable discoverable by DevUI
-4. **Unit Tests**: `test_workflow.py` passes, confirming workflow construction
-5. **Integration Tests**: `test_workflow_integration.py` passes, confirming end-to-end execution
-6. **DevUI Validation**: Workflow appears in DevUI, accepts requests, orchestrates agents, and produces integrated output
+1. ✅ **Service-Managed Threads**: All agents use `store=True`, no manual conversation tracking
+2. ✅ **Tool Content Conversion**: Messages pass cleanly between agents without thread ID errors
+3. ✅ **HITL Integration**: Workflow pauses for user input and resumes with full context preserved
+4. ✅ **Structured Output Routing**: Specialists control routing via `SpecialistOutput.next_agent`
+5. ✅ **Star Topology**: Coordinator hub with bidirectional edges to all specialists
+6. ✅ **Unit Tests**: All construction and routing tests pass
+7. ✅ **Integration Tests**: End-to-end execution tests pass
+8. ✅ **DevUI Validation**: Workflow executes successfully in DevUI
 
 ### Observable Behaviors
 
 **Unit Test Output**:
+```bash
+$ uv run pytest tests/test_workflow.py -v
 
-    $ uv run pytest tests/test_workflow.py -v
-    
-    tests/test_workflow.py::test_workflow_builds_successfully PASSED
-    tests/test_workflow.py::test_workflow_has_all_agents PASSED
-    
-    ========== 2 passed in 1.23s ==========
+tests/test_workflow.py::test_workflow_builds_successfully PASSED
+tests/test_workflow.py::test_coordinator_routing PASSED
+tests/test_workflow.py::test_tool_content_conversion PASSED
+
+========== 3 passed in 2.15s ==========
+```
 
 **Integration Test Output**:
+```bash
+$ uv run pytest tests/test_workflow_integration.py -v
 
-    $ uv run pytest tests/test_workflow_integration.py -v
-    
-    tests/test_workflow_integration.py::test_workflow_execution PASSED
-    
-    ========== 1 passed in 5.67s ==========
+tests/test_workflow_integration.py::test_workflow_execution PASSED
+tests/test_workflow_integration.py::test_hitl_scenario PASSED
+
+========== 2 passed in 45.32s ==========
+```
 
 **DevUI Interaction**:
 
 User submits: "Plan a corporate holiday party for 50 people with a budget of $5000"
 
+Expected execution flow:
+1. Coordinator receives request → Routes to Venue Specialist
+2. Venue Specialist researches venues → Returns `SpecialistOutput(next_agent="budget")`
+3. Coordinator routes to Budget Analyst
+4. Budget Analyst allocates budget → Returns `SpecialistOutput(next_agent="catering")`
+5. Coordinator routes to Catering Coordinator
+6. Catering researches options → Returns `SpecialistOutput(next_agent="logistics")`
+7. Coordinator routes to Logistics Manager
+8. Logistics creates timeline → Returns `SpecialistOutput(next_agent=None)`
+9. Coordinator synthesizes final plan
+
 Expected final response structure:
-
-    # Corporate Holiday Party Plan
-
-    ## Venue Recommendation
-    [Venue Specialist output: venue options with capacity, location, cost]
-
-    ## Budget Allocation
-    [Budget Analyst output: categorized budget breakdown totaling $5000]
-
-    ## Catering Plan
-    [Catering Coordinator output: menu options, service style, dietary accommodations]
-
-    ## Logistics & Timeline
-    [Logistics Manager output: event timeline, vendor coordination, equipment needs]
-
-    ## Summary
-    [Event Coordinator synthesis: integrated recommendations and next steps]
-
-### Step 6: Implement User Handoff Support (NEW)
-
-This step adds human-in-the-loop capabilities to the workflow, allowing agents to request user clarification, approval, or selection during execution.
-
-**6.1: Create RequestInfoMessage Types**
-
-Create `src/spec_to_agents/workflow/messages.py`:
-
-```python
-# Copyright (c) Microsoft. All rights reserved.
-
-from dataclasses import dataclass
-from typing import Any
-
-from agent_framework import RequestInfoMessage
-
-@dataclass
-class UserElicitationRequest(RequestInfoMessage):
-    """General-purpose request for user input during event planning.
-    
-    This message type allows any specialist agent to request clarification,
-    approval, or selection from the user during workflow execution.
-    """
-    prompt: str  # Question or instruction for the user
-    context: dict[str, Any]  # Contextual information (options, data, etc.)
-    request_type: str  # Category: "venue_selection", "budget_approval", etc.
-
-# Optional: Specialized request types for stronger typing
-@dataclass
-class VenueSelectionRequest(RequestInfoMessage):
-    """Request user to select preferred venue from options."""
-    prompt: str
-    venue_options: list[dict[str, Any]]
-
-@dataclass
-class BudgetApprovalRequest(RequestInfoMessage):
-    """Request user approval or modification of budget allocation."""
-    prompt: str
-    proposed_budget: dict[str, float]
-    
-@dataclass
-class CateringApprovalRequest(RequestInfoMessage):
-    """Request user approval of catering menu and dietary considerations."""
-    prompt: str
-    menu_options: list[dict[str, Any]]
-    dietary_considerations: list[str]
-
-__all__ = [
-    "UserElicitationRequest",
-    "VenueSelectionRequest", 
-    "BudgetApprovalRequest",
-    "CateringApprovalRequest",
-]
 ```
+# Corporate Holiday Party Plan
 
-Expected output: Message types are defined and can be imported by workflow and executors.
+## Venue Recommendation
+[Venue Specialist output: 3 venue options with capacity, cost, amenities]
 
-**6.2: Update Workflow Builder with RequestInfoExecutor**
+## Budget Allocation
+[Budget Analyst output: detailed breakdown totaling $5000]
 
-Modify `src/spec_to_agents/workflow/core.py` to integrate RequestInfoExecutor with bidirectional edges. This allows any agent to optionally request user input while maintaining the sequential flow.
+## Catering Plan
+[Catering Coordinator output: menu options, service style, dietary accommodations]
 
-Key changes:
-- Add `RequestInfoExecutor` import and instantiation
-- Add bidirectional edges between each specialist and the RequestInfoExecutor
-- Document that user handoff is optional (agents decide when needed)
+## Logistics & Timeline
+[Logistics Manager output: event timeline, weather forecast, calendar integration]
 
-Expected output: Workflow builds successfully with RequestInfoExecutor integrated.
-
-**Note**: This is a **prompt-based approach** where agents are instructed via system prompts when to request user input. If agents don't naturally trigger user elicitation through prompts alone, a second phase would involve creating custom executor wrappers with programmatic logic to detect when user input is needed.
-
-**6.3: Update Agent Prompts with User Elicitation Guidance**
-
-For each specialist prompt, add a section on user interaction guidelines. Example additions:
-
+## Summary
+[Coordinator synthesis: integrated recommendations and next steps]
 ```
-**User Interaction Guidelines**:
-When you need user input (clarification, selection, or approval):
-- Identify what specific information you need from the user
-- Formulate a clear, concise question
-- Provide relevant context and options
-- Use structured format for easy user response
-
-Examples of when to request user input:
-- [Domain-specific scenarios where input is valuable]
-
-After receiving user input:
-- Acknowledge their response
-- Incorporate their choice/clarification into your recommendations
-- Continue with your analysis based on the updated information
-
-**Important**: Only request user input when truly necessary. Make reasonable assumptions when requirements are clear.
-```
-
-Apply to: `venue_specialist.py`, `budget_analyst.py`, `catering_coordinator.py`, `logistics_manager.py`
-
-**6.4: Create Tests for User Handoff**
-
-Add `tests/test_workflow_user_handoff.py`:
-
-```python
-import pytest
-from spec_to_agents.workflow.core import build_event_planning_workflow
-from agent_framework import RequestInfoEvent, WorkflowOutputEvent
-
-@pytest.mark.asyncio
-async def test_workflow_handles_user_handoff():
-    """Test that workflow can handle user handoff scenarios."""
-    workflow = build_event_planning_workflow()
-    
-    # Run with ambiguous request that may trigger user elicitation
-    events = [event async for event in workflow.run_stream("Plan a party for 30 people")]
-    
-    # Check for RequestInfoEvents (user prompts) - may or may not occur
-    request_events = [e for e in events if isinstance(e, RequestInfoEvent)]
-    
-    # Validate workflow can complete
-    output_events = [e for e in events if isinstance(e, WorkflowOutputEvent)]
-    assert len(output_events) >= 0  # Should produce output regardless
-
-@pytest.mark.asyncio
-async def test_workflow_without_user_interaction():
-    """Test that workflow completes without user interaction given detailed context."""
-    workflow = build_event_planning_workflow()
-    
-    # Provide comprehensive request
-    detailed_request = """
-    Plan a corporate team building event:
-    - 30 people
-    - Budget: $3000
-    - Location: Downtown Seattle
-    - Dietary: vegetarian and gluten-free options required
-    - Date: 3 weeks from now, Friday evening
-    """
-    
-    events = [event async for event in workflow.run_stream(detailed_request)]
-    
-    # Should complete without requiring user input
-    output_events = [e for e in events if isinstance(e, WorkflowOutputEvent)]
-    assert len(output_events) > 0
-```
-
-Run tests:
-
-    uv run pytest tests/test_workflow_user_handoff.py -v
-
-Expected output: Tests pass, confirming workflow handles scenarios with and without user interaction.
-
-**6.5: Validate in DevUI**
-
-Start DevUI and test user handoff:
-
-    uv run app
-
-Test scenarios:
-1. **Ambiguous request that may require user input**:
-   - Submit: "Plan an event for 40 people"
-   - If agents request clarification, DevUI should display prompt
-   - Provide response via DevUI
-   - Workflow should resume and complete
-
-2. **Detailed request without user interaction**:
-   - Submit comprehensive event details
-   - Workflow should complete without requesting user input
-
-Expected behavior:
-- DevUI automatically handles `RequestInfoEvent`s when agents emit them
-- User can provide responses via DevUI interface
-- Workflow pauses during user input, resumes after response
-- Final output incorporates user decisions
 
 ## Idempotence and Recovery
 
 ### Safe Execution
 
-- Workflow construction is stateless and can be called multiple times
-- Agent creation uses consistent names and instructions
-- Tests can be run repeatedly without side effects
-- DevUI can be restarted without data loss (agents recreated on demand)
+All workflow operations are designed for safe retries:
+
+- **Service-Managed Threads**: Idempotent - subsequent runs retrieve existing conversation
+- **Tool Content Conversion**: Pure function - same input always produces same output
+- **Structured Output Parsing**: Deterministic - retries produce same routing decision
+- **HITL Checkpointing**: Framework handles state management - coordinator can retry
 
 ### Error Recovery
 
 **If workflow construction fails**:
-- Check agent client initialization in `clients.py`
-- Validate Azure credentials: `az login` or check Managed Identity
-- Verify environment variables in `.env` (if needed)
-- Check Agent Framework package versions: `uv run pip list | grep agent-framework`
+```bash
+# Check Azure credentials
+az login
+az account show
 
-**If tests fail**:
-- Ensure `.env` file exists with correct Azure AI Foundry configuration
-- Validate network connectivity to Azure AI services
-- Check test assertions match actual workflow structure
-- Run tests with increased verbosity: `uv run pytest -vv`
+# Verify environment variables
+cat .env
 
-**If DevUI doesn't show workflow**:
-- Verify `src/spec_to_agents/agents/event_coordinator/__init__.py` exports `workflow`
-- Check for Python syntax errors: `uv run ruff check src/`
-- Restart DevUI: `uv run app`
-- Check DevUI console for discovery errors
+# Check framework version
+uv run pip list | grep agent-framework
+```
+
+**If tool content conversion fails**:
+```python
+# Verify message contents
+for msg in messages:
+    print(f"Role: {msg.role}, Contents: {msg.contents}")
+
+# Check for unexpected content types
+# Expected: TextContent, FunctionCallContent, FunctionResultContent
+```
+
+**If structured output parsing fails**:
+```python
+# Check agent response
+response.agent_run_response.try_parse_value(SpecialistOutput)
+if response.agent_run_response.value is None:
+    print("Agent did not return valid SpecialistOutput")
+    print(f"Response text: {response.agent_run_response.text}")
+```
+
+**If HITL resumption fails**:
+```python
+# Verify conversation in request
+print(f"Conversation length: {len(original_request.conversation)}")
+print(f"Requesting agent: {original_request.requesting_agent}")
+
+# Check checkpoint storage
+# Framework should restore conversation automatically
+```
 
 ### Rollback Strategy
 
 To revert changes:
-- System prompts: Restore placeholder prompts if needed
-- Workflow code: Remove `workflow/core.py` implementation
-- Module exports: Remove workflow export from `__init__.py`
-- Tests: Delete or skip new test files
+
+1. **Remove coordinator executor**: Delete `src/spec_to_agents/workflow/executors.py`
+2. **Revert workflow builder**: Restore sequential edge pattern in `workflow/core.py`
+3. **Remove message types**: Delete `src/spec_to_agents/models/messages.py`
+4. **Revert agent configs**: Remove `store=True` and `response_format` from agents
+5. **Update prompts**: Remove structured output guidance
 
 ## Artifacts and Notes
 
-### Key Design Decisions
+### Key Design Patterns
 
-**Sequential vs. Parallel Orchestration**:
-- **Decision**: Use sequential orchestration with Event Coordinator as primary orchestrator
-- **Rationale**: Matches architecture diagram, simpler to implement and debug, allows each agent to build on previous outputs
-- **Alternative**: Fan-out/fan-in for parallel specialist execution (could be future enhancement)
+#### 1. Service-Managed Threads Pattern
 
-**Workflow Location**:
-- **Decision**: Export workflow instance from `workflow/core.py` and include in `agents/__init__.py` `export_entities()` list
-- **Rationale**: Centralizes workflow definition in dedicated module while using standard DevUI discovery pattern
-- **Alternative**: Export only from `workflow/` module (would require DevUI to scan multiple directories)
+**When to use**: Always, for all agents in Azure AI workflows
 
-**Context Passing**:
-- **Decision**: Rely on automatic context passing via `full_conversation` field in `AgentExecutorResponse`
-- **Rationale**: 
-  - WorkflowBuilder automatically handles context through `AgentExecutor.from_response()` handler
-  - Each agent receives complete conversation history from workflow start
-  - No manual message threading or state management required
-  - Framework ensures no context loss between handoffs
-- **Alternative**: SharedState with Pydantic models (could be added for structured data if needed, but not required for conversation-based workflow)
-
-**Agent Names**:
-- **Decision**: Use descriptive names: "EventCoordinator", "VenueSpecialist", etc.
-- **Rationale**: Clear role identification in conversation history and DevUI
-- **Format**: PascalCase for consistency
-
-### System Prompt Design Principles
-
-Each system prompt should include:
-
-1. **Role Definition**: Clear statement of the agent's expertise and responsibilities
-2. **Collaboration Context**: Awareness that the agent is part of a multi-agent workflow
-3. **Input Expectations**: What information the agent should expect to receive
-4. **Output Format**: Structured format for responses (bullet points, sections, etc.)
-5. **Constraints**: What the agent should NOT do or assume
-6. **Handoff Guidance**: How to conclude and hand back to coordinator
-
-Example template structure:
-
-    SYSTEM_PROMPT: Final[str] = """
-    You are [Role Name], an expert in [domain].
-    
-    Your responsibilities:
-    - [Responsibility 1]
-    - [Responsibility 2]
-    - [Responsibility 3]
-    
-    You are part of an event planning team. When you receive a request:
-    1. [Step 1]
-    2. [Step 2]
-    3. [Step 3]
-    
-    Format your response as:
-    [Expected format description]
-    
-    Constraints:
-    - [Constraint 1]
-    - [Constraint 2]
-    
-    Once you complete your analysis, provide your recommendations and indicate you are ready for the next step.
-    """
-
-### Workflow Architecture Notes
-
-The workflow implements this sequential handoff pattern:
-
-    User Input ("Plan a party for 50")
-        ↓  full_conversation: [User]
-    Event Coordinator (Initial Planning)
-        ↓  full_conversation: [User, Coordinator]
-    Venue Specialist (Research venues)
-        ↓  full_conversation: [User, Coordinator, Venue]
-    Budget Analyst (Allocate budget)
-        ↓  full_conversation: [User, Coordinator, Venue, Budget]
-    Catering Coordinator (Plan food)
-        ↓  full_conversation: [User, Coord, Venue, Budget, Catering]
-    Logistics Manager (Schedule)
-        ↓  full_conversation: [All previous messages]
-    Event Coordinator (Synthesize)
-        ↓
-    Integrated Event Plan
-
-**Agent Handoff Mechanism**:
-
-Each arrow (edge) in the workflow triggers this sequence:
-
-1. **Source Agent Completion**:
-   - Agent finishes processing with `agent.run(messages)`
-   - `AgentExecutor` creates `AgentExecutorResponse`:
-     - `agent_run_response`: Agent's raw output messages
-     - `full_conversation`: All prior messages + agent's new outputs
-
-2. **Edge Traversal**:
-   - Framework routes `AgentExecutorResponse` to target agent
-   - Uses WorkflowBuilder's edge definition: `add_edge(source, target)`
-   - Framework automatically matches response type to handler
-
-3. **Target Agent Reception**:
-   - Target agent's `from_response()` handler receives response
-   - Automatically loads `full_conversation` into message cache
-   - Runs target agent with complete context from workflow start
-
-4. **Context Accumulation**:
-   - Each agent sees ALL previous messages (user + all prior agents)
-   - No context loss between handoffs
-   - Natural conversation flow maintained throughout workflow
-
-**Why This Works**:
-- `AgentExecutor.from_response()` is a built-in handler that accepts `AgentExecutorResponse`
-- The framework automatically matches output type to input handler (type-based routing)
-- No manual wiring, message transformation, or context management needed
-- Conversation history grows naturally as workflow progresses
-
-**Code Evidence**:
+**Implementation**:
 ```python
-# From agent_framework/_workflows/_agent_executor.py
-@handler
-async def from_response(self, prior: AgentExecutorResponse, ctx):
-    \"\"\"Enable seamless chaining: accept prior AgentExecutorResponse as input.\"\"\"
-    if prior.full_conversation is not None:
-        self._cache = list(prior.full_conversation)  # Load complete history
-    await self._run_agent_and_emit(ctx)  # Run with full context
+agent = client.create_agent(
+    name="Agent Name",
+    instructions=PROMPT,
+    tools=[...],
+    store=True,  # Enable service-managed threads
+)
 ```
 
-### AgentExecutor Handoff Handlers
+**How it works**:
+1. Client creates `service_thread_id` in Azure AI service
+2. All messages stored in service backend automatically
+3. Subsequent `agent.run()` calls retrieve history automatically
+4. No manual message tracking required
 
-The `AgentExecutor` class (from `agent_framework`) provides multiple input handlers that enable flexible workflow composition. Understanding these handlers is crucial for workflow design:
+**Benefits**:
+- Eliminates manual conversation arrays
+- Conversation persists across sessions
+- Reduces coordinator complexity
+- Prevents synchronization bugs
 
-**Primary Handler for Agent Chaining**:
+#### 2. Tool Content Conversion Pattern
+
+**When to use**: When passing messages between agents with different threads
+
+**Implementation**:
 ```python
-@handler
-async def from_response(
-    self, 
-    prior: AgentExecutorResponse, 
-    ctx: WorkflowContext
+def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessage]:
+    """Convert tool calls/results to text summaries."""
+    converted_messages = []
+    for message in messages:
+        new_contents = []
+        for content in message.contents:
+            if isinstance(content, FunctionCallContent):
+                text = f"[Tool Call: {content.name}({args})]"
+                new_contents.append(TextContent(text=text))
+            elif isinstance(content, FunctionResultContent):
+                text = f"[Tool Result: {result}]"
+                new_contents.append(TextContent(text=text))
+            else:
+                new_contents.append(content)
+        converted_messages.append(ChatMessage(..., contents=new_contents))
+    return converted_messages
+```
+
+**Why necessary**:
+- `FunctionCallContent` and `FunctionResultContent` embed `run_id` in `call_id`
+- `run_id` is specific to originating service thread
+- Azure AI rejects these when thread ID doesn't match
+- Text summaries preserve context without thread dependency
+
+**Applied in**:
+- `_route_to_agent()`: Before sending to specialists
+- `_synthesize_plan()`: Before sending to coordinator
+
+#### 3. HITL Checkpointing Pattern
+
+**When to use**: When workflow needs to pause for human input
+
+**Implementation**:
+```python
+# In coordinator
+await ctx.request_info(
+    request_data=HumanFeedbackRequest(
+        prompt="Question for user",
+        conversation=full_conversation,  # Preserve context
+        requesting_agent="venue",
+    ),
+    request_type=HumanFeedbackRequest,
+    response_type=str,
+)
+
+@response_handler
+async def on_human_feedback(
+    self,
+    original_request: HumanFeedbackRequest,
+    feedback: str,
+    ctx: WorkflowContext,
 ) -> None:
-    \"\"\"Enable seamless chaining: accept prior AgentExecutorResponse as input.
-    
-    This handler is automatically invoked when an AgentExecutor receives
-    an AgentExecutorResponse from a prior agent in the workflow.
-    \"\"\"
-    # Load full conversation history
-    if prior.full_conversation is not None:
-        self._cache = list(prior.full_conversation)
-    else:
-        self._cache = list(prior.agent_run_response.messages)
-    # Run agent with complete context
-    await self._run_agent_and_emit(ctx)
+    # Framework restored checkpoint, retrieve preserved conversation
+    conversation = list(original_request.conversation)
+    # Route back to requesting agent
+    await self._route_to_agent(
+        original_request.requesting_agent,
+        feedback,
+        ctx,
+        prior_conversation=conversation,
+    )
 ```
 
-**Alternative Handlers for Workflow Start**:
+**How it works**:
+1. Coordinator calls `ctx.request_info()` with conversation embedded
+2. Framework serializes workflow state in checkpoint
+3. DevUI emits `RequestInfoEvent`, user responds
+4. Framework deserializes checkpoint
+5. `@response_handler` receives original request with conversation
+6. Coordinator retrieves conversation and continues
+
+**Benefits**:
+- Automatic state management by framework
+- No manual checkpoint handling
+- Conversation preserved seamlessly
+- DevUI integration out-of-the-box
+
+#### 4. Structured Output Routing Pattern
+
+**When to use**: When coordinator needs to make routing decisions based on agent output
+
+**Implementation**:
 ```python
-@handler
-async def from_str(self, text: str, ctx: WorkflowContext) -> None:
-    \"\"\"Accept raw user prompt string.\"\"\"
-    self._cache = [ChatMessage(role=\"user\", text=text)]
-    await self._run_agent_and_emit(ctx)
+# Define Pydantic model
+class SpecialistOutput(BaseModel):
+    summary: str
+    next_agent: str | None
+    user_input_needed: bool = False
+    user_prompt: str | None = None
 
-@handler
-async def from_messages(
-    self, 
-    messages: list[ChatMessage], 
-    ctx: WorkflowContext
-) -> None:
-    \"\"\"Accept list of ChatMessage objects as conversation context.\"\"\"
-    self._cache = list(messages)
-    await self._run_agent_and_emit(ctx)
+# Configure agent
+agent = client.create_agent(
+    name="Specialist",
+    instructions=PROMPT,
+    tools=[...],
+    response_format=SpecialistOutput,  # Enforce structured output
+)
+
+# Parse and route
+specialist_output = response.agent_run_response.value
+if specialist_output.user_input_needed:
+    await ctx.request_info(...)
+elif specialist_output.next_agent:
+    await self._route_to_agent(specialist_output.next_agent, ...)
+else:
+    await self._synthesize_plan(...)
 ```
 
-**What This Means for Our Workflow**:
-1. The start agent (`EventCoordinator`) uses `from_str()` or `from_messages()` for initial user input
-2. All subsequent agents automatically use `from_response()` to receive prior agent's output
-3. The framework automatically selects the correct handler based on message type (type-based routing)
-4. No manual handler specification needed in workflow definition
-5. Context passing is completely automatic via the `full_conversation` field
+**Benefits**:
+- Specialists control their own routing
+- No hardcoded agent sequence
+- Enables conditional logic
+- Explicit, debuggable routing decisions
 
-### System Prompt Design Principles
+### Conversation Flow Diagram
 
-**Unit Tests** focus on:
-- Workflow construction without errors
-- Agent presence validation
-- Edge definition validation
-- No actual AI calls (fast, deterministic)
+```
+User: "Plan a party for 50 people"
+    ↓
+Coordinator.start()
+    → Wraps in ChatMessage(Role.USER)
+    → Sends to venue specialist
+    ↓
+VenueSpecialist (store=True thread)
+    → Receives message
+    → Service retrieves conversation from thread
+    → Makes web search tool calls
+    → Returns SpecialistOutput(next_agent="budget")
+    ↓
+Coordinator.on_specialist_response()
+    → Extracts full_conversation from response
+    → Converts tool content to text
+    → Routes to budget analyst
+    ↓
+BudgetAnalyst (store=True thread)
+    → Receives converted conversation + new message
+    → Service stores in new thread
+    → Makes code interpreter tool calls
+    → Returns SpecialistOutput(next_agent="catering")
+    ↓
+[Continue through catering and logistics]
+    ↓
+LogisticsManager
+    → Returns SpecialistOutput(next_agent=None)
+    ↓
+Coordinator.on_specialist_response()
+    → Sees next_agent=None
+    → Calls _synthesize_plan()
+    ↓
+Coordinator._synthesize_plan()
+    → Converts tool content to text
+    → Adds synthesis instruction
+    → Runs coordinator agent (store=True thread)
+    → Yields final integrated plan
+```
 
-**Integration Tests** focus on:
-- Full workflow execution with AI Foundry
-- Real agent interactions
-- Output validation
-- End-to-end behavior
-- Requires valid Azure credentials
+### HITL Flow Diagram
 
-**DevUI Validation** focuses on:
-- User experience
-- Visual workflow representation
-- Real-time interaction
-- Agent conversation flow
-- Final output quality
-
-### Future Enhancements (Out of Scope)
-
-These are NOT part of this specification but could be future work:
-
-1. **Tool Integration**: Add tools for each specialist (venue search APIs, budget calculators, etc.)
-2. **Shared State Models**: Pydantic models for structured data passing
-3. **Parallel Execution**: Fan-out specialists for faster execution
-4. **Human-in-the-Loop**: Add approval gates for budget or venue selection
-5. **Memory Integration**: Use Mem0 for learning from past events
-6. **Dynamic Routing**: Magentic-style orchestration based on task complexity
-7. **Sub-workflows**: Make each specialist a mini-workflow
-8. **Error Handling**: Retry logic, fallback strategies
+```
+VenueSpecialist
+    → Returns SpecialistOutput(user_input_needed=True, user_prompt="Which venue?")
+    ↓
+Coordinator.on_specialist_response()
+    → Sees user_input_needed=True
+    → Creates HumanFeedbackRequest(conversation=full_history)
+    → Calls ctx.request_info(HumanFeedbackRequest, ...)
+    ↓
+Framework
+    → Serializes workflow state in checkpoint
+    → Emits RequestInfoEvent
+    ⏸ WORKFLOW PAUSED
+    ↓
+DevUI
+    → Displays user_prompt: "Which venue?"
+    → User responds: "Venue B"
+    ↓
+Framework
+    → Deserializes checkpoint
+    → Restores workflow state
+    → Invokes response_handler
+    ↓
+Coordinator.on_human_feedback()
+    → Receives original_request (with conversation)
+    → Receives feedback ("Venue B")
+    → Retrieves conversation from original_request
+    → Routes back to venue specialist with feedback
+    ↓
+VenueSpecialist
+    → Continues with user's choice
+    → Returns SpecialistOutput(next_agent="budget")
+```
 
 ## Interfaces and Dependencies
 
 ### Required Imports
 
-In `src/spec_to_agents/workflow/core.py`:
+```python
+# Workflow imports
+from agent_framework import (
+    AgentExecutor,
+    AgentExecutorRequest,
+    AgentExecutorResponse,
+    ChatAgent,
+    ChatMessage,
+    Executor,
+    FunctionCallContent,
+    FunctionResultContent,
+    Role,
+    TextContent,
+    Workflow,
+    WorkflowBuilder,
+    WorkflowContext,
+    handler,
+    response_handler,
+)
+from agent_framework.azure import AzureAIAgentClient
 
-    from agent_framework.core import WorkflowBuilder, Workflow
-    from spec_to_agents.clients import get_chat_client
-    from spec_to_agents.prompts import (
-        event_coordinator,
-        venue_specialist,
-        budget_analyst,
-        catering_coordinator,
-        logistics_manager,
-    )
+# Message types
+from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
+```
 
-### Function Signature
+### Function Signatures
 
-    def build_event_planning_workflow() -> Workflow:
-        """
-        Build the multi-agent event planning workflow.
-        
-        The workflow orchestrates five specialized agents:
-        - Event Coordinator: Primary orchestrator and synthesizer
-        - Venue Specialist: Venue research and recommendations
-        - Budget Analyst: Financial planning and allocation
-        - Catering Coordinator: Food and beverage planning
-        - Logistics Manager: Scheduling and resource coordination
-        
-        Returns
-        -------
-        Workflow
-            Configured workflow instance ready for execution via DevUI
-            or programmatic invocation.
-        
-        Notes
-        -----
-        The workflow uses sequential orchestration where the Event Coordinator
-        delegates to each specialist in sequence, then synthesizes the final plan.
-        
-        Requires Azure AI Foundry credentials configured via environment variables
-        or Azure CLI authentication.
-        """
+```python
+def build_event_planning_workflow(
+    client: AzureAIAgentClient,
+    mcp_tool: MCPStdioTool | None = None,
+) -> Workflow:
+    """Build the multi-agent event planning workflow."""
+    ...
+
+def convert_tool_content_to_text(
+    messages: list[ChatMessage]
+) -> list[ChatMessage]:
+    """Convert tool calls and results to text summaries."""
+    ...
+
+class EventPlanningCoordinator(Executor):
+    @handler
+    async def start(
+        self,
+        prompt: str,
+        ctx: WorkflowContext[AgentExecutorRequest, str]
+    ) -> None:
+        """Handle initial user request."""
         ...
+
+    @handler
+    async def on_specialist_response(
+        self,
+        response: AgentExecutorResponse,
+        ctx: WorkflowContext[AgentExecutorRequest, str],
+    ) -> None:
+        """Handle specialist response and route."""
+        ...
+
+    @response_handler
+    async def on_human_feedback(
+        self,
+        original_request: HumanFeedbackRequest,
+        feedback: str,
+        ctx: WorkflowContext[AgentExecutorRequest, str],
+    ) -> None:
+        """Handle human feedback."""
+        ...
+```
 
 ### Module Exports
 
-In `src/spec_to_agents/workflow/core.py`:
+```python
+# workflow/core.py
+__all__ = ["build_event_planning_workflow", "workflow"]
 
-    # Export workflow instance for DevUI discovery
-    workflow = build_event_planning_workflow()
-    
-    __all__ = ["build_event_planning_workflow", "workflow"]
+# workflow/executors.py
+__all__ = ["EventPlanningCoordinator", "convert_tool_content_to_text"]
 
-In `src/spec_to_agents/agents/__init__.py`:
+# models/messages.py
+__all__ = ["HumanFeedbackRequest", "SpecialistOutput"]
 
-    from spec_to_agents.workflow.core import workflow as event_planning_workflow
-    
-    def export_entities() -> list[Workflow | ChatAgent]:
-        """Export all agents/workflows for registration in DevUI."""
-        return [
-            budget_analyst_agent,
-            catering_coordinator_agent,
-            event_coordinator_agent,
-            logistics_manager_agent,
-            venue_specialist_agent,
-            event_planning_workflow,
-        ]
+# agents/__init__.py
+def export_entities() -> list[Workflow | ChatAgent]:
+    return [
+        budget_analyst_agent,
+        catering_coordinator_agent,
+        event_coordinator_agent,
+        logistics_manager_agent,
+        venue_specialist_agent,
+        event_planning_workflow,
+    ]
+```
 
-### System Prompt Variables
+### Environment Variables
 
-Each prompt file in `src/spec_to_agents/prompts/` must export:
+```bash
+# Required
+AZURE_AI_PROJECT_ENDPOINT=https://your-project.cognitiveservices.azure.com
+AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4
 
-    from typing import Final
-    
-    SYSTEM_PROMPT: Final[str] = """
-    [Comprehensive system prompt content]
-    """
-    
-    __all__ = ["SYSTEM_PROMPT"]
-
-### Test Fixtures
-
-In `tests/conftest.py` (if needed):
-
-    import pytest
-    from spec_to_agents.workflow.core import build_event_planning_workflow
-
-    @pytest.fixture
-    def event_workflow():
-        """Fixture providing the event planning workflow."""
-        return build_event_planning_workflow()
+# Optional
+CALENDAR_STORAGE_PATH=./data/calendars
+MAX_HISTORY_SIZE=1000
+```
 
 ## Dependencies and Prerequisites
 
 ### Python Packages
 
-All required packages are already in `pyproject.toml`:
+All required packages in `pyproject.toml`:
 - `agent-framework-core`: Core workflow and agent primitives
 - `agent-framework-azure-ai`: Azure AI Foundry client
 - `agent-framework-devui`: DevUI for testing
 - `azure-identity`: Authentication
-- `python-dotenv`: Environment configuration (if needed)
+- `pydantic`: Data validation for structured outputs
+- `httpx`: HTTP client for weather/web tools
+- `icalendar`: Calendar file management
+- `pytz`: Timezone support
 
 ### Azure Configuration
 
 Requires one of:
 1. **Azure CLI**: User authenticated via `az login`
 2. **Managed Identity**: When deployed to Azure Container Apps
-3. **Environment Variables**: (if using API keys, though project prefers managed identity)
 
 ### File Structure
 
-After implementation, the structure should be:
+After implementation, the structure is:
 
-    src/spec_to_agents/
-    ├── clients.py                    (existing, no changes)
-    ├── workflow/
-    │   ├── __init__.py              (existing, no changes)
-    │   └── core.py                  (implement workflow builder + export workflow instance)
-    ├── prompts/
-    │   ├── event_coordinator.py     (update SYSTEM_PROMPT)
-    │   ├── venue_specialist.py      (update SYSTEM_PROMPT)
-    │   ├── budget_analyst.py        (update SYSTEM_PROMPT)
-    │   ├── catering_coordinator.py  (update SYSTEM_PROMPT)
-    │   └── logistics_manager.py     (update SYSTEM_PROMPT)
-    └── agents/
-        ├── __init__.py              (update export_entities() to include workflow)
-        ├── event_coordinator.py     (existing, no changes)
-        ├── venue_specialist.py      (existing, no changes)
-        ├── budget_analyst.py        (existing, no changes)
-        ├── catering_coordinator.py  (existing, no changes)
-        └── logistics_manager.py     (existing, no changes)
+```
+src/spec_to_agents/
+├── workflow/
+│   ├── __init__.py
+│   ├── core.py                  # Workflow builder with star topology
+│   └── executors.py             # EventPlanningCoordinator with routing logic
+├── models/
+│   ├── __init__.py
+│   └── messages.py              # HumanFeedbackRequest, SpecialistOutput
+├── prompts/
+│   ├── event_coordinator.py     # Synthesis guidance
+│   ├── venue_specialist.py      # Structured output guidance
+│   ├── budget_analyst.py        # Structured output guidance
+│   ├── catering_coordinator.py  # Structured output guidance
+│   └── logistics_manager.py     # Structured output guidance
+├── agents/
+│   ├── __init__.py              # export_entities() includes workflow
+│   ├── event_coordinator.py     # store=True, no response_format
+│   ├── venue_specialist.py      # store=True, response_format=SpecialistOutput
+│   ├── budget_analyst.py        # store=True, response_format=SpecialistOutput
+│   ├── catering_coordinator.py  # store=True, response_format=SpecialistOutput
+│   └── logistics_manager.py     # store=True, response_format=SpecialistOutput
+└── tools/
+    ├── weather.py               # Open-Meteo API
+    ├── calendar.py              # iCalendar management
+    ├── bing_search.py           # Custom web_search tool
+    └── mcp_tools.py             # Sequential-thinking-tools MCP
 
-    tests/
-    ├── test_workflow.py             (create unit tests)
-    └── test_workflow_integration.py (create integration tests)
+tests/
+├── test_workflow.py             # Unit tests
+└── test_workflow_integration.py # Integration tests
+```
 
----
+## Future Enhancements (Out of Scope)
 
-## Implementation Checklist
+These are NOT part of this specification but could be future work:
 
-Before starting implementation, review:
-- [x] Agent Framework documentation on workflows (via DeepWiki)
-- [x] Current project structure and existing code
-- [x] AGENTS.md architecture diagrams
-- [ ] System prompt design principles
-- [ ] Testing strategy
-
-During implementation:
-- [ ] Update all five system prompts with comprehensive, role-specific content
-- [ ] Implement `build_event_planning_workflow()` in `workflow/core.py`
-- [ ] Export workflow instance as module-level variable in `workflow/core.py`
-- [ ] Update `agents/__init__.py` to include workflow in `export_entities()`
-- [ ] Create unit tests in `test_workflow.py`
-- [ ] Create integration tests in `test_workflow_integration.py`
-- [ ] Run all tests and ensure they pass
-- [ ] Start DevUI and validate workflow discovery
-- [ ] Submit test requests and validate workflow orchestration
-- [ ] Document any discoveries in "Surprises & Discoveries"
-- [ ] Record design decisions in "Decision Log"
-
-After implementation:
-- [ ] Run full test suite: `uv run pytest`
-- [ ] Run linting: `uv run ruff check src/ tests/`
-- [ ] Run formatting: `uv run ruff format src/ tests/`
-- [ ] Validate DevUI end-to-end with multiple test cases
-- [ ] Update Progress section with completion timestamps
-- [ ] Write Outcomes & Retrospective summary
-- [ ] Update `specs/README.md` to link to this specification
+1. **Conditional Routing**: Skip agents based on context (e.g., skip budget if venue too expensive)
+2. **Parallel Execution**: Execute independent specialists in parallel for faster execution
+3. **Retry Logic**: Automatic retry for failed tool calls or incomplete structured outputs
+4. **Output Validation**: Quality scoring and validation of specialist outputs
+5. **Memory Integration**: Use Mem0 for learning from past events
+6. **Telemetry**: Structured logging and execution tracing
+7. **Dynamic Agent Selection**: Create specialists dynamically based on request complexity
+8. **Multi-turn HITL**: Support multiple rounds of user input within a single specialist
 
 ---
 
-**Specification Version**: 1.2  
-**Created**: 2025-10-24  
-**Last Updated**: 2025-10-27  
-**Status**: In Progress - User Handoff Integration Added
+**Specification Version**: 2.0
+**Created**: 2025-10-24
+**Last Updated**: 2025-10-31
+**Status**: Complete - Reflects Actual Implementation
 
 ---
 
 ## Specification Update Log
 
-### Update 2025-10-27: Agent Handoff Mechanism Documentation
-**Reason**: The original spec mentioned "conversation history" for context passing but didn't explain the technical mechanism. After deep research into Agent Framework source code, the automatic handoff mechanism via `full_conversation` field was discovered and documented.
+### Update 2025-10-31: Comprehensive Consolidation and Accuracy Correction
+
+**Reason**: The original spec described manual `full_conversation` passing that was never implemented. A separate `conversation-history-passing.md` spec described the same pattern. The actual implementation uses service-managed threads (`store=True`) + tool content conversion, which is a fundamentally different approach.
 
 **Changes Made**:
-1. **Phase 2 - Workflow Pattern Decision**: Added detailed comparison of WorkflowBuilder vs HandoffBuilder, explaining when to use each
-2. **Phase 4**: Renamed from "Shared State and Context" to "Understanding Agent Handoff in WorkflowBuilder"; replaced with technical explanation of `full_conversation` mechanism
-3. **Step 2**: Added "Understanding the Handoff Flow" section showing step-by-step what happens during edge traversal
-4. **Artifacts - Workflow Architecture Notes**: Expanded with detailed handoff mechanism explanation and code evidence from framework source
-5. **Artifacts - New Section**: Added "AgentExecutor Handoff Handlers" documenting the built-in handlers (`from_response`, `from_str`, `from_messages`)
-6. **Decision Log - D3**: Updated to clarify that conversation history passing is automatic via framework, not manual
-7. **Decision Log - D5**: Added new decision documenting the research findings about `full_conversation` field
-8. **Surprises & Discoveries**: Added detailed entry about discovering the automatic handoff mechanism with code evidence
+
+1. **Merged specs**: Consolidated `conversation-history-passing.md` into this document
+2. **Corrected D2 (Decision Log)**: Documented actual decision to use service-managed threads instead of manual history
+3. **Added D3**: New decision documenting tool content conversion requirement
+4. **Updated all phases**: Replaced manual history approach with actual implementation patterns
+5. **Added DeepWiki research findings**: Documented framework behavior verified through DeepWiki
+6. **Updated Surprises & Discoveries**: Added three new entries for service-managed threads, tool content conversion, and HITL checkpointing
+7. **Corrected architecture diagrams**: Updated to show actual star topology with coordinator hub
+8. **Added comprehensive pattern documentation**: Service-managed threads, tool content conversion, HITL checkpointing, structured output routing
 
 **Research Conducted**:
-- Analyzed `agent_framework/_workflows/_agent_executor.py` source code
-- Examined `agent_framework/_workflows/_workflow_builder.py` for edge handling
-- Reviewed `agent_framework/_workflows/_handoff.py` for HandoffBuilder pattern
-- Studied samples in `third_party/agent-framework/python/samples/`
-- Consulted DeepWiki documentation on agent handoff patterns
+- DeepWiki queries on microsoft/agent-framework for service-managed threads behavior
+- DeepWiki queries on tool content conversion and thread ID dependencies
+- DeepWiki queries on HITL checkpointing and conversation preservation
+- Code verification: Confirmed all agents use `store=True`
+- Code verification: Confirmed `convert_tool_content_to_text()` implementation
+- Code verification: Confirmed `HumanFeedbackRequest.conversation` pattern
 
-**Validation**:
-- Current workflow implementation in `src/spec_to_agents/workflow/core.py` is correct
-- Uses `add_edge()` which automatically triggers `from_response()` handler chaining
-- No code changes needed - spec updated to match actual framework behavior
-- Pattern validated against official framework samples
+**Impact**: Specification now accurately reflects the actual implemented codebase. Future developers will understand the correct patterns: service-managed threads for automatic history, tool content conversion for cross-thread communication, and HITL checkpointing for conversation preservation.
 
-**Impact**: Spec now provides complete technical understanding of how agent handoff works in Agent Framework, enabling developers to confidently build multi-agent workflows with proper context passing.
-
-### Update 2025-10-27: User Handoff / Human-in-the-Loop Integration
-**Reason**: User handoff support was identified as a critical gap in the workflow. The initial implementation had no mechanism for agents to request user clarification, approval, or selection during execution. This update adds comprehensive human-in-the-loop capabilities using Agent Framework's native `RequestInfoExecutor` mechanism.
-
-**Changes Made**:
-1. **Progress Section**: Added new tasks for user handoff implementation
-2. **Purpose / Big Picture**: Updated workflow description to mention user interaction capabilities
-3. **Plan of Work - New Phase 6**: Added comprehensive design for human-in-the-loop integration
-   - Background on Agent Framework's RequestInfoExecutor capabilities
-   - Architecture using bidirectional edges to shared RequestInfoExecutor
-   - Custom RequestInfoMessage type definitions
-   - Workflow builder modifications
-   - Agent prompt updates with user elicitation guidance
-   - Testing strategy for user handoff scenarios
-4. **Concrete Steps - New Step 6**: Added detailed implementation steps:
-   - Creating RequestInfoMessage types
-   - Updating workflow builder with RequestInfoExecutor
-   - Updating agent prompts with user interaction guidelines
-   - Creating tests for user handoff
-   - DevUI validation procedures
-5. **Decision Log - New D6**: Documented user handoff integration pattern decision
-   - Rationale for RequestInfoExecutor with bidirectional edges
-   - Alternatives considered (TurnManager, tool-based, hardcoded gates)
-   - Implementation phases (prompt-based vs custom executors)
-6. **Next Steps / Future Enhancements**: Marked "Human-in-the-Loop" as in progress
-
-**Research Conducted**:
-- Analyzed `guessing_game_with_human_input.py` sample for RequestInfoExecutor usage patterns
-- Examined `workflow_as_agent_human_in_the_loop.py` for custom executor patterns
-- Examined `azure_chat_agents_tool_calls_with_feedback.py` for DraftFeedbackCoordinator pattern
-- Consulted DeepWiki documentation on human-in-the-loop workflows
-- Studied RequestInfoMessage, RequestResponse, and RequestInfoEvent mechanisms
-- Verified DevUI's automatic handling of RequestInfoEvent emissions
-- Analyzed FunctionCallContent structure for tool call detection
-
-**Design Approach**:
-- **Tool-Based Detection**: Agents call `request_user_input` tool when they need user input
-- **Custom Executor Wrappers**: HumanInLoopAgentExecutor wraps AgentExecutor to intercept tool calls
-- **Framework-Native**: Leverages Agent Framework's built-in RequestInfoExecutor
-- **DevUI-Integrated**: No custom UI needed, DevUI automatically handles RequestInfoEvents
-- **Minimal Disruption**: Preserves existing sequential workflow structure
-- **Single Message Type**: UserElicitationRequest with prompt, context dict, and request_type
-
-**Key Benefits**:
-- Enables agents to request clarification for ambiguous requirements
-- Allows user approval/selection for critical decisions (venue, budget, menu)
-- Maintains workflow autonomy (can run without user input if context is sufficient)
-- Provides flexible, agent-driven user interaction rather than hardcoded gates
-- Leverages DevUI's built-in support for human-in-the-loop workflows
-- Tool-based approach ensures reliable detection of user input needs
-
-**Implementation Status**: Design finalized; implementation pending
-
-**Impact**: Transforms workflow from fully autonomous to interactive, enabling better alignment with user preferences and handling of ambiguous requirements. Addresses the core limitation identified in user feedback.
+**Files Consolidated**: `conversation-history-passing.md` content merged and corrected in this document
