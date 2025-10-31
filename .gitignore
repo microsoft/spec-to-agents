@@ -606,6 +606,9 @@ temp/
 
 .claude
 
+# Git worktrees
+.worktrees/
+
 # Azure Developer CLI
 .azure/
 infra/main.json
