@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework.azure import AzureAIAgentClient
-from agent_framework.azure._shared import DEFAULT_AZURE_TOKEN_ENDPOINT
 from azure.identity.aio import AzureCliCredential, ChainedTokenCredential, ManagedIdentityCredential
 
 _credential: ChainedTokenCredential | None = None
@@ -15,13 +14,6 @@ def get_credential() -> ChainedTokenCredential:
             AzureCliCredential(),
         )
     return _credential
-
-
-async def ad_token_provider() -> str:
-    """Get Azure AD token for Azure OpenAI."""
-    credential = get_credential()
-    token = await credential.get_token(DEFAULT_AZURE_TOKEN_ENDPOINT)
-    return token.token
 
 
 def create_agent_client() -> AzureAIAgentClient:
