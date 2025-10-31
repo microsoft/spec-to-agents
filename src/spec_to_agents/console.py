@@ -43,6 +43,11 @@ Example
 import asyncio
 import json
 
+from dotenv import load_dotenv
+
+# Load environment variables at module import
+load_dotenv()
+
 from agent_framework import (
     AgentRunResponseUpdate,
     FunctionCallContent,

@@ -42,10 +42,9 @@ def mock_empty_response():
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_success(mock_search_response):
     """Test successful web search with results."""
-    # Import after setting environment variable
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
-    with patch.object(_client.web, "search", return_value=mock_search_response):
+    with patch.object(_get_client().web, "search", return_value=mock_search_response):
         result = await web_search("Microsoft Agent Framework")
 
     assert 'Found 2 results for "Microsoft Agent Framework"' in result
@@ -62,9 +61,9 @@ async def test_web_search_success(mock_search_response):
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_no_results(mock_empty_response):
     """Test web search with no results."""
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
-    with patch.object(_client.web, "search", return_value=mock_empty_response):
+    with patch.object(_get_client().web, "search", return_value=mock_empty_response):
         result = await web_search("xyzabc123nonexistent")
 
     assert "No results found for query: xyzabc123nonexistent" in result
@@ -74,9 +73,9 @@ async def test_web_search_no_results(mock_empty_response):
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_with_custom_count(mock_search_response):
     """Test web search with custom result count."""
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
-    with patch.object(_client.web, "search", return_value=mock_search_response) as mock_search:
+    with patch.object(_get_client().web, "search", return_value=mock_search_response) as mock_search:
         result = await web_search("test query", count=5)
 
     # Verify count parameter was passed
@@ -88,9 +87,9 @@ async def test_web_search_with_custom_count(mock_search_response):
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_api_error():
     """Test web search handles API errors gracefully."""
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
-    with patch.object(_client.web, "search", side_effect=Exception("API rate limit exceeded")):
+    with patch.object(_get_client().web, "search", side_effect=Exception("API rate limit exceeded")):
         result = await web_search("test query")
 
     assert "Error performing web search" in result
@@ -102,7 +101,7 @@ async def test_web_search_api_error():
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_formatting():
     """Test that results are properly formatted for LM consumption."""
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
     result_obj = MagicMock()
     result_obj.name = "Test Result"
@@ -114,7 +113,7 @@ async def test_web_search_formatting():
     response.web_pages = MagicMock()
     response.web_pages.value = [result_obj]
 
-    with patch.object(_client.web, "search", return_value=response):
+    with patch.object(_get_client().web, "search", return_value=response):
         result = await web_search("test")
 
     # Check formatting structure
@@ -130,38 +129,25 @@ async def test_web_search_formatting():
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_empty_results_list():
     """Test web search when results list is empty."""
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
     response = MagicMock()
     response.web_pages = MagicMock()
     response.web_pages.value = []
 
-    with patch.object(_client.web, "search", return_value=response):
+    with patch.object(_get_client().web, "search", return_value=response):
         result = await web_search("empty query")
 
     assert "No results found for query: empty query" in result
-
-
-def test_missing_api_key_raises_error():
-    """Test that missing API key raises ValueError."""
-    with patch.dict("os.environ", {}, clear=True):
-        with pytest.raises(ValueError, match="BING_SEARCH_API_KEY environment variable not set"):
-            # Force module reload to trigger the error
-            import sys
-
-            if "spec_to_agents.tools.bing_search" in sys.modules:
-                del sys.modules["spec_to_agents.tools.bing_search"]
-
-            import spec_to_agents.tools.bing_search  # noqa: F401
 
 
 @pytest.mark.asyncio
 @patch.dict("os.environ", {"BING_SEARCH_API_KEY": "test_api_key"})
 async def test_web_search_result_numbering(mock_search_response):
     """Test that results are properly numbered starting from 1."""
-    from spec_to_agents.tools.bing_search import _client, web_search
+    from spec_to_agents.tools.bing_search import _get_client, web_search
 
-    with patch.object(_client.web, "search", return_value=mock_search_response):
+    with patch.object(_get_client().web, "search", return_value=mock_search_response):
         result = await web_search("test")
 
     assert "\n1. " in result

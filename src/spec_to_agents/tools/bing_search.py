@@ -10,19 +10,40 @@ from azure.cognitiveservices.search.websearch import WebSearchClient
 from msrest.authentication import CognitiveServicesCredentials
 from pydantic import Field
 
-# Get API key from environment
-_API_KEY = os.getenv("BING_SEARCH_API_KEY")
-if not _API_KEY:
-    raise ValueError(
-        "BING_SEARCH_API_KEY environment variable not set. "
-        "Obtain an API key from Azure Portal (Bing Search v7 resource) and add to .env file."
-    )
+# Lazy client initialization
+_client: WebSearchClient | None = None
 
-# Initialize client
-_client = WebSearchClient(
-    endpoint="https://api.bing.microsoft.com",
-    credentials=CognitiveServicesCredentials(_API_KEY),
-)
+
+def _get_client() -> WebSearchClient:
+    """
+    Get or create the Bing Search client instance.
+
+    Returns
+    -------
+    WebSearchClient
+        Configured Bing Search client
+
+    Raises
+    ------
+    ValueError
+        If BING_SEARCH_API_KEY environment variable is not set
+    """
+    global _client
+
+    if _client is None:
+        api_key = os.getenv("BING_SEARCH_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "BING_SEARCH_API_KEY environment variable not set. "
+                "Obtain an API key from Azure Portal (Bing Search v7 resource) and add to .env file."
+            )
+
+        _client = WebSearchClient(
+            endpoint="https://api.bing.microsoft.com",
+            credentials=CognitiveServicesCredentials(api_key),
+        )
+
+    return _client
 
 
 @ai_function
@@ -53,8 +74,11 @@ async def web_search(
     - Title, snippet, URL, and source for each result
     """
     try:
+        # Get client (lazy initialization)
+        client = _get_client()
+
         # Execute search
-        response = _client.web.search(query=query, count=count)
+        response = client.web.search(query=query, count=count)
 
         # Check if we have results
         if not response.web_pages or not response.web_pages.value:
