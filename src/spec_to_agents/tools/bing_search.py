@@ -3,48 +3,44 @@
 """Bing Web Search tool using Azure Cognitive Services."""
 
 import os
-from typing import Annotated
 
 from agent_framework import HostedWebSearchTool, ToolMode, ai_function
-from pydantic import Field
 
 from spec_to_agents.utils.clients import create_agent_client
 
+# Module-level cache for the web search agent ID (persistent on service side)
+_web_search_agent_id: str | None = None
 
-@ai_function  # type: ignore[arg-type]
-async def web_search(
-    query: Annotated[str, Field(description="Search query to find information on the web")],
-) -> str:
+
+async def _get_or_create_web_search_agent_id() -> str:
     """
-    Search the web using Bing Search API and return formatted results.
+    Get or create the persistent web search agent ID.
 
-    Parameters
-    ----------
-    query : str
-        The search query string
+    Creates a persistent agent on Azure AI service on first call, then returns
+    the cached agent_id for subsequent calls. The agent persists on the service
+    side while this function stores only the ID for retrieval.
 
     Returns
     -------
     str
-        Formatted search results with titles, snippets, and URLs, or error message
+        The agent ID for the persistent web search agent on Azure AI service.
 
     Notes
     -----
-    Results are formatted for language model consumption with clear structure:
-    - Result count at top
-    - Numbered results
-    - Title, snippet, URL, and display URL for each result
-
-    Uses a temporary agent with auto-cleanup via async context manager.
+    Uses async context manager for client creation to ensure proper cleanup
+    of temporary connections while the agent itself persists on the service.
     """
-    # Ensure conflicting environment variables are not set
-    os.environ.pop("BING_CONNECTION_ID", None)
-    os.environ.pop("BING_CUSTOM_CONNECTION_NAME", None)
-    os.environ.pop("BING_CUSTOM_INSTANCE_NAME", None)
-    try:
+    global _web_search_agent_id
+
+    if _web_search_agent_id is None:
+        # Ensure conflicting environment variables are not set
+        os.environ.pop("BING_CONNECTION_ID", None)
+        os.environ.pop("BING_CUSTOM_CONNECTION_NAME", None)
+        os.environ.pop("BING_CUSTOM_INSTANCE_NAME", None)
+
         web_search_tool = HostedWebSearchTool(description="Search the web for current information using Bing")
 
-        # Use async context manager for proper cleanup
+        # Use context manager for proper cleanup
         async with create_agent_client() as client:
             agent = client.create_agent(
                 name="BingWebSearchAgent",
@@ -54,11 +50,53 @@ async def web_search(
                 ),
                 tool_choice=ToolMode.REQUIRED(function_name="web_search"),
                 store=True,
-                model_id=os.getenv("WEB_SEARCH_MODEL", "gpt-4.1-mini"),
+                model_id=os.getenv("WEB_SEARCH_MODEL", "gpt-4o-mini"),
+            )
+            # Store only the agent ID - agent persists on service side
+            _web_search_agent_id = agent.id
+
+    return _web_search_agent_id
+
+
+@ai_function  # type: ignore[arg-type]
+async def web_search(
+    query: str,
+) -> str:
+    """
+    Search the web using Bing Web Search.
+
+    Parameters
+    ----------
+    query : str
+        The search query to execute
+
+    Returns
+    -------
+    str
+        Formatted search results containing:
+        - Query executed
+        - Number of results found
+        - Numbered results
+        - Title, snippet, URL, and display URL for each result
+
+    Uses a persistent agent stored on Azure AI service. The agent is created once
+    and retrieved by ID for subsequent calls, ensuring efficient resource usage
+    while respecting async context manager cleanup for temporary connections.
+    """
+    try:
+        # Get the persistent agent ID
+        agent_id = await _get_or_create_web_search_agent_id()
+
+        # Use context manager for client - agent persists on service
+        async with create_agent_client() as client:
+            # Retrieve the persistent agent by ID
+            agent = client.create_agent(
+                agent_id=agent_id,
+                tools=[HostedWebSearchTool(description="Search the web for current information using Bing")],
+                store=True,
             )
             response = await agent.run(f"Perform a web search for: {query}")
             return response.text
-        # Agent automatically cleaned up when context manager exits
 
     except Exception as e:
         # Handle API errors gracefully

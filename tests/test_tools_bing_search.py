@@ -265,3 +265,59 @@ async def test_web_search_result_numbering():
     # Should not have 0. or 3. since we have 2 results
     assert "0. " not in result
     assert "3. " not in result
+
+
+@pytest.mark.asyncio
+@patch.dict(
+    "os.environ",
+    {
+        "BING_SUBSCRIPTION_KEY": "test_api_key",
+        "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com",
+        "AZURE_OPENAI_API_KEY": "test_key",
+    },
+    clear=False,
+)
+async def test_web_search_agent_persistence():
+    """Test that agent ID is stored and agent is retrieved by ID on subsequent calls."""
+    import spec_to_agents.tools.bing_search as bing_search_module
+
+    # Reset module state
+    bing_search_module._web_search_agent_id = None
+
+    from spec_to_agents.tools.bing_search import web_search
+
+    with (
+        patch("spec_to_agents.tools.bing_search.create_agent_client") as mock_client_factory,
+        patch("spec_to_agents.tools.bing_search.HostedWebSearchTool"),
+    ):
+        # Mock AzureAIAgentClient
+        mock_client = Mock()
+        mock_agent = Mock()
+
+        # Set the agent ID that will be stored
+        mock_agent.id = "test-agent-123"
+
+        response1 = Mock()
+        response1.text = "First search result"
+        response2 = Mock()
+        response2.text = "Second search result"
+
+        mock_agent.run = AsyncMock(side_effect=[response1, response2])
+        mock_client.create_agent.return_value = mock_agent
+
+        # Mock context manager behavior
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        mock_client_factory.return_value = mock_client
+
+        # First call - should create agent and store ID
+        result1 = await web_search("query 1")
+        assert result1 == "First search result"
+        assert bing_search_module._web_search_agent_id == "test-agent-123"
+
+        # Second call - should reuse agent ID (no new agent creation)
+        result2 = await web_search("query 2")
+        assert result2 == "Second search result"
+        # Agent ID should still be the same
+        assert bing_search_module._web_search_agent_id == "test-agent-123"
