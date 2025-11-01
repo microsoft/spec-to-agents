@@ -8,13 +8,15 @@ from agent_framework import (
     FunctionResultContent,
 )
 from rich.align import Align
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
+from rich.text import Text
 
 from spec_to_agents.models.messages import HumanFeedbackRequest
+from spec_to_agents.utils.constants import AGENT_COLORS
 
 # Initialize Rich console
 console = Console()
@@ -130,14 +132,7 @@ def display_human_feedback_request(
     """
     # Determine agent color for styling
     agent_name = feedback_request.requesting_agent.upper()
-    agent_colors = {
-        "VENUE": "blue",
-        "BUDGET": "green",
-        "CATERING": "yellow",
-        "LOGISTICS": "cyan",
-        "COORDINATOR": "magenta",
-    }
-    agent_color = agent_colors.get(agent_name, "white")
+    agent_color = AGENT_COLORS.get(agent_name.lower(), "white")
 
     # Build context display
     context_display = ""
@@ -301,16 +296,8 @@ def _get_agent_color(executor_id: str) -> str:
     str
         Rich color name for the agent
     """
-    agent_colors = {
-        "venue": "blue",
-        "budget": "green",
-        "catering": "yellow",
-        "logistics": "cyan",
-        "coordinator": "magenta",
-    }
-
     # Match executor_id to agent type
-    for agent_type, color in agent_colors.items():
+    for agent_type, color in AGENT_COLORS.items():
         if agent_type in executor_id.lower():
             return color
 
@@ -408,13 +395,18 @@ def display_agent_run_update(
             )
         else:
             args_str = (args or "").strip()
-            args_display = f"[dim]{args_str}[/dim]"
+            args_display = Text(args_str, style="dim")
+
+        # Build panel content with header and arguments as separate renderables
+        header = Text.from_markup(
+            f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n"
+            f"[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n"
+        )
+        panel_content = Group(header, args_display)
 
         console.print(
             Panel(
-                f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n"
-                f"[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n\n"
-                f"{args_display}",
+                panel_content,
                 title=f"[{agent_color}]Function Call[/{agent_color}]",
                 border_style=agent_color,
                 padding=(0, 1),
@@ -444,9 +436,18 @@ def display_agent_run_update(
                 result_text = result_text[:500] + f"... [dim](truncated, {len(result_text)} chars total)[/dim]"
             result_display = result_text
 
+        # Build panel content with proper Rich renderable handling
+        call_id_text = f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]"
+        if isinstance(result_display, Syntax):
+            # Use Group to combine text and Syntax object
+            panel_content = Group(call_id_text, "", result_display)
+        else:
+            # For string results, use f-string as normal
+            panel_content = f"{call_id_text}\n\n{result_display}"
+        
         console.print(
             Panel(
-                f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]\n\n{result_display}",
+                panel_content,
                 title=f"[{agent_color}]Tool Result[/{agent_color}]",
                 border_style="dim",
                 padding=(0, 1),
