@@ -37,6 +37,9 @@ jobs:
     #- name: Run type checking with mypy
     #  run: uv run mypy .
     
+    env:
+      AZURE_AI_PROJECT_ENDPOINT: ${{ secrets.AZURE_AI_PROJECT_ENDPOINT }}
+
     - name: Run tests with pytest and coverage
       run: uv run pytest --verbose --cov=src/spec_to_agents --cov-report=xml --cov-report=html
     
