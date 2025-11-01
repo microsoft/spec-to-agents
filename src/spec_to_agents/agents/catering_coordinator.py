@@ -16,8 +16,6 @@ def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> C
     ----------
     client : AzureAIAgentClient
         AI client for agent creation
-    web_search : Callable
-        Custom web search function decorated with @ai_function
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
         If None, coordinator operates without MCP tool assistance.

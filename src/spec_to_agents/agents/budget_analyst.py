@@ -15,8 +15,6 @@ def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> C
     ----------
     client : AzureAIAgentClient
         AI client for agent creation
-    code_interpreter : HostedCodeInterpreterTool
-        Python code execution tool for financial calculations
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
         If None, coordinator operates without MCP tool assistance.

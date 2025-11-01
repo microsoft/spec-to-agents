@@ -24,14 +24,6 @@ def create_agent(
     ----------
     client : AzureAIAgentClient
         AI client for agent creation
-    get_weather_forecast : Callable[..., str]
-        Weather forecasting tool
-    create_calendar_event : Callable[..., str]
-        Calendar event creation tool
-    list_calendar_events : Callable[..., str]
-        Calendar event listing tool
-    delete_calendar_event : Callable[..., str]
-        Calendar event deletion tool
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
         If None, coordinator operates without MCP tool assistance.
