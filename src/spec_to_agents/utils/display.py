@@ -65,7 +65,7 @@ def prompt_for_event_request() -> str | None:
     str | None
         The user's event planning request, or None if they want to exit
     """
-    console.rule("[bold]Event Planning Request")
+    console.rule("[bold green]Event Planning Request")
     console.print()
     console.print("[bold]Enter your event planning request[/bold]")
     console.print("[dim]Or select from these examples:[/dim]")
@@ -201,7 +201,8 @@ def display_final_output(workflow_output: str) -> None:
         The final output from the workflow
     """
     console.print()
-    console.rule("[bold green]✓ Final Event Plan", style="green")
+    console.print()
+    console.rule("[bold green]Final Event Plan", style="green")
     console.print()
 
     # Parse and display the workflow output
@@ -399,8 +400,7 @@ def display_agent_run_update(
 
         # Build panel content with header and arguments as separate renderables
         header = Text.from_markup(
-            f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n"
-            f"[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n"
+            f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n"
         )
         panel_content = Group(header, args_display)
 
@@ -444,7 +444,7 @@ def display_agent_run_update(
         else:
             # For string results, use f-string as normal
             panel_content = f"{call_id_text}\n\n{result_display}"
-        
+
         console.print(
             Panel(
                 panel_content,
