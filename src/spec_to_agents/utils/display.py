@@ -15,6 +15,7 @@ from rich.prompt import Prompt
 from rich.syntax import Syntax
 
 from spec_to_agents.models.messages import HumanFeedbackRequest
+from spec_to_agents.utils.constants import AGENT_COLORS
 
 # Initialize Rich console
 console = Console()
@@ -130,14 +131,7 @@ def display_human_feedback_request(
     """
     # Determine agent color for styling
     agent_name = feedback_request.requesting_agent.upper()
-    agent_colors = {
-        "VENUE": "blue",
-        "BUDGET": "green",
-        "CATERING": "yellow",
-        "LOGISTICS": "cyan",
-        "COORDINATOR": "magenta",
-    }
-    agent_color = agent_colors.get(agent_name, "white")
+    agent_color = AGENT_COLORS.get(agent_name.lower(), "white")
 
     # Build context display
     context_display = ""
@@ -301,16 +295,8 @@ def _get_agent_color(executor_id: str) -> str:
     str
         Rich color name for the agent
     """
-    agent_colors = {
-        "venue": "blue",
-        "budget": "green",
-        "catering": "yellow",
-        "logistics": "cyan",
-        "coordinator": "magenta",
-    }
-
     # Match executor_id to agent type
-    for agent_type, color in agent_colors.items():
+    for agent_type, color in AGENT_COLORS.items():
         if agent_type in executor_id.lower():
             return color
 
