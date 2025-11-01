@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""Unit tests for console.py display_agent_run_update function."""
+"""Unit tests for console.py display_colored_agent_update function."""
 
 from io import StringIO
 from unittest.mock import Mock, patch
@@ -13,10 +13,10 @@ from agent_framework import (
     TextContent,
 )
 
-from spec_to_agents.console import display_agent_run_update
+from spec_to_agents.console import display_colored_agent_update
 
 
-def test_display_agent_run_update_with_text_only() -> None:
+def test_display_colored_agent_update_with_text_only() -> None:
     """Test displaying a simple text update without tool calls."""
     # Create mock event with text update
     update = Mock(spec=AgentRunResponseUpdate)
@@ -31,15 +31,15 @@ def test_display_agent_run_update_with_text_only() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        result = display_agent_run_update(event, None, printed_calls, printed_results)
+        result = display_colored_agent_update(event, None, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
-        assert "venue:" in output
+        assert "🤖 Venue:" in output
         assert "Hello, world!" in output
         assert result == "venue"
 
 
-def test_display_agent_run_update_with_function_call() -> None:
+def test_display_colored_agent_update_with_function_call() -> None:
     """Test displaying a function call update."""
     # Create mock event with function call
     call_content = FunctionCallContent(
@@ -60,10 +60,10 @@ def test_display_agent_run_update_with_function_call() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        result = display_agent_run_update(event, None, printed_calls, printed_results)
+        result = display_colored_agent_update(event, None, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
-        assert "venue:" in output
+        assert " Venue:" in output
         assert "[tool-call]" in output
         assert "web_search" in output
         assert "event venues in Seattle" in output
@@ -71,7 +71,7 @@ def test_display_agent_run_update_with_function_call() -> None:
         assert result == "venue"
 
 
-def test_display_agent_run_update_with_function_result() -> None:
+def test_display_colored_agent_update_with_function_result() -> None:
     """Test displaying a function result update."""
     # Create mock event with function result
     result_content = FunctionResultContent(
@@ -92,10 +92,10 @@ def test_display_agent_run_update_with_function_result() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        result = display_agent_run_update(event, None, printed_calls, printed_results)
+        result = display_colored_agent_update(event, None, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
-        assert "venue:" in output
+        assert " Venue:" in output
         assert "[tool-result]" in output
         assert "call_123" in output
         assert "Found 5 venues in Seattle area" in output
@@ -103,7 +103,7 @@ def test_display_agent_run_update_with_function_result() -> None:
         assert result == "venue"
 
 
-def test_display_agent_run_update_with_mixed_content() -> None:
+def test_display_colored_agent_update_with_mixed_content() -> None:
     """Test displaying mixed content (text + tool call + tool result)."""
     # Create mock event with mixed content
     text_content = TextContent(text="Let me search for venues. ")
@@ -130,10 +130,10 @@ def test_display_agent_run_update_with_mixed_content() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        result = display_agent_run_update(event, None, printed_calls, printed_results)
+        result = display_colored_agent_update(event, None, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
-        assert "budget:" in output
+        assert " Budget:" in output
         assert "[tool-call]" in output
         assert "web_search" in output
         assert "[tool-result]" in output
@@ -144,7 +144,7 @@ def test_display_agent_run_update_with_mixed_content() -> None:
         assert result == "budget"
 
 
-def test_display_agent_run_update_executor_transition() -> None:
+def test_display_colored_agent_update_executor_transition() -> None:
     """Test displaying executor transitions."""
     # Create first event
     update1 = Mock(spec=AgentRunResponseUpdate)
@@ -169,21 +169,21 @@ def test_display_agent_run_update_executor_transition() -> None:
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
         # First call
-        last_exec = display_agent_run_update(event1, None, printed_calls, printed_results)
+        last_exec = display_colored_agent_update(event1, None, printed_calls, printed_results)
         assert last_exec == "venue"
 
         # Second call should print a newline before the new executor
-        last_exec = display_agent_run_update(event2, last_exec, printed_calls, printed_results)
+        last_exec = display_colored_agent_update(event2, last_exec, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
         # Should have both executors
-        assert "venue:" in output
-        assert "budget:" in output
+        assert " Venue:" in output
+        assert " Budget:" in output
         # Should have a newline between them (indicated by executor transition)
         assert last_exec == "budget"
 
 
-def test_display_agent_run_update_deduplicate_tool_calls() -> None:
+def test_display_colored_agent_update_deduplicate_tool_calls() -> None:
     """Test that duplicate tool calls are not printed twice."""
     # Create two events with the same tool call
     call_content = FunctionCallContent(
@@ -204,7 +204,7 @@ def test_display_agent_run_update_deduplicate_tool_calls() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        display_agent_run_update(event, None, printed_calls, printed_results)
+        display_colored_agent_update(event, None, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
         # Should NOT print the tool call again
@@ -212,7 +212,7 @@ def test_display_agent_run_update_deduplicate_tool_calls() -> None:
         assert "web_search" not in output
 
 
-def test_display_agent_run_update_deduplicate_tool_results() -> None:
+def test_display_colored_agent_update_deduplicate_tool_results() -> None:
     """Test that duplicate tool results are not printed twice."""
     # Create event with tool result
     result_content = FunctionResultContent(
@@ -233,7 +233,7 @@ def test_display_agent_run_update_deduplicate_tool_results() -> None:
     printed_results: set[str] = {"call_999"}  # Already printed
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        display_agent_run_update(event, None, printed_calls, printed_results)
+        display_colored_agent_update(event, None, printed_calls, printed_results)
 
         output = mock_stdout.getvalue()
         # Should NOT print the tool result again
@@ -241,7 +241,7 @@ def test_display_agent_run_update_deduplicate_tool_results() -> None:
         assert "Result data" not in output
 
 
-def test_display_agent_run_update_with_none_data() -> None:
+def test_display_colored_agent_update_with_none_data() -> None:
     """Test handling of event with None data."""
     event = Mock(spec=AgentRunUpdateEvent)
     event.executor_id = "venue"
@@ -251,7 +251,7 @@ def test_display_agent_run_update_with_none_data() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        result = display_agent_run_update(event, "previous", printed_calls, printed_results)
+        result = display_colored_agent_update(event, "previous", printed_calls, printed_results)
 
         # Should return last_executor unchanged and not print anything
         assert result == "previous"
@@ -259,7 +259,7 @@ def test_display_agent_run_update_with_none_data() -> None:
         assert output == ""
 
 
-def test_display_agent_run_update_with_none_contents() -> None:
+def test_display_colored_agent_update_with_none_contents() -> None:
     """Test handling of event with None contents."""
     update = Mock(spec=AgentRunResponseUpdate)
     update.contents = None
@@ -273,7 +273,7 @@ def test_display_agent_run_update_with_none_contents() -> None:
     printed_results: set[str] = set()
 
     with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-        result = display_agent_run_update(event, "previous", printed_calls, printed_results)
+        result = display_colored_agent_update(event, "previous", printed_calls, printed_results)
 
         # Should return last_executor unchanged and not print anything
         assert result == "previous"

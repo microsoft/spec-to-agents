@@ -91,7 +91,7 @@ dev = [
 # "agent-framework-devui" = { path = "third_party/agent-framework/python/packages/devui", editable = true }
 
 [tool.ruff]
-line-length = 120
+line-length = 160
 target-version = "py310"
 fix = true
 include = ["*.py", "*.pyi", "**/pyproject.toml", "*.ipynb"]
