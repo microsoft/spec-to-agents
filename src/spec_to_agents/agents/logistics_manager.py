@@ -1,20 +1,20 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from collections.abc import Callable
-
 from agent_framework import ChatAgent, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
 from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import logistics_manager
+from spec_to_agents.tools import (
+    create_calendar_event,
+    delete_calendar_event,
+    get_weather_forecast,
+    list_calendar_events,
+)
 
 
 def create_agent(
     client: AzureAIAgentClient,
-    get_weather_forecast: Callable[..., str],
-    create_calendar_event: Callable[..., str],
-    list_calendar_events: Callable[..., str],
-    delete_calendar_event: Callable[..., str],
     mcp_tool: MCPStdioTool | None,
 ) -> ChatAgent:
     """
@@ -24,14 +24,6 @@ def create_agent(
     ----------
     client : AzureAIAgentClient
         AI client for agent creation
-    get_weather_forecast : Callable[..., str]
-        Weather forecasting tool
-    create_calendar_event : Callable[..., str]
-        Calendar event creation tool
-    list_calendar_events : Callable[..., str]
-        Calendar event listing tool
-    delete_calendar_event : Callable[..., str]
-        Calendar event deletion tool
     mcp_tool : MCPStdioTool | None, optional
         Sequential thinking tool for complex reasoning.
         If None, coordinator operates without MCP tool assistance.
@@ -54,8 +46,10 @@ def create_agent(
         list_calendar_events,
         delete_calendar_event,
     ]
+
     if mcp_tool is not None:
         tools.append(mcp_tool)  # type: ignore
+
     return client.create_agent(
         name="LogisticsManager",
         instructions=logistics_manager.SYSTEM_PROMPT,
