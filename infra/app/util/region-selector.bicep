@@ -57,6 +57,30 @@ var modelRegionMap = {
     }
     default: 'westus'
   }
+  'gpt-5-mini': {
+    // GPT-5 mini model - assuming similar regional availability to GPT-4o models
+    supportedRegions: [
+      'australiaeast', 'brazilsouth', 'canadaeast', 'eastus', 'eastus2', 'francecentral', 'germanywestcentral', 'italynorth'
+      'japaneast', 'koreacentral', 'northcentralus', 'norwayeast', 'polandcentral', 'southafricanorth', 'southcentralus'
+      'southindia', 'spaincentral', 'swedencentral', 'switzerlandnorth', 'uaenorth', 'uksouth', 'westeurope', 'westus', 'westus3'
+    ]
+    overrides: {
+      westus2: 'eastus2'
+    }
+    default: 'eastus2'
+  }
+  'gpt-4.1-mini': {
+    // GPT-4.1 mini model - assuming similar regional availability to GPT-4o models
+    supportedRegions: [
+      'australiaeast', 'brazilsouth', 'canadaeast', 'eastus', 'eastus2', 'francecentral', 'germanywestcentral', 'italynorth'
+      'japaneast', 'koreacentral', 'northcentralus', 'norwayeast', 'polandcentral', 'southafricanorth', 'southcentralus'
+      'southindia', 'spaincentral', 'swedencentral', 'switzerlandnorth', 'uaenorth', 'uksouth', 'westeurope', 'westus', 'westus3'
+    ]
+    overrides: {
+      westus2: 'eastus2'
+    }
+    default: 'eastus2'
+  }
 }
 
 func getModelRegion(location string, modelName string) string => getAdjustedRegion(location, modelRegionMap[?modelName])

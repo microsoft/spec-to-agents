@@ -25,7 +25,7 @@ from spec_to_agents.tools import (
     list_calendar_events,
     web_search,
 )
-from spec_to_agents.utils.clients import create_agent_client
+from spec_to_agents.utils.clients import create_agent_client_for_devui
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
 # Declare lazy-loaded attribute for type checking
@@ -208,7 +208,7 @@ def __getattr__(name: str) -> Workflow:
         global _workflow_cache
         if _workflow_cache is None:
             # Create client for DevUI - DevUI will handle cleanup via FastAPI lifespan
-            client = create_agent_client()
+            client = create_agent_client_for_devui()
             _workflow_cache = build_event_planning_workflow(client, mcp_tool=None)
         return _workflow_cache
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
