@@ -66,7 +66,7 @@ Book a conference for AI developers in Florida
 - Attendees: Aprox. 1000
 - Budget: $500K
 - Venue: Hotel conference center
-- Catering requirements: Coffee breaks mornign and afternoon. Lunch. Options for vegan attendees.
+- Catering requirements: Coffee breaks morning and afternoon. Lunch. Options for vegan attendees.
 - Logistics: Excellent internet, breakout rooms, good selection of hotels in the locality
 ```
 
