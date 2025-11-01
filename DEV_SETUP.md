@@ -95,5 +95,5 @@ The following instructions explain how to debug the interactive console using Vi
 Run the following command
 
 ```powershell
-uv run pytes
+uv run pytest
 ```
