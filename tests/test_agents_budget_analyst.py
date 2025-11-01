@@ -23,7 +23,7 @@ def test_create_agent_without_request_user_input():
     assert agent == mock_agent
     mock_client.create_agent.assert_called_once()
     call_kwargs = mock_client.create_agent.call_args.kwargs
-    # Verify tools list has first element of type HostedCodeInterpreterTool
+    # Verify that the first element in tools list is of type HostedCodeInterpreterTool
     assert len(call_kwargs["tools"]) == 1
     assert isinstance(call_kwargs["tools"][0], HostedCodeInterpreterTool)
 
