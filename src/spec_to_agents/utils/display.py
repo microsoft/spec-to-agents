@@ -436,9 +436,18 @@ def display_agent_run_update(
                 result_text = result_text[:500] + f"... [dim](truncated, {len(result_text)} chars total)[/dim]"
             result_display = result_text
 
+        # Build panel content with proper Rich renderable handling
+        call_id_text = f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]"
+        if isinstance(result_display, Syntax):
+            # Use Group to combine text and Syntax object
+            panel_content = Group(call_id_text, "", result_display)
+        else:
+            # For string results, use f-string as normal
+            panel_content = f"{call_id_text}\n\n{result_display}"
+        
         console.print(
             Panel(
-                f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]\n\n{result_display}",
+                panel_content,
                 title=f"[{agent_color}]Tool Result[/{agent_color}]",
                 border_style="dim",
                 padding=(0, 1),
