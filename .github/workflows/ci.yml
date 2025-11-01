@@ -26,7 +26,7 @@ jobs:
       run: uv python install ${{ matrix.python-version }}
     
     - name: Install dependencies
-      run: uv sync --dev
+      run: GIT_LFS_SKIP_SMUDGE=1 uv sync --dev
     
     - name: Run linting with ruff
       run: uv run ruff check .
