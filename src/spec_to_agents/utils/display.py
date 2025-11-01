@@ -8,11 +8,12 @@ from agent_framework import (
     FunctionResultContent,
 )
 from rich.align import Align
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.syntax import Syntax
+from rich.text import Text
 
 from spec_to_agents.models.messages import HumanFeedbackRequest
 
@@ -408,13 +409,18 @@ def display_agent_run_update(
             )
         else:
             args_str = (args or "").strip()
-            args_display = f"[dim]{args_str}[/dim]"
+            args_display = Text(args_str, style="dim")
+
+        # Build panel content with header and arguments as separate renderables
+        header = Text.from_markup(
+            f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n"
+            f"[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n"
+        )
+        panel_content = Group(header, args_display)
 
         console.print(
             Panel(
-                f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n"
-                f"[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n\n"
-                f"{args_display}",
+                panel_content,
                 title=f"[{agent_color}]Function Call[/{agent_color}]",
                 border_style=agent_color,
                 padding=(0, 1),
