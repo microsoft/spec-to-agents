@@ -7,12 +7,284 @@ from agent_framework import (
     FunctionCallContent,
     FunctionResultContent,
 )
+from rich.align import Align
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.syntax import Syntax
+
+from spec_to_agents.models.messages import HumanFeedbackRequest
 
 # Initialize Rich console
 console = Console()
+
+
+def display_welcome_header() -> None:
+    """
+    Display the welcome header with agent information.
+
+    Shows a styled panel with the workflow title and descriptions of all
+    available specialist agents.
+    """
+    console.print()
+    console.print(
+        Panel(
+            Align.center(
+                "[bold cyan]Event Planning Workflow[/bold cyan]\n[dim]Interactive CLI with AI-Powered Agents[/dim]"
+            ),
+            border_style="cyan",
+            expand=True,
+            padding=(1, 2),
+        )
+    )
+    console.print()
+    console.print(
+        "[dim]This workflow uses specialized AI agents to help you plan events:\n"
+        "  • [blue]Venue Specialist[/blue] - Researches and recommends venues\n"
+        "  • [green]Budget Analyst[/green] - Manages costs and financial planning\n"
+        "  • [yellow]Catering Coordinator[/yellow] - Handles food and beverage\n"
+        "  • [cyan]Logistics Manager[/cyan] - Coordinates schedules and resources\n"
+        "\n"
+        "You may be asked for clarification or approval at various steps.[/dim]"
+    )
+    console.print()
+
+
+def prompt_for_event_request() -> str | None:
+    """
+    Prompt user for an event planning request with predefined suggestions.
+
+    Displays numbered examples that users can select by typing 1-3, or allows
+    them to enter a custom request.
+
+    Returns
+    -------
+    str | None
+        The user's event planning request, or None if they want to exit
+    """
+    console.rule("[bold]Event Planning Request")
+    console.print()
+    console.print("[bold]Enter your event planning request[/bold]")
+    console.print("[dim]Or select from these examples:[/dim]")
+    console.print("  [cyan]1.[/cyan] Plan a corporate holiday party for 50 people, budget $5000")
+    console.print("  [cyan]2.[/cyan] Organize a wedding reception for 150 guests in Seattle")
+    console.print("  [cyan]3.[/cyan] Host a tech conference with 200 attendees, need catering and AV")
+    console.print()
+
+    # Predefined suggestions
+    suggestions = [
+        "Plan a corporate holiday party for 50 people, budget $5000",
+        "Organize a wedding reception for 150 guests in Seattle",
+        "Host a tech conference with 200 attendees, need catering and AV",
+    ]
+
+    try:
+        user_input = Prompt.ask("[bold cyan]Your request (or 1-3 for examples)[/bold cyan]", console=console).strip()
+    except (EOFError, KeyboardInterrupt):
+        console.print("\n[yellow]Input interrupted. Exiting.[/yellow]")
+        return None
+
+    # Handle selection of predefined suggestions
+    if user_input in ("1", "2", "3"):
+        user_request = suggestions[int(user_input) - 1]
+        console.print(f"[dim]Selected: {user_request}[/dim]")
+        return user_request
+    if user_input.lower() in ("exit", "quit"):
+        console.print("[yellow]Exiting.[/yellow]")
+        return None
+    if not user_input:
+        console.print("[yellow]No request provided. Exiting.[/yellow]")
+        return None
+    return user_input
+
+
+def display_workflow_pause() -> None:
+    """Display a status message when workflow pauses for human input."""
+    console.print()
+    console.print(
+        Panel(
+            "[bold yellow]Workflow paused - awaiting human input[/bold yellow]",
+            border_style="yellow",
+            padding=(0, 2),
+        )
+    )
+    console.print()
+
+
+def display_human_feedback_request(
+    feedback_request: HumanFeedbackRequest,
+) -> str | None:
+    """
+    Display a human feedback request and prompt for user response.
+
+    Parameters
+    ----------
+    feedback_request : HumanFeedbackRequest
+        The feedback request containing prompt, context, and metadata
+
+    Returns
+    -------
+    str | None
+        The user's response, or None if they want to exit
+    """
+    # Determine agent color for styling
+    agent_name = feedback_request.requesting_agent.upper()
+    agent_colors = {
+        "VENUE": "blue",
+        "BUDGET": "green",
+        "CATERING": "yellow",
+        "LOGISTICS": "cyan",
+        "COORDINATOR": "magenta",
+    }
+    agent_color = agent_colors.get(agent_name, "white")
+
+    # Build context display
+    context_display = ""
+    if feedback_request.context:
+        context_lines = ["[dim]Additional Context:[/dim]"]
+        for key, value in feedback_request.context.items():
+            if isinstance(value, list):
+                context_lines.append(f"[bold]{key}:[/bold]")
+                for item in value:  # type: ignore
+                    context_lines.append(f"  • {item}")
+            elif isinstance(value, dict):
+                context_lines.append(f"[bold]{key}:[/bold]")
+                for k, v in value.items():  # type: ignore
+                    context_lines.append(f"  {k}: {v}")
+            else:
+                context_lines.append(f"[bold]{key}:[/bold] {value}")
+        context_display = "\n" + "\n".join(context_lines)
+
+    # Display styled request panel
+    console.print(
+        Panel(
+            f"[bold {agent_color}]🤔 {agent_name} Agent Request[/bold {agent_color}]\n\n"
+            f"[bold]Type:[/bold] {feedback_request.request_type}\n\n"
+            f"[bold]Question:[/bold]\n{feedback_request.prompt}"
+            f"{context_display}",
+            border_style=agent_color,
+            padding=(1, 2),
+        )
+    )
+    console.print()
+
+    # Get user response
+    try:
+        user_response = Prompt.ask(f"[bold {agent_color}]Your response[/bold {agent_color}]", console=console).strip()
+    except (EOFError, KeyboardInterrupt):
+        console.print("\n[yellow]Input interrupted. Exiting workflow...[/yellow]")
+        return None
+
+    console.print()
+
+    if user_response.lower() in ("exit", "quit"):
+        console.print("[yellow]Exiting workflow...[/yellow]")
+        return None
+
+    if not user_response:
+        user_response = "Continue with your best judgment"
+        console.print(f"[dim]Using default response: '{user_response}'[/dim]")
+        console.print()
+
+    return user_response
+
+
+def display_final_output(workflow_output: str) -> None:
+    """
+    Display the final workflow output with intelligent formatting.
+
+    Attempts to parse as JSON and render with appropriate styling:
+    - JSON with 'summary' field: Markdown summary + JSON details
+    - Pure JSON: Syntax-highlighted JSON
+    - Markdown text: Rendered markdown
+    - Fallback: Plain text in styled panel
+
+    Parameters
+    ----------
+    workflow_output : str
+        The final output from the workflow
+    """
+    console.print()
+    console.rule("[bold green]✓ Final Event Plan", style="green")
+    console.print()
+
+    # Parse and display the workflow output
+    try:
+        # Try to parse as JSON first
+        output_data = json.loads(workflow_output)
+
+        # Extract summary if it exists and is markdown
+        if isinstance(output_data, dict) and "summary" in output_data:
+            summary_content = output_data["summary"]
+
+            # Render markdown summary
+            console.print(
+                Panel(
+                    Markdown(summary_content),
+                    title="[bold green]Event Plan Summary[/bold green]",
+                    border_style="green",
+                    padding=(1, 2),
+                )
+            )
+
+            # Display other fields if present
+            other_fields = {k: v for k, v in output_data.items() if k != "summary"}
+            if other_fields:
+                console.print()
+                console.print(
+                    Panel(
+                        Syntax(
+                            json.dumps(other_fields, indent=2, ensure_ascii=False),
+                            "json",
+                            theme="monokai",
+                            line_numbers=False,
+                        ),
+                        title="[bold]Additional Details[/bold]",
+                        border_style="dim",
+                        padding=(1, 2),
+                    )
+                )
+        else:
+            # Display entire JSON output with syntax highlighting
+            console.print(
+                Panel(
+                    Syntax(
+                        json.dumps(output_data, indent=2, ensure_ascii=False),
+                        "json",
+                        theme="monokai",
+                        line_numbers=False,
+                    ),
+                    title="[bold green]Event Plan[/bold green]",
+                    border_style="green",
+                    padding=(1, 2),
+                )
+            )
+    except json.JSONDecodeError:
+        # If not JSON, try rendering as markdown
+        try:
+            console.print(
+                Panel(
+                    Markdown(workflow_output),
+                    title="[bold green]Event Plan[/bold green]",
+                    border_style="green",
+                    padding=(1, 2),
+                )
+            )
+        except Exception:
+            # Fallback to plain text
+            console.print(
+                Panel(
+                    workflow_output,
+                    title="[bold green]Event Plan[/bold green]",
+                    border_style="green",
+                    padding=(1, 2),
+                )
+            )
+
+    console.print()
+    console.print("[bold green]✓ Event planning complete![/bold green]")
+    console.print()
 
 
 def _get_agent_color(executor_id: str) -> str:
