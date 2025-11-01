@@ -4,7 +4,6 @@
 
 from agent_framework import (
     AgentExecutor,
-    HostedCodeInterpreterTool,
     MCPStdioTool,
     Workflow,
     WorkflowBuilder,
@@ -17,13 +16,6 @@ from spec_to_agents.agents import (
     event_coordinator,
     logistics_manager,
     venue_specialist,
-)
-from spec_to_agents.tools import (
-    create_calendar_event,
-    delete_calendar_event,
-    get_weather_forecast,
-    list_calendar_events,
-    web_search,
 )
 from spec_to_agents.utils.clients import create_agent_client_for_devui
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
@@ -99,41 +91,12 @@ def build_event_planning_workflow(
     The client parameter should be managed as an async context manager in the
     calling code to ensure proper cleanup of agents when the workflow is done.
     """
-    # Create hosted tools
-    code_interpreter = HostedCodeInterpreterTool(
-        description=(
-            "Execute Python code for complex financial calculations, budget analysis, "
-            "cost projections, and data visualization. Creates a scratchpad for "
-            "intermediate calculations and maintains calculation history."
-        ),
-    )
-
-    coordinator_agent = event_coordinator.create_agent(
-        client,
-    )
-
-    venue_agent = venue_specialist.create_agent(
-        client,
-        web_search,
-        mcp_tool,
-    )
-
-    budget_agent = budget_analyst.create_agent(client, code_interpreter, mcp_tool)
-
-    catering_agent = catering_coordinator.create_agent(
-        client,
-        web_search,
-        mcp_tool,
-    )
-
-    logistics_agent = logistics_manager.create_agent(
-        client,
-        get_weather_forecast,  # type: ignore
-        create_calendar_event,  # type: ignore
-        list_calendar_events,  # type: ignore
-        delete_calendar_event,  # type: ignore
-        mcp_tool,
-    )
+    # Create agents
+    coordinator_agent = event_coordinator.create_agent(client)
+    venue_agent = venue_specialist.create_agent(client, mcp_tool)
+    budget_agent = budget_analyst.create_agent(client, mcp_tool)
+    catering_agent = catering_coordinator.create_agent(client, mcp_tool)
+    logistics_agent = logistics_manager.create_agent(client, mcp_tool)
 
     # Create coordinator executor with routing logic
     coordinator = EventPlanningCoordinator(coordinator_agent)
