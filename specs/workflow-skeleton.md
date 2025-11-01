@@ -223,7 +223,7 @@ The workflow uses **coordinator-centric star topology** where the EventPlanningC
    - Tools integrated: Web Search, Weather, Calendar, Code Interpreter, MCP
 
 5. **Module Exports** (1 file updated)
-   - `src/spec_to_agents/agents/__init__.py` - Updated `export_entities()` to include workflow
+   - `src/spec_to_agents/workflow/__init__.py` - Updated `export_workflow()` to include workflow
 
 6. **Tests** (2 files created)
    - `tests/test_workflow.py` - Unit tests for workflow construction
@@ -1194,14 +1194,13 @@ __all__ = ["EventPlanningCoordinator", "convert_tool_content_to_text"]
 __all__ = ["HumanFeedbackRequest", "SpecialistOutput"]
 
 # agents/__init__.py
-def export_entities() -> list[Workflow | ChatAgent]:
+def export_agent() -> list[ChatAgent]:
     return [
         budget_analyst_agent,
         catering_coordinator_agent,
         event_coordinator_agent,
         logistics_manager_agent,
         venue_specialist_agent,
-        event_planning_workflow,
     ]
 ```
 
@@ -1244,7 +1243,7 @@ After implementation, the structure is:
 ```
 src/spec_to_agents/
 ├── workflow/
-│   ├── __init__.py
+│   ├── __init__.py              # export_workflow()
 │   ├── core.py                  # Workflow builder with star topology
 │   └── executors.py             # EventPlanningCoordinator with routing logic
 ├── models/
@@ -1257,7 +1256,7 @@ src/spec_to_agents/
 │   ├── catering_coordinator.py  # Structured output guidance
 │   └── logistics_manager.py     # Structured output guidance
 ├── agents/
-│   ├── __init__.py              # export_entities() includes workflow
+│   ├── __init__.py              # export_agents()
 │   ├── event_coordinator.py     # store=True, no response_format
 │   ├── venue_specialist.py      # store=True, response_format=SpecialistOutput
 │   ├── budget_analyst.py        # store=True, response_format=SpecialistOutput
