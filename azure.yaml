@@ -24,11 +24,16 @@ infra:
 # Deployment hooks
 hooks:
   postprovision:
-    shell: sh
-    run: |
-      echo "✓ Infrastructure provisioned successfully!"
-      echo "Run 'azd deploy' to deploy the application."
-    continueOnError: true
+    windows:
+      shell: pwsh
+      run: ./scripts/generate-env.ps1
+      interactive: false
+      continueOnError: false
+    posix:
+      shell: sh
+      run: ./scripts/generate-env.sh
+      interactive: false
+      continueOnError: false
 
   postdeploy:
     shell: sh
