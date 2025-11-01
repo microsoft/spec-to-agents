@@ -179,7 +179,6 @@ class EventPlanningCoordinator(Executor):
                     requesting_agent=response.executor_id,
                     conversation=conversation,
                 ),
-                request_type=HumanFeedbackRequest,
                 response_type=str,
             )
         elif specialist_output.next_agent:

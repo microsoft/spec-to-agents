@@ -37,21 +37,34 @@ param projectDescription string = 'AI Agents Event Planning Application'
 @description('The display name of your project.')
 param projectDisplayName string = 'Event Planning Agents'
 
+@description('The name of the Bing Grounding resource.')
+param bingGroundingName string = 'bing'
+
 // Model deployment parameters
-@description('The name of the OpenAI model to deploy')
-param modelName string = 'gpt-4o'
+@description('The name of the primary OpenAI model to deploy (AZURE_AI_MODEL_DEPLOYMENT_NAME)')
+param modelName string = 'gpt-5-mini'
 
 @description('The model format')
 param modelFormat string = 'OpenAI'
 
-@description('The version of the model. Example: 2024-11-20')
-param modelVersion string = '2024-11-20'
+@description('The version of the primary model. Example: 2025-08-07')
+param modelVersion string = '2025-08-07'
 
 @description('The SKU name for the model deployment')
 param modelSkuName string = 'GlobalStandard'
 
 @description('The capacity of the model deployment in TPM')
 param modelCapacity int = 30
+
+// Second model deployment parameters (for web search)
+@description('The name of the secondary OpenAI model to deploy (WEB_SEARCH_MODEL)')
+param webSearchModelName string = 'gpt-4.1-mini'
+
+@description('The version of the web search model. Example: 2025-04-14')
+param webSearchModelVersion string = '2025-04-14'
+
+@description('The capacity of the web search model deployment in TPM')
+param webSearchModelCapacity int = 30
 
 // --- Load abbreviations and generate unique names ---
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -70,7 +83,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 // Deploys AI Services account, project, and model
 // =================================================================
 
-// Deploy simplified AI Foundry with model
+// Deploy simplified AI Foundry with models
 module aiFoundry './app/ai-foundry.bicep' = {
   name: 'ai-foundry'
   scope: rg
@@ -84,6 +97,10 @@ module aiFoundry './app/ai-foundry.bicep' = {
     modelFormat: modelFormat
     modelSkuName: modelSkuName
     modelCapacity: modelCapacity
+    webSearchModelName: webSearchModelName
+    webSearchModelVersion: webSearchModelVersion
+    webSearchModelCapacity: webSearchModelCapacity
+    bingAccountName: '${bingGroundingName}${resourceToken}'
     location: location
     tags: tags
   }
@@ -174,6 +191,10 @@ module app './app/container-app.bicep' = {
         name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
         value: aiFoundry.outputs.modelDeploymentName
       }
+      {
+        name: 'BING_CONNECTION_NAME'
+        value: aiFoundry.outputs.bingConnectionName
+      }
       // Container environment settings
       {
         name: 'ENVIRONMENT'
@@ -204,6 +225,12 @@ output AZURE_AI_ENDPOINT string = aiFoundry.outputs.accountEndpoint
 
 @description('The name of the deployed model.')
 output AZURE_OPENAI_DEPLOYMENT_NAME string = aiFoundry.outputs.modelDeploymentName
+
+@description('The name of the Bing grounding connection.')
+output BING_CONNECTION_NAME string = aiFoundry.outputs.bingConnectionName
+
+@description('The name of the Bing grounding account.')
+output BING_ACCOUNT_NAME string = aiFoundry.outputs.bingAccountName
 
 @description('The login server for the Azure Container Registry.')
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
