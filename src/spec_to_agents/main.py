@@ -13,6 +13,7 @@ def main() -> None:
 
     from agent_framework.devui import serve
 
+    from spec_to_agents.agents import export_agents
     from spec_to_agents.workflow import export_workflow
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -28,7 +29,8 @@ def main() -> None:
 
     # DevUI's serve() handles cleanup via FastAPI lifespan hooks
     # Use localhost for security; override with --host 0.0.0.0 if needed for external access
-    serve(entities=export_workflow(), port=port, host="localhost", auto_open=auto_open)
+    entities = export_workflow() + export_agents()
+    serve(entities=entities, port=port, host="localhost", auto_open=auto_open)
 
 
 if __name__ == "__main__":
