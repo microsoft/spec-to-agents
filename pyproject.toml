@@ -20,6 +20,13 @@ dependencies = [
     "icalendar>=5.0.11",
     "pytz>=2024.1",
     "rich>=13.7.0",
+    # OpenTelemetry packages for observability
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "azure-monitor-opentelemetry",
+    "azure-monitor-opentelemetry-exporter>=1.0.0b41",
+    "opentelemetry-exporter-otlp-proto-grpc",
+    "opentelemetry-semantic-conventions-ai",
 ]
 
 [project.scripts]
