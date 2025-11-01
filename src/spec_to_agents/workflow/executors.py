@@ -102,6 +102,26 @@ class EventPlanningCoordinator(Executor):
     - Framework-native HITL: Uses ctx.request_info() + @response_handler
     - Service-managed threads: Framework handles conversation history automatically
 
+    Termination Conditions
+    ----------------------
+    The coordinator ensures workflow termination through multiple mechanisms:
+
+    1. **Structured Output Control**: Each specialist returns SpecialistOutput with
+       next_agent field. The coordinator routes based on this field:
+       - next_agent="venue"|"budget"|"catering"|"logistics": Route to that specialist
+       - next_agent=None and user_input_needed=False: Workflow complete, synthesize plan
+       - user_input_needed=True: Pause for human input, resume after response
+
+    2. **Framework Iteration Limit**: WorkflowBuilder enforces max_iterations=30.
+       If iteration limit is reached, the framework automatically terminates the workflow.
+
+    3. **Synthesis and Termination**: When workflow is complete (no next_agent, no user input),
+       the coordinator calls _synthesize_plan() which yields final output via ctx.yield_output(),
+       signaling workflow completion to the framework.
+
+    The bidirectional edges enable flexible routing (e.g., returning to venue specialist
+    if budget requires cheaper option), but cycles cannot be infinite due to these guarantees.
+
     Responsibilities
     ----------------
     - Receive initial user requests and route to venue specialist
@@ -153,6 +173,10 @@ class EventPlanningCoordinator(Executor):
         - Elif next_agent is set: Route to that specialist
         - Else: Synthesize final plan (workflow complete)
 
+        This method implements the core termination logic: when a specialist returns
+        next_agent=None and user_input_needed=False, it signals workflow completion,
+        and the coordinator synthesizes the final plan and yields output.
+
         Extracts full_conversation from the response to pass context to next agent.
 
         Parameters
@@ -169,6 +193,7 @@ class EventPlanningCoordinator(Executor):
         conversation = list(response.full_conversation or response.agent_run_response.messages)
 
         # Route based ONLY on structured output fields
+        # This routing logic ensures workflow termination when specialists signal completion
         if specialist_output.user_input_needed:
             # Pause workflow for human input, preserving conversation
             await ctx.request_info(
@@ -194,7 +219,8 @@ class EventPlanningCoordinator(Executor):
                 prior_conversation=conversation,
             )
         else:
-            # Workflow complete: next_agent=None and no user input needed
+            # TERMINATION CONDITION: next_agent=None and no user input needed
+            # Workflow is complete - synthesize final plan and yield output
             await self._synthesize_plan(ctx, conversation)
 
     @response_handler
@@ -244,6 +270,11 @@ class EventPlanningCoordinator(Executor):
         This method is called after all specialists have completed their work.
         Uses the conversation history with tool content converted to text summaries.
 
+        WORKFLOW TERMINATION: This method terminates the workflow by calling
+        ctx.yield_output(), which signals to the framework that the workflow
+        has completed successfully. After yielding output, the framework will
+        not execute any more handlers, preventing infinite iteration.
+
         Parameters
         ----------
         ctx : WorkflowContext[AgentExecutorRequest, str]
@@ -270,7 +301,7 @@ class EventPlanningCoordinator(Executor):
         # Run coordinator agent with converted conversation context
         synthesis_result = await self._agent.run(messages=clean_conversation)
 
-        # Yield final plan as workflow output
+        # Yield final plan as workflow output - this terminates the workflow
         if synthesis_result.text:
             await ctx.yield_output(synthesis_result.text)
 

@@ -45,6 +45,20 @@ Final Event Plan
 4. **Human-in-the-Loop**: Framework-native `ctx.request_info()` + `@response_handler` for user interaction
 5. **Tool Content Conversion**: Cross-thread message passing requires converting tool calls/results to text summaries
 
+**Termination Guarantees:**
+
+The workflow uses bidirectional edges (creating cycles) for flexible routing, but termination is guaranteed through multiple mechanisms:
+
+1. **Max Iterations Limit**: Workflow enforces `max_iterations=30` at the framework level. If this limit is reached, the workflow automatically terminates.
+
+2. **Structured Output Control**: Each specialist returns `SpecialistOutput` with a `next_agent` field:
+   - When `next_agent=None` and `user_input_needed=False`, the coordinator synthesizes the final plan and yields output
+   - The coordinator controls all routing decisions, preventing arbitrary cycles
+
+3. **Explicit Termination**: When workflow is complete, the coordinator calls `ctx.yield_output()`, which signals workflow completion to the framework and prevents further iteration.
+
+The bidirectional edges enable dynamic routing (e.g., budget analyst can send back to venue specialist if a cheaper option is needed), but cycles cannot be infinite due to these termination controls.
+
 ![Workflow Architecture](assets/workflow_architecture.png)
 
 ## Agents and Tools

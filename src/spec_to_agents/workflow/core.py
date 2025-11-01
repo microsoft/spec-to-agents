@@ -56,6 +56,28 @@ def build_event_planning_workflow(
     - Coordinator ←→ Catering Coordinator
     - Coordinator ←→ Logistics Manager
 
+    Termination Conditions
+    ----------------------
+    The workflow has robust termination guarantees preventing infinite loops:
+
+    1. **Max Iterations Limit**: Workflow is configured with max_iterations=30,
+       enforced by the framework. Workflow terminates if iteration limit is reached.
+
+    2. **Structured Output Routing**: Each specialist returns SpecialistOutput with
+       next_agent field. When next_agent=None and user_input_needed=False, the
+       coordinator synthesizes the final plan and yields output, terminating the workflow.
+
+    3. **Coordinator Control**: The EventPlanningCoordinator manages all routing decisions.
+       It determines workflow completion based on specialist responses and user feedback.
+
+    4. **Sequential Flow**: Despite bidirectional edges enabling dynamic routing, the actual
+       execution follows a managed sequence controlled by the coordinator's logic, not
+       arbitrary cycles.
+
+    The bidirectional edges in the star topology enable flexible routing (e.g., returning
+    to a previous specialist for refinement based on user feedback), but termination is
+    guaranteed by the above mechanisms.
+
     Human-in-the-Loop
     ------------------
     Specialists can call request_user_input tool when they need clarification,
@@ -108,6 +130,13 @@ def build_event_planning_workflow(
     logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
 
     # Build workflow with bidirectional star topology
+    # NOTE: Bidirectional edges create cycles in the workflow graph, which the framework
+    # validation may warn about. However, these cycles are safe and necessary for the
+    # coordinator pattern:
+    # - Specialists send results back to coordinator for routing decisions
+    # - Coordinator controls all routing via structured output (SpecialistOutput.next_agent)
+    # - Termination is guaranteed by max_iterations (30) and coordinator logic
+    # - When next_agent=None and no user input needed, coordinator yields final output
     workflow = (
         WorkflowBuilder(
             name="Event Planning Workflow",
@@ -116,11 +145,12 @@ def build_event_planning_workflow(
                 "catering, and logistics coordination. Supports human-in-the-loop for "
                 "clarification and approval."
             ),
-            max_iterations=30,  # Prevent infinite loops
+            max_iterations=30,  # Enforce iteration limit to prevent infinite loops
         )
         # Set coordinator as start executor
         .set_start_executor(coordinator)
         # Bidirectional edges: Coordinator ←→ Each Specialist
+        # These create cycles but are safe due to coordinator's structured routing control
         .add_edge(coordinator, venue_exec)
         .add_edge(venue_exec, coordinator)
         .add_edge(coordinator, budget_exec)
