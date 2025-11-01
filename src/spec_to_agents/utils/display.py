@@ -7,6 +7,42 @@ from agent_framework import (
     FunctionCallContent,
     FunctionResultContent,
 )
+from rich.console import Console
+from rich.panel import Panel
+from rich.syntax import Syntax
+
+# Initialize Rich console
+console = Console()
+
+
+def _get_agent_color(executor_id: str) -> str:
+    """
+    Get the color associated with an agent type.
+
+    Parameters
+    ----------
+    executor_id : str
+        The executor/agent ID
+
+    Returns
+    -------
+    str
+        Rich color name for the agent
+    """
+    agent_colors = {
+        "venue": "blue",
+        "budget": "green",
+        "catering": "yellow",
+        "logistics": "cyan",
+        "coordinator": "magenta",
+    }
+
+    # Match executor_id to agent type
+    for agent_type, color in agent_colors.items():
+        if agent_type in executor_id.lower():
+            return color
+
+    return "white"
 
 
 def display_agent_run_update(
@@ -16,11 +52,11 @@ def display_agent_run_update(
     printed_tool_results: set[str],
 ) -> str | None:
     """
-    Display an AgentRunUpdateEvent in a readable format.
+    Display an AgentRunUpdateEvent in a readable format using Rich styling.
 
     Streams agent execution updates including tool calls, tool results, and text output.
     Tracks which tool calls and results have been displayed to avoid duplication
-    during streaming.
+    during streaming. Uses Rich library for color-coded, styled output.
 
     Parameters
     ----------
@@ -42,12 +78,12 @@ def display_agent_run_update(
 
     Notes
     -----
-    This function prints directly to stdout and modifies the printed_tool_calls
-    and printed_tool_results sets in place. The function handles three types of
-    content updates:
-    - FunctionCallContent: Displayed as [tool-call] with function name and arguments
-    - FunctionResultContent: Displayed as [tool-result] with call ID and result
-    - Text updates: Streamed character by character
+    This function prints directly to stdout using Rich Console and modifies the
+    printed_tool_calls and printed_tool_results sets in place. The function handles
+    three types of content updates:
+    - FunctionCallContent: Displayed as styled panel with function name and arguments
+    - FunctionResultContent: Displayed as styled panel with call ID and result
+    - Text updates: Streamed with agent-specific color coding
 
     Examples
     --------
@@ -69,11 +105,17 @@ def display_agent_run_update(
     function_calls = [c for c in update.contents if isinstance(c, FunctionCallContent)]
     function_results = [c for c in update.contents if isinstance(c, FunctionResultContent)]
 
+    # Get agent-specific color
+    agent_color = _get_agent_color(executor_id)
+
     # Print executor ID when it changes
     if executor_id != last_executor:
         if last_executor is not None:
-            print()  # Add newline between executor transitions  # noqa: T201
-        print(f"{executor_id}:", end=" ", flush=True)  # noqa: T201
+            console.print()  # Add newline between executor transitions
+
+        # Display agent header with color-coded styling
+        console.print()
+        console.rule(f"[bold {agent_color}]{executor_id}[/bold {agent_color}]", style=agent_color)
         last_executor = executor_id
 
     # Print any new tool calls before the text update
@@ -84,13 +126,29 @@ def display_agent_run_update(
 
         # Format arguments for display
         args = call.arguments
-        args_preview = json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else (args or "").strip()
+        if isinstance(args, dict):
+            args_display = Syntax(
+                json.dumps(args, indent=2, ensure_ascii=False),
+                "json",
+                theme="monokai",
+                line_numbers=False,
+                background_color="default",
+            )
+        else:
+            args_str = (args or "").strip()
+            args_display = f"[dim]{args_str}[/dim]"
 
-        print(  # noqa: T201
-            f"\n{executor_id} [tool-call] {call.name}({args_preview})",
-            flush=True,
+        console.print(
+            Panel(
+                f"[bold]🔧 Tool Call:[/bold] [cyan]{call.name}[/cyan]\n"
+                f"[bold]Call ID:[/bold] [dim]{call.call_id}[/dim]\n\n"
+                f"{args_display}",
+                title=f"[{agent_color}]Function Call[/{agent_color}]",
+                border_style=agent_color,
+                padding=(0, 1),
+                expand=False,
+            )
         )
-        print(f"{executor_id}:", end=" ", flush=True)  # noqa: T201
 
     # Print any new tool results before the text update
     for result in function_results:
@@ -101,16 +159,31 @@ def display_agent_run_update(
         # Format result for display
         result_text = result.result
         if not isinstance(result_text, str):
-            result_text = json.dumps(result_text, ensure_ascii=False)
+            result_display = Syntax(
+                json.dumps(result_text, indent=2, ensure_ascii=False),
+                "json",
+                theme="monokai",
+                line_numbers=False,
+                background_color="default",
+            )
+        else:
+            # Truncate very long results for readability
+            if len(result_text) > 500:
+                result_text = result_text[:500] + f"... [dim](truncated, {len(result_text)} chars total)[/dim]"
+            result_display = result_text
 
-        print(  # noqa: T201
-            f"\n{executor_id} [tool-result] {result.call_id}: {result_text}",
-            flush=True,
+        console.print(
+            Panel(
+                f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]\n\n{result_display}",
+                title=f"[{agent_color}]Tool Result[/{agent_color}]",
+                border_style="dim",
+                padding=(0, 1),
+                expand=False,
+            )
         )
-        print(f"{executor_id}:", end=" ", flush=True)  # noqa: T201
 
-    # Finally, print the text update
+    # Finally, print the text update with agent-specific color
     if update.text is not None:
-        print(update.text, end="", flush=True)  # noqa: T201
+        console.print(f"[{agent_color}]{update.text}[/{agent_color}]", end="")
 
     return last_executor
