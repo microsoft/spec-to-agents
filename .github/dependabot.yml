@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Enable version updates for Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "microsoft/spec-to-agents-maintainers"
+    assignees:
+      - "microsoft/spec-to-agents-maintainers"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "microsoft/spec-to-agents-maintainers"
+    assignees:
+      - "microsoft/spec-to-agents-maintainers"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

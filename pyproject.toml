@@ -55,7 +55,11 @@ dev = [
     "mypy>=1.18.2",
     "pyright>=1.1.406",
     "pytest-asyncio>=1.2.0",
+    "pytest-cov>=6.0.0",
     "types-pytz>=2025.2.0.20250809",
+    "pip-audit>=2.6.0",
+    "ruff>=0.14.0",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.uv.sources]
@@ -161,6 +165,35 @@ show_error_codes = true
 warn_unused_ignores = false
 disallow_incomplete_defs = true
 disallow_untyped_decorators = true
+
+[tool.coverage.run]
+source = ["src/spec_to_agents"]
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "venv/*",
+    ".venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]

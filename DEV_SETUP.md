@@ -13,15 +13,13 @@ GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev
 uv run pre-commit install
 ```
 
-# Backend
-
 ## Configuration
 
 Add a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
 
-## Running the Workflow
+# Running the Workflow
 
-### Interactive CLI Mode (Recommended)
+## Interactive CLI Mode (Recommended)
 
 Run the event planning workflow with human-in-the-loop via command line:
 
@@ -51,7 +49,7 @@ Enter your event planning request:
 [Comprehensive plan output]
 ```
 
-### DevUI Mode
+## DevUI Mode
 
 Alternatively, visualize and interact with the agents using DevUI:
 
@@ -70,4 +68,32 @@ Book a conference for AI developers in Florida
 - Venue: Hotel conference center
 - Catering requirements: Coffee breaks mornign and afternoon. Lunch. Options for vegan attendees.
 - Logistics: Excellent internet, breakout rooms, good selection of hotels in the locality
+```
+
+# Debugging the Workflow
+
+## Interactive CLI Mode (Recommended)
+
+The following instructions explain how to debug the interactive console using Visual Studio Code
+
+1. Optionally set a breakpoint where you want execution to stop
+    - E.g. you could set a breakpoint at the start of `build_event_planning_workflow` in [core.py](./src/spec_to_agents/workflow/core.py) to step through building the workflow
+1. Open the [console.py](./src/spec_to_agents/console.py)
+1. Use the Run -> Start Debugging (or press F5)
+
+## DevUI Mode
+
+The following instructions explain how to debug the interactive console using Visual Studio Code
+
+1. Optionally set a breakpoint where you want execution to stop
+    - E.g. you could set a breakpoint at the start of `build_event_planning_workflow` in [core.py](./src/spec_to_agents/workflow/core.py) to step through building the workflow
+1. Open the [main.py](./src/spec_to_agents/main.py)
+1. Use the Run -> Start Debugging (or press F5)
+
+# Running Tests
+
+Run the following command
+
+```powershell
+uv run pytes
 ```

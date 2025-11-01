@@ -4,7 +4,7 @@
 
 from agent_framework import Workflow
 
-from spec_to_agents.clients import create_agent_client
+from spec_to_agents.utils.clients import create_agent_client
 from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
 
 
