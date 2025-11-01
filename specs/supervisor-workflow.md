@@ -155,15 +155,17 @@ Key implementation details:
 
 Create factory function and system prompt:
 
-    from agent_framework import ChatAgent
+    from agent_framework import ChatAgent, BaseChatClient
     from agent_framework.azure import AzureAIAgentClient
+    from langchain_core.prompts import PromptTemplate
+    from typing import Any
 
     from spec_to_agents.models.messages import SupervisorDecision
 
     __all__ = ["create_supervisor_agent"]
 
 
-    def create_supervisor_agent(client: AzureAIAgentClient) -> ChatAgent:
+    def create_supervisor_agent(client: BaseChatClient, participants_description_block: str, **kwargs: Any) -> BaseChatClient:
         """
         Create supervisor agent for workflow orchestration.
 
@@ -172,32 +174,43 @@ Create factory function and system prompt:
 
         Parameters
         ----------
-        client : AzureAIAgentClient
-            Azure AI agent client for creating the agent
+        client : BaseChatClient
+            Chat client protocol for creating the agent
+        participants_description_block : str
+            Description block listing all available participants
+            e.g.,
+            "
+            Available participants:
+            - Venue Specialist: Expert in finding and booking venues
+            - Budget Analyst: Skilled in cost estimation and budget planning
+            - Catering Coordinator: Knowledgeable in menu planning and catering options
+            - Logistics Manager: Experienced in event logistics and scheduling
+            "
+        **kwargs : Any
+            Additional keyword arguments for BaseChatClient.create_agent()
+        
 
         Returns
         -------
-        ChatAgent
+        BaseChatClient
             Supervisor agent with SupervisorDecision structured output
         """
+        instructions = SUPERVISOR_PROMPT_TEMPLATE.format(
+            participant_description_block=participants_description_block
+        )
         return client.create_agent(
             name="Event Planning Supervisor",
-            instructions=SUPERVISOR_SYSTEM_PROMPT,
-            model="gpt-4o",
+            instructions=instructions,
             response_format=SupervisorDecision,
-            store=True,  # Use service-managed thread for supervisor
+            **kwargs,
         )
 
-
-    SUPERVISOR_SYSTEM_PROMPT = """
-    You are the supervisor for an event planning workflow. Your role is to orchestrate
+    SUPERVISOR_SYSTEM_PROMPT_TEMPLATE = PromptTemplate.from_template(template="""
+    You are the supervisor for a multi-agent workflow. Your role is to orchestrate
     multiple specialist agents to create a comprehensive event plan.
 
     Available participants:
-    - venue: Research and recommend event venues
-    - budget: Analyze costs and create budget allocations
-    - catering: Research catering options and menus
-    - logistics: Handle scheduling, weather, and calendar management
+    {participants_description_block}
 
     Your responsibilities:
     1. Analyze the conversation history (you have global context)
@@ -207,19 +220,16 @@ Create factory function and system prompt:
     5. Synthesize the final plan when all participants complete their work
 
     Routing strategy:
-    - Start with venue (usually first priority)
-    - Route to budget after venue selection
-    - Route to catering once budget is established
-    - Route to logistics for final coordination
-    - You may adjust this order based on context
-
+    - IMPORTANT: Use the conversation history to inform your decisions
+    - Use the `next_agent` field to specify which participant to call next
+    - If you need more information from the user, set `user_input_needed` to True
+    - If the workflow is complete, set `next_agent` to None and `user_input_needed` to False
+    
     Respond with SupervisorDecision containing:
     - next_agent: ID of participant to call, or None if ready to synthesize
     - user_input_needed: True if you need user clarification
     - user_prompt: Question for user (if needed)
-
-    Workflow completes when next_agent=None and user_input_needed=False.
-    """
+    """)
 
 ### 4. Refactor Event Planning Workflow
 
@@ -232,10 +242,16 @@ Update `build_event_planning_workflow` function (lines 32-137) to use supervisor
         SupervisorOrchestratorExecutor,
         SupervisorWorkflowBuilder,
     )
+    from agent_framework import ToolProtocol, ChatClientProtocol, Workflow
+    from typing import Callable, MutableMapping, Sequence, Any
 
     def build_event_planning_workflow(
-        client: AzureAIAgentClient,
-        mcp_tool: MCPStdioTool | None = None,
+        client: ChatClientProtocol,
+        tools: ToolProtocol
+        | Callable[..., Any]
+        | MutableMapping[str, Any]
+        | Sequence[ToolProtocol | Callable[..., Any] | MutableMapping[str, Any]]
+        | None = None,
     ) -> Workflow:
         """
         Build event planning workflow using supervisor pattern.
@@ -247,44 +263,42 @@ Update `build_event_planning_workflow` function (lines 32-137) to use supervisor
         - Builder automatically wires bidirectional edges
         """
         # Create participant agents
-        venue_agent = venue_specialist.create_agent(client, mcp_tool)
-        budget_agent = budget_analyst.create_agent(client, mcp_tool)
-        catering_agent = catering_coordinator.create_agent(client, mcp_tool)
-        logistics_agent = logistics_manager.create_agent(client, mcp_tool)
-
-        # Create supervisor agent
-        supervisor_agent = create_supervisor_agent(client)
-
-        # Create participant executors
-        venue_exec = AgentExecutor(agent=venue_agent, id="venue")
-        budget_exec = AgentExecutor(agent=budget_agent, id="budget")
-        catering_exec = AgentExecutor(agent=catering_agent, id="catering")
-        logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
-
-        # Create supervisor executor
-        supervisor_exec = SupervisorOrchestratorExecutor(
-            supervisor_agent=supervisor_agent,
-            participant_ids=["venue", "budget", "catering", "logistics"],
-        )
+        venue_agent = venue_specialist.create_agent() # will use dependency injection for client and mcp_tools using dependency-injector library
+        budget_agent = budget_analyst.create_agent()
+        catering_agent = catering_coordinator.create_agent()
+        logistics_agent = logistics_manager.create_agent()
 
         # Build workflow using supervisor pattern
         workflow = (
             SupervisorWorkflowBuilder(
                 name="Event Planning Workflow",
+                id="event-planning-workflow",
                 description="Multi-agent event planning with supervisor orchestration",
                 max_iterations=30,
+                client=client # the chat client, accepts any BaseChatClient instance
             )
-            .with_participants(
-                venue=venue_exec,
-                budget=budget_exec,
-                catering=catering_exec,
-                logistics=logistics_exec,
+            .participants(
+                venue=venue_agent,
+                budget=budget_agent,
+                catering=catering_agent,
+                logistics=logistics_agent,
             )
-            .with_manager(supervisor_exec)
-            .build()
+        .build()
         )
 
-        workflow.id = "event-planning-workflow"
+        ###### Internals ######
+
+        # When a SupervisorWorkflowBuilder is used, the following are created internally:
+
+        supervisor_agent = create_supervisor_agent(client)
+
+        supervisor_exec = SupervisorOrchestratorExecutor(
+            supervisor_agent=supervisor_agent,
+            participant_ids=..., # derived from workflow builder
+        )
+
+        #######################
+
         return workflow
 
 Remove the old `EventPlanningCoordinator` import and manual edge wiring code.
@@ -324,8 +338,6 @@ Add supervisor agent export:
 ### Run Tests
 
 Before making changes, verify existing tests pass:
-
-    cd /home/alexlavaee/source/repos/spec-to-agents
     uv run pytest tests/
 
 Expected: All tests pass (baseline).
@@ -349,76 +361,7 @@ Expected: No linting or type errors.
 
 ### Write Tests
 
-Create test file `tests/workflow/test_supervisor.py`:
 
-    import pytest
-    from unittest.mock import AsyncMock, MagicMock
-
-    from agent_framework import AgentExecutor, AgentRunResponse, ChatMessage, Role
-    from spec_to_agents.models.messages import SupervisorDecision
-    from spec_to_agents.workflow.supervisor import (
-        SupervisorOrchestratorExecutor,
-        SupervisorWorkflowBuilder,
-    )
-
-
-    @pytest.mark.asyncio
-    async def test_supervisor_executor_start():
-        """Test supervisor receives initial request and routes to first participant."""
-        # Setup mocks
-        supervisor_agent = MagicMock()
-        supervisor_agent.run = AsyncMock(return_value=AgentRunResponse(
-            messages=[ChatMessage(Role.ASSISTANT, text="Starting with venue")],
-            value=SupervisorDecision(next_agent="venue", user_input_needed=False),
-        ))
-
-        executor = SupervisorOrchestratorExecutor(
-            supervisor_agent=supervisor_agent,
-            participant_ids=["venue", "budget"],
-        )
-
-        ctx = MagicMock()
-        ctx.send_message = AsyncMock()
-
-        # Execute
-        await executor.start("Plan a party for 50 people", ctx)
-
-        # Verify supervisor was called with user request
-        supervisor_agent.run.assert_called_once()
-        call_args = supervisor_agent.run.call_args[1]
-        assert len(call_args["messages"]) == 1
-        assert call_args["messages"][0].text == "Plan a party for 50 people"
-
-        # Verify routing to venue
-        ctx.send_message.assert_called_once()
-
-
-    @pytest.mark.asyncio
-    async def test_supervisor_workflow_builder():
-        """Test builder creates workflow with bidirectional edges."""
-        supervisor_agent = MagicMock()
-        supervisor_exec = SupervisorOrchestratorExecutor(
-            supervisor_agent=supervisor_agent,
-            participant_ids=["venue", "budget"],
-        )
-
-        venue_exec = AgentExecutor(agent=MagicMock(), id="venue")
-        budget_exec = AgentExecutor(agent=MagicMock(), id="budget")
-
-        workflow = (
-            SupervisorWorkflowBuilder(name="Test Workflow")
-            .with_participants(venue=venue_exec, budget=budget_exec)
-            .with_manager(supervisor_exec)
-            .build()
-        )
-
-        assert workflow.name == "Test Workflow"
-        # Verify workflow structure (edges exist)
-        assert len(workflow.executors) == 3  # supervisor + 2 participants
-
-Run tests:
-
-    uv run pytest tests/workflow/test_supervisor.py -v
 
 Expected: All tests pass.
 
@@ -504,7 +447,7 @@ After implementation, developers can:
 
 2. **See supervisor making routing decisions** in DevUI message history (structured output shows `next_agent` values)
 
-3. **Add/remove participants without changing orchestrator code** (just update builder `.with_participants()` call)
+3. **Add/remove participants without changing orchestrator code** (just update builder `.participants()` call)
 
 4. **Supervisor maintains global context** while participants maintain local context via service-managed threads
 
@@ -636,20 +579,17 @@ New module `src/spec_to_agents/agents/supervisor.py` depends on:
             max_iterations: int = 30,
         ) -> None: ...
 
-        def with_participants(
+        def participants(
             self,
             **participants: AgentExecutor,
-        ) -> "SupervisorWorkflowBuilder": ...
-
-        def with_manager(
-            self,
-            manager: SupervisorOrchestratorExecutor,
         ) -> "SupervisorWorkflowBuilder": ...
 
         def build(self) -> Workflow: ...
 
 **create_supervisor_agent:**
 
-    def create_supervisor_agent(
-        client: AzureAIAgentClient,
-    ) -> ChatAgent: ...
+    create_supervisor_agent(
+        client: BaseChatClient,
+        participants_description_block: str,
+        **kwargs: Any
+    ) -> BaseChatClient: ...
