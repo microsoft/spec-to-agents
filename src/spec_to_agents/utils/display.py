@@ -418,7 +418,7 @@ def display_agent_run_update(
                 title=f"[{agent_color}]Function Call[/{agent_color}]",
                 border_style=agent_color,
                 padding=(0, 1),
-                expand=False,
+                expand=True,
             )
         )
 
@@ -450,7 +450,7 @@ def display_agent_run_update(
                 title=f"[{agent_color}]Tool Result[/{agent_color}]",
                 border_style="dim",
                 padding=(0, 1),
-                expand=False,
+                expand=True,
             )
         )
 
