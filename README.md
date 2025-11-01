@@ -44,6 +44,10 @@ Plan a comprehensive event using multiple specialized agents working together.
 - **Concurrent Workflows**: Demonstrates the workflows functionality for orchestrating complex agentic systems
 - **Azure Deployment**: Complete AZD template for one-click deployment
 
+For detailed information about the workflow architecture and cycle safety, see:
+- [AGENTS.md](./AGENTS.md) - Agent architecture and patterns
+- [docs/WORKFLOW_CYCLES.md](./docs/WORKFLOW_CYCLES.md) - Workflow cycle detection and termination guarantees
+
 # 🚀 Getting Started
 
 ## Prerequisites

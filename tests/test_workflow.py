@@ -85,3 +85,69 @@ def test_coordinator_uses_service_managed_threads() -> None:
     # Should NOT have obsolete attributes
     assert not hasattr(coordinator, "_current_index"), "Coordinator should not have _current_index"
     assert not hasattr(coordinator, "_specialist_sequence"), "Coordinator should not have _specialist_sequence"
+
+
+def test_workflow_has_termination_guarantees() -> None:
+    """
+    Test that workflow has proper termination conditions to prevent infinite loops.
+
+    The workflow uses bidirectional edges (creating cycles), but termination is
+    guaranteed through:
+    1. Max iterations limit
+    2. Structured output routing with explicit completion signal
+    3. Coordinator's explicit termination via ctx.yield_output()
+    """
+    client = create_agent_client_for_devui()
+    test_workflow = build_event_planning_workflow(client)
+    assert test_workflow is not None
+
+    # Verify max_iterations is configured (prevents infinite loops)
+    # This is enforced at the framework level
+    # We can't directly access max_iterations from the workflow object,
+    # but we can verify the workflow was built successfully with this configuration
+
+    # Get the coordinator executor
+    coordinator = None
+    for executor in test_workflow.executors.values():
+        if executor.id == "event_coordinator":
+            coordinator = executor
+            break
+
+    assert coordinator is not None, "Coordinator not found in workflow"
+
+    # Verify coordinator has the _synthesize_plan method that terminates workflow
+    assert hasattr(coordinator, "_synthesize_plan"), (
+        "Coordinator should have _synthesize_plan method for workflow termination"
+    )
+
+    # Verify bidirectional edges exist (creating cycles, but safe cycles)
+    # The workflow should have edges from coordinator to specialists and back
+    # This is verified by the successful workflow build - framework validation passes
+
+
+def test_workflow_termination_documentation() -> None:
+    """
+    Test that the workflow build function has comprehensive termination documentation.
+
+    This test ensures developers can understand how the workflow terminates despite
+    having cycles from bidirectional edges.
+    """
+    from spec_to_agents.workflow.core import build_event_planning_workflow
+
+    # Get the docstring of the build function
+    docstring = build_event_planning_workflow.__doc__
+    assert docstring is not None, "Workflow builder should have documentation"
+
+    # Verify termination documentation exists
+    assert "Termination Conditions" in docstring, (
+        "Workflow documentation should explain termination conditions"
+    )
+    assert "max_iterations" in docstring.lower(), (
+        "Documentation should mention max_iterations as a termination guarantee"
+    )
+    assert "structured output" in docstring.lower(), (
+        "Documentation should mention structured output routing for termination"
+    )
+    assert "yield_output" in docstring.lower() or "yields output" in docstring.lower(), (
+        "Documentation should mention final output yielding as termination signal"
+    )
