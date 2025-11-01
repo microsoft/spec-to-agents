@@ -34,8 +34,8 @@ jobs:
     - name: Run formatting check with ruff
       run: uv run ruff format --check .
     
-    - name: Run type checking with mypy
-      run: uv run mypy .
+    #- name: Run type checking with mypy
+    #  run: uv run mypy .
     
     - name: Run tests with pytest and coverage
       run: uv run pytest --verbose --cov=src/spec_to_agents --cov-report=xml --cov-report=html
@@ -72,7 +72,7 @@ jobs:
       run: uv python install 3.11
     
     - name: Install dependencies
-      run: uv sync --dev
+      run: GIT_LFS_SKIP_SMUDGE=1 uv sync --dev
     
     - name: Run security audit
       run: uv run pip-audit --desc

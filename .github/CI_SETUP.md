@@ -23,7 +23,7 @@ Before submitting a PR, run these commands locally to ensure CI will pass:
 
 ```bash
 # Install/sync dependencies
-uv sync --dev
+GIT_LFS_SKIP_SMUDGE=1 uv sync --dev
 
 # Run all quality checks
 uv run ruff check . --fix        # Fix linting issues
