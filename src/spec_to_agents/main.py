@@ -24,10 +24,11 @@ def main() -> None:
     auto_open = os.getenv("ENVIRONMENT") != "production"
 
     logger.info("Starting Agent Workflow DevUI...")
-    logger.info(f"Available at: http://0.0.0.0:{port}")
+    logger.info(f"Available at: http://localhost:{port}")
 
     # DevUI's serve() handles cleanup via FastAPI lifespan hooks
-    serve(entities=export_entities(), port=port, host="0.0.0.0", auto_open=auto_open)
+    # Use localhost for security; override with --host 0.0.0.0 if needed for external access
+    serve(entities=export_entities(), port=port, host="localhost", auto_open=auto_open)
 
 
 if __name__ == "__main__":
