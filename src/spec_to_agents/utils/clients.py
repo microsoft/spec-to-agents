@@ -3,34 +3,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from agent_framework.azure import AzureAIAgentClient
-from agent_framework.azure._shared import DEFAULT_AZURE_TOKEN_ENDPOINT
 from azure.identity.aio import AzureCliCredential, ChainedTokenCredential, ManagedIdentityCredential
-
-
-async def ad_token_provider() -> str:
-    """
-    Get Azure AD token for Azure OpenAI.
-
-    Returns
-    -------
-    str
-        Azure AD access token for authentication.
-
-    Notes
-    -----
-    This function creates a new credential instance for each call.
-    For long-running applications, prefer using create_agent_client()
-    which manages credential lifecycle properly.
-    """
-    credential = ChainedTokenCredential(
-        ManagedIdentityCredential(),
-        AzureCliCredential(),
-    )
-    try:
-        token = await credential.get_token(DEFAULT_AZURE_TOKEN_ENDPOINT)
-        return token.token
-    finally:
-        await credential.close()
 
 
 def create_agent_client_for_devui() -> AzureAIAgentClient:
