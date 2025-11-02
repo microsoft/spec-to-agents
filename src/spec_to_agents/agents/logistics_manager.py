@@ -55,6 +55,7 @@ def create_agent(
 
     return client.create_agent(
         name="LogisticsManager",
+        description="Expert in event logistics, scheduling, and weather planning.",
         instructions=logistics_manager.SYSTEM_PROMPT,
         tools=agent_tools,
         store=True,

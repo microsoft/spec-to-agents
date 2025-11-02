@@ -48,6 +48,7 @@ def create_agent(
 
     return client.create_agent(
         name="CateringCoordinator",
+        description="Expert in catering services, menu planning, and vendor coordination for events.",
         instructions=catering_coordinator.SYSTEM_PROMPT,
         tools=agent_tools,
         store=True,

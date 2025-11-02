@@ -50,6 +50,7 @@ def create_agent(
 
     return client.create_agent(
         name="VenueSpecialist",
+        description="Expert in venue selection, site visits, and facility management for events.",
         instructions=venue_specialist.SYSTEM_PROMPT,
         tools=agent_tools,
         store=True,
