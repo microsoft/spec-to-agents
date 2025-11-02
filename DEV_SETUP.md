@@ -15,43 +15,7 @@ uv run pre-commit install
 
 ## Configuration
 
-### Option 1: Using azd provision (Recommended for Azure deployments)
-
-If you've deployed the infrastructure using Azure Developer CLI (`azd`), you can automatically generate the `.env` file from your provisioned resources:
-
-**Windows (PowerShell):**
-```powershell
-./scripts/generate-env.ps1
-```
-
-**MacOS/Linux:**
-```bash
-./scripts/generate-env.sh
-```
-
-This script will:
-- Extract configuration values from your Azure infrastructure (via `azd env get-values`)
-- Create a `.env` file with all required settings
-- Backup any existing `.env` file to `.env.backup`
-
-> **Note:** The postprovision hook in `azure.yaml` automatically runs these scripts after `azd provision` or `azd up`, so you typically don't need to run them manually.
-
-### Option 2: Manual configuration
-
-Add a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template and fill in your values manually.
-
-**Required variables:**
-- `AZURE_AI_PROJECT_ENDPOINT`: Your AI Foundry project endpoint URL
-- `AZURE_AI_MODEL_DEPLOYMENT_NAME`: Model deployment name (e.g., gpt-5-mini)
-- `WEB_SEARCH_MODEL`: Web search model deployment name
-- `BING_CONNECTION_NAME`: Bing grounding connection name
-- `APPLICATIONINSIGHTS_CONNECTION_STRING`: Application Insights connection string
-
-**Static configuration (defaults provided):**
-- `CALENDAR_STORAGE_PATH=./data/calendars`
-- `MAX_HISTORY_SIZE=1000`
-- `ENABLE_OTEL=true`
-- `ENABLE_SENSITIVE_DATA=true`
+Add a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template. Alternatively, run `azd provision` to create the necessary Azure resources and generate the `.env` file automatically.
 
 # Running the Workflow
 
