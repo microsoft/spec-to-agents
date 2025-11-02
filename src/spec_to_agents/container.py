@@ -58,7 +58,6 @@ class AppContainer(containers.DeclarativeContainer):
             "spec_to_agents.agents.catering_coordinator",
             "spec_to_agents.agents.logistics_manager",
             "spec_to_agents.agents.venue_specialist",
-            "spec_to_agents.agents.supervisor",
             "spec_to_agents.workflow.core",
         ]
     )

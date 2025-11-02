@@ -61,6 +61,7 @@ def create_agent(
 
     return client.create_agent(
         name="BudgetAnalyst",
+        description="Expert in financial planning, budgeting, and cost analysis for events.",
         instructions=budget_analyst.SYSTEM_PROMPT,
         tools=agent_tools,
         store=True,
