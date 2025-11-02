@@ -3,7 +3,6 @@
 from agent_framework import BaseChatClient, ChatAgent, HostedCodeInterpreterTool, ToolProtocol
 from dependency_injector.wiring import Provide, inject
 
-from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import budget_analyst
 
 
@@ -63,6 +62,5 @@ def create_agent(
         name="BudgetAnalyst",
         instructions=budget_analyst.SYSTEM_PROMPT,
         tools=agent_tools,
-        response_format=SpecialistOutput,
         store=True,
     )
