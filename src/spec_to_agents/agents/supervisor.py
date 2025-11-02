@@ -129,7 +129,7 @@ Apply these general principles when deciding which participant to route to next:
 Respond with SupervisorDecision structured output:
 
 - **next_agent**:
-  - Participant ID (e.g., 'venue', 'budget') to route to next
+  - Participant ID to route to next
   - `null` when ready to synthesize final result
 
 - **user_input_needed**:

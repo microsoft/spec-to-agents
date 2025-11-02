@@ -26,8 +26,8 @@ class SupervisorOrchestratorExecutor(Executor):
     """
     Lightweight orchestrator that delegates routing decisions to supervisor agent.
 
-    Unlike EventPlanningCoordinator which has hardcoded routing logic, this executor
-    simply runs the supervisor agent and follows its structured output decisions.
+    This executor runs the supervisor agent and follows its structured output decisions
+    for dynamic routing between participants.
 
     Architecture
     ------------

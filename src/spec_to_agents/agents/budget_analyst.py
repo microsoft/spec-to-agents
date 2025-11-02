@@ -40,12 +40,9 @@ def create_agent(
     Notes
     -----
     MCP sequential-thinking tool was removed because it interferes with
-    structured output generation (SpecialistOutput). The agent would complete
-    its thinking process but fail to return a final structured response,
-    causing ValueError in the workflow.
-
-    User input is handled through SpecialistOutput.user_input_needed field,
-    not through a separate tool.
+    structured output generation. The agent would complete its thinking
+    process but fail to return a final structured response, causing
+    ValueError in the workflow.
     """
     # Initialize agent-specific tools
     code_interpreter = HostedCodeInterpreterTool(
