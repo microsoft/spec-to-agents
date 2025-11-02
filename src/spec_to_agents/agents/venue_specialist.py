@@ -3,7 +3,6 @@
 from agent_framework import BaseChatClient, ChatAgent, ToolProtocol
 from dependency_injector.wiring import Provide, inject
 
-from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import venue_specialist
 from spec_to_agents.tools import web_search
 
@@ -49,6 +48,5 @@ def create_agent(
         name="VenueSpecialist",
         instructions=venue_specialist.SYSTEM_PROMPT,
         tools=agent_tools,
-        response_format=SpecialistOutput,
         store=True,
     )
