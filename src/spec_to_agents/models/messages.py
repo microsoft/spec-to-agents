@@ -49,39 +49,6 @@ class HumanFeedbackRequest:
     conversation: list[ChatMessage] = field(default_factory=list)
 
 
-class SpecialistOutput(BaseModel):
-    """
-    Structured output from each specialist agent.
-
-    This model enforces that specialists provide:
-    1. A concise summary of their work
-    2. Routing decision (next_agent or user_input_needed)
-    3. Optional user prompt if input is needed
-
-    Examples
-    --------
-    Route to next agent:
-    >>> SpecialistOutput(summary="Researched 3 venues: A ($2k), B ($3k), C ($4k)", next_agent="budget")
-
-    Request user input:
-    >>> SpecialistOutput(
-    ...     summary="Found 3 venue options",
-    ...     next_agent=None,
-    ...     user_input_needed=True,
-    ...     user_prompt="Which venue do you prefer: A, B, or C?",
-    ... )
-    """
-
-    summary: str = Field(description="Concise summary of this specialist's recommendations (max 200 words)")
-    next_agent: str | None = Field(
-        description=(
-            "ID of next agent to route to ('venue', 'budget', 'catering', 'logistics'), or None if done/need user input"
-        )
-    )
-    user_input_needed: bool = Field(default=False, description="Whether user input is required before proceeding")
-    user_prompt: str | None = Field(default=None, description="Question to ask user if user_input_needed=True")
-
-
 class SupervisorDecision(BaseModel):
     """
     Structured output from supervisor agent for routing decisions.
@@ -115,4 +82,4 @@ class SupervisorDecision(BaseModel):
     user_prompt: str | None = Field(default=None, description="Question to ask user if user_input_needed=True")
 
 
-__all__ = ["HumanFeedbackRequest", "SpecialistOutput", "SupervisorDecision"]
+__all__ = ["HumanFeedbackRequest", "SupervisorDecision"]
