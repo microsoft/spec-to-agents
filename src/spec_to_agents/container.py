@@ -56,7 +56,6 @@ class AppContainer(containers.DeclarativeContainer):
         modules=[
             "spec_to_agents.agents.budget_analyst",
             "spec_to_agents.agents.catering_coordinator",
-            "spec_to_agents.agents.event_coordinator",
             "spec_to_agents.agents.logistics_manager",
             "spec_to_agents.agents.venue_specialist",
             "spec_to_agents.agents.supervisor",
