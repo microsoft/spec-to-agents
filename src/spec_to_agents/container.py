@@ -53,11 +53,8 @@ class AppContainer(containers.DeclarativeContainer):
 
     # Wiring configuration: modules that use @inject
     wiring_config = containers.WiringConfiguration(
-        modules=[
-            "spec_to_agents.agents.budget_analyst",
-            "spec_to_agents.agents.catering_coordinator",
-            "spec_to_agents.agents.logistics_manager",
-            "spec_to_agents.agents.venue_specialist",
-            "spec_to_agents.workflow.core",
+        packages=[
+            "spec_to_agents.agents",
+            "spec_to_agents.workflow",
         ]
     )

@@ -18,6 +18,8 @@ This follows the human-in-the-loop pattern from guessing_game_with_human_input.p
 """
 
 import asyncio
+import logging
+import os
 
 from agent_framework import (
     AgentRunUpdateEvent,
@@ -45,8 +47,10 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 # Load environment variables at module import
 load_dotenv()
 
-# Enable observability (reads from environment variables)
-setup_observability()
+if os.getenv("ENABLE_OTEL", "false").lower() == "true":
+    setup_observability()
+
+logging.getLogger("agent_framework._workflows._validation").setLevel(logging.ERROR)
 
 
 async def main() -> None:
