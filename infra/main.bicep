@@ -240,3 +240,18 @@ output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 
 @description('URL of the deployed unified application.')
 output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
+
+@description('The full project endpoint URL for Azure AI Foundry.')
+output AZURE_AI_PROJECT_ENDPOINT string = '${aiFoundry.outputs.accountEndpoint}/projects/${aiFoundry.outputs.projectName}'
+
+@description('The name of the model deployment for primary agent tasks.')
+output AZURE_AI_MODEL_DEPLOYMENT_NAME string = aiFoundry.outputs.modelDeploymentName
+
+@description('The name of the web search model deployment.')
+output WEB_SEARCH_MODEL string = aiFoundry.outputs.webSearchModelDeploymentName
+
+@description('The connection string for Application Insights.')
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
+
+@description('The Azure OpenAI API version to use.')
+output AZURE_OPENAI_API_VERSION string = 'preview'

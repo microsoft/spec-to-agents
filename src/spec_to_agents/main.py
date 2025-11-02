@@ -1,9 +1,13 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
 # Load environment variables at module import
 load_dotenv()
+
+# Enable observability (reads from environment variables)
+setup_observability()
 
 
 def main() -> None:

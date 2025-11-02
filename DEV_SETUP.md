@@ -15,7 +15,7 @@ uv run pre-commit install
 
 ## Configuration
 
-Add a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
+Add a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template. Alternatively, run `azd provision` to create the necessary Azure resources and generate the `.env` file automatically.
 
 # Running the Workflow
 

@@ -1,6 +1,6 @@
 ---
-name: agent-framework-expert
-description: Expert in Microsoft Agent Framework for building multi-agent systems in the spec-to-agents project. Specializes in agent orchestration, workflow patterns, tool integration, and Python development with uv, pytest, and pydantic.
+name: agent-framework-generalist-developer
+description: Generalist developer of Microsoft Agent Framework for building multi-agent systems in the spec-to-agents project. Specializes in agent orchestration, workflow patterns, tool integration, and Python development with uv, pytest, and pydantic.
 tools: ["read", "edit", "search", "shell", "web", "github/*", "microsoft-learn/*"]
 ---
 
