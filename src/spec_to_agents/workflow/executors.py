@@ -3,6 +3,7 @@
 """Custom executors for event planning workflow with human-in-the-loop."""
 
 import json
+from typing import Any
 
 from agent_framework import (
     AgentExecutorRequest,
@@ -48,9 +49,9 @@ def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessag
     When routing between agents in a workflow, each agent has its own thread ID, so we must
     convert tool-related content to plain text to avoid thread ID conflicts.
     """
-    converted_messages = []
+    converted_messages: list[ChatMessage] = []
     for message in messages:
-        new_contents = []
+        new_contents: list[Any] = []
         for content in message.contents:
             if isinstance(content, FunctionCallContent):
                 # Convert function call to descriptive text

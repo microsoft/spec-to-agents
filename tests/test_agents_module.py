@@ -23,9 +23,14 @@ def test_workflow_builder_returns_workflow():
 
     from agent_framework import Workflow
 
+    from spec_to_agents.container import AppContainer
     from spec_to_agents.workflow.core import build_event_planning_workflow
 
+    # Initialize DI container
+    container = AppContainer()
+    container.wire(modules=[__name__])
+
     mock_client = Mock()
-    workflow = build_event_planning_workflow(mock_client)
+    workflow = build_event_planning_workflow(client=mock_client)
     assert isinstance(workflow, Workflow)
     assert workflow.id == "event-planning-workflow"

@@ -1,23 +1,37 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from agent_framework import ChatAgent, HostedCodeInterpreterTool, MCPStdioTool
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework import BaseChatClient, ChatAgent, HostedCodeInterpreterTool, ToolProtocol
+from dependency_injector.wiring import Provide, inject
 
 from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import budget_analyst
 
 
-def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> ChatAgent:
+@inject
+def create_agent(
+    client: BaseChatClient = Provide["client"],
+    global_tools: dict[str, ToolProtocol] = Provide["global_tools"],
+) -> ChatAgent:
     """
     Create Budget Analyst agent for event planning workflow.
 
+    IMPORTANT: This function uses dependency injection. ALL parameters are
+    automatically injected via the DI container. DO NOT pass any arguments
+    when calling this function.
+
+    Usage
+    -----
+    After container is wired:
+        agent = budget_analyst.create_agent()  # No arguments - DI handles it!
+
     Parameters
     ----------
-    client : AzureAIAgentClient
-        AI client for agent creation
-    mcp_tool : MCPStdioTool | None, optional
-        Sequential thinking tool for complex reasoning.
-        If None, coordinator operates without MCP tool assistance.
+    client : BaseChatClient
+        Automatically injected via Provide["client"]
+    global_tools : dict[str, ToolProtocol]
+        Automatically injected via Provide["global_tools"]
+        Dictionary of globally shared tools. Keys:
+        - "sequential-thinking": MCP sequential thinking tool
 
     Returns
     -------
@@ -34,23 +48,21 @@ def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> C
     User input is handled through SpecialistOutput.user_input_needed field,
     not through a separate tool.
     """
-    # Create hosted tools
+    # Initialize agent-specific tools
     code_interpreter = HostedCodeInterpreterTool(
         description=(
             "Execute Python code for complex financial calculations, budget analysis, "
-            "cost projections, and data visualization. Creates a scratchpad for "
-            "intermediate calculations and maintains calculation history."
+            "cost projections, and data visualization."
         ),
     )
 
-    tools = [code_interpreter]
-    if mcp_tool is not None:
-        tools.append(mcp_tool)  # type: ignore
+    # Agent-specific tools only (Budget Analyst doesn't need MCP tool)
+    agent_tools = [code_interpreter]
 
     return client.create_agent(
         name="BudgetAnalyst",
         instructions=budget_analyst.SYSTEM_PROMPT,
-        tools=tools,
+        tools=agent_tools,
         response_format=SpecialistOutput,
         store=True,
     )
