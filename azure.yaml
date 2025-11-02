@@ -23,6 +23,18 @@ infra:
 
 # Deployment hooks
 hooks:
+  preprovision:
+    posix:
+      shell: sh
+      run: azd env set AZURE_PRINCIPAL_ID $(az ad signed-in-user show --query id -o tsv)
+      interactive: false
+      continueOnError: false
+    windows:
+      shell: pwsh
+      run: azd env set AZURE_PRINCIPAL_ID (az ad signed-in-user show --query id -o tsv)
+      interactive: false
+      continueOnError: false
+
   postprovision:
     windows:
       shell: pwsh

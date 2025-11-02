@@ -7,7 +7,32 @@ param environmentName string
 
 @minLength(1)
 @description('Primary location for all resources')
-@allowed([ 'eastus2', 'westus', 'westus2', 'westus3', 'eastus', 'uksouth', 'swedencentral', 'australiaeast', 'japaneast'])
+@allowed([
+  'australiaeast'
+  'brazilsouth'
+  'canadaeast'
+  'eastus'
+  'eastus2'
+  'francecentral'
+  'germanywestcentral'
+  'italynorth'
+  'japaneast'
+  'koreacentral'
+  'norwayeast'
+  'polandcentral'
+  'southafricanorth'
+  'southcentralus'
+  'southeastasia'
+  'southindia'
+  'swedencentral'
+  'switzerlandnorth'
+  'uaenorth'
+  'uksouth'
+  'westeurope'
+  'westus'
+  'westus2'
+  'westus3'
+])
 @metadata({
   azd: {
     type: 'location'
@@ -23,13 +48,16 @@ param applicationInsightsName string = ''
 param logAnalyticsName string = ''
 param resourceGroupName string = ''
 
+// Principal ID of the user running azd up (for development access)
+param principalId string = ''
+
 // AI Foundry parameters
 @description('The name of the Azure AI Foundry resource.')
 @maxLength(9)
 param aiFoundryName string = 'foundry'
 
 @description('Name for your foundry project resource.')
-param projectName string = 'project'
+param projectName string = 'afproject'
 
 @description('The description of your project.')
 param projectDescription string = 'AI Agents Event Planning Application'
@@ -160,6 +188,30 @@ module acrRoleAssignment 'app/rbac/acr-access.bicep' = {
   }
 }
 
+// Grant Azure AI User role to the Container App managed identity
+var AzureAIUserRole = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
+module aiFoundryRoleAssignmentApp 'app/rbac/ai-foundry-access.bicep' = {
+  name: 'ai-foundry-app-rbac-${resourceToken}'
+  scope: rg
+  params: {
+    aiAccountName: aiFoundry.outputs.accountName
+    roleDefinitionID: AzureAIUserRole
+    principalID: appUserAssignedIdentity.outputs.principalId
+  }
+}
+
+// Grant Azure AI User role to the logged-in user (for development)
+module aiFoundryRoleAssignmentUser 'app/rbac/ai-foundry-access.bicep' = if (!empty(principalId)) {
+  name: 'ai-foundry-user-rbac-${resourceToken}'
+  scope: rg
+  params: {
+    aiAccountName: aiFoundry.outputs.accountName
+    roleDefinitionID: AzureAIUserRole
+    principalID: principalId
+    principalType: 'User'
+  }
+}
+
 // Unified Application - Container App with backend and frontend
 module app './app/container-app.bicep' = {
   name: 'containerapp-${resourceToken}'
@@ -208,6 +260,7 @@ module app './app/container-app.bicep' = {
   }
   dependsOn: [
     acrRoleAssignment
+    aiFoundryRoleAssignmentApp
   ]
 }
 
