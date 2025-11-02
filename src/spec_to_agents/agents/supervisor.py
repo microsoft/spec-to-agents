@@ -81,8 +81,6 @@ def create_supervisor_agent(
         name=supervisor_name,
         instructions=instructions,
         response_format=SupervisorDecision,
-        tools=None,
-        store=True,  # Use service-managed thread for global context
         **kwargs,
     )
 

@@ -14,9 +14,10 @@ def export_workflow() -> list[Workflow]:
     list[Workflow]
         List containing the event planning workflow instance
     """
-    # Import workflow using lazy initialization pattern
-    from spec_to_agents.workflow.core import workflow
+    # Import and build workflow using lazy initialization pattern
+    from spec_to_agents.workflow.core import build_event_planning_workflow
 
+    workflow = build_event_planning_workflow()
     return [workflow]
 
 

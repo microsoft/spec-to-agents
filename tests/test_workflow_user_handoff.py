@@ -9,7 +9,7 @@ from spec_to_agents.container import AppContainer
 from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
-def test_workflow_builds_with_hitl_components():
+def test_workflow_builds_with_hitl_components() -> None:
     """Test that workflow builds successfully with HITL components."""
     # Initialize DI container
     container = AppContainer()
@@ -21,7 +21,7 @@ def test_workflow_builds_with_hitl_components():
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_with_detailed_request_no_user_input():
+async def test_workflow_with_detailed_request_no_user_input() -> None:
     """
     Test workflow completes without user input when given detailed context.
 
@@ -60,7 +60,7 @@ async def test_workflow_with_detailed_request_no_user_input():
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_with_ambiguous_request_may_trigger_user_input():
+async def test_workflow_with_ambiguous_request_may_trigger_user_input() -> None:
     """
     Test workflow handles ambiguous requests (may trigger RequestInfoEvent).
 

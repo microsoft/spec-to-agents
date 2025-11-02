@@ -7,7 +7,7 @@ from agent_framework import MCPStdioTool
 from spec_to_agents.tools.mcp_tools import create_global_tools
 
 
-def test_create_global_tools_returns_dict():
+def test_create_global_tools_returns_dict() -> None:
     """Test that factory returns dict of tools."""
     tools = create_global_tools()
 
@@ -16,7 +16,7 @@ def test_create_global_tools_returns_dict():
     assert isinstance(tools["sequential-thinking"], MCPStdioTool)
 
 
-def test_create_global_tools_sequential_thinking_config():
+def test_create_global_tools_sequential_thinking_config() -> None:
     """Test sequential-thinking tool configuration."""
     tools = create_global_tools()
     tool = tools["sequential-thinking"]

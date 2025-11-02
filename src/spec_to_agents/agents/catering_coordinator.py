@@ -10,7 +10,6 @@ from spec_to_agents.tools import web_search
 @inject
 def create_agent(
     client: BaseChatClient = Provide["client"],
-    global_tools: dict[str, ToolProtocol] = Provide["global_tools"],
 ) -> ChatAgent:
     """
     Create Catering Coordinator agent for event planning workflow.
@@ -28,8 +27,6 @@ def create_agent(
     ----------
     client : BaseChatClient
         Automatically injected via Provide["client"]
-    global_tools : dict[str, ToolProtocol]
-        Automatically injected via Provide["global_tools"]
 
     Returns
     -------

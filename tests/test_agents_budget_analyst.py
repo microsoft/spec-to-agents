@@ -9,16 +9,16 @@ from agent_framework import HostedCodeInterpreterTool
 from spec_to_agents.agents.budget_analyst import create_agent
 
 
-def test_create_agent_without_request_user_input():
+def test_create_agent_without_request_user_input() -> None:
     """Test that budget analyst agent is created without request_user_input tool."""
     # Arrange
     mock_client = Mock()
     mock_agent = Mock()
     mock_client.create_agent.return_value = mock_agent
-    mock_global_tools = {}
+    mock_global_tools: dict[str, Mock] = {}
 
     # Act
-    agent = create_agent(client=mock_client, global_tools=mock_global_tools)
+    agent = create_agent(client=mock_client, global_tools=mock_global_tools)  # type: ignore[arg-type]
 
     # Assert
     assert agent == mock_agent
@@ -29,7 +29,7 @@ def test_create_agent_without_request_user_input():
     assert isinstance(call_kwargs["tools"][0], HostedCodeInterpreterTool)
 
 
-def test_create_agent_signature_has_no_request_user_input_parameter():
+def test_create_agent_signature_has_no_request_user_input_parameter() -> None:
     """Test that create_agent function signature uses DI parameters."""
     import inspect
 

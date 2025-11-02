@@ -17,7 +17,7 @@ import pytest
     },
     clear=False,
 )
-async def test_web_search_success():
+async def test_web_search_success() -> None:
     """Test successful web search with results."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -38,7 +38,7 @@ async def test_web_search_success():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("Microsoft Agent Framework")
+        result: str = await web_search("Microsoft Agent Framework")
 
     assert 'Found 2 results for "Microsoft Agent Framework"' in result
     assert "Microsoft Agent Framework" in result
@@ -55,7 +55,7 @@ async def test_web_search_success():
     },
     clear=False,
 )
-async def test_web_search_no_results():
+async def test_web_search_no_results() -> None:
     """Test web search with no results."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -74,7 +74,7 @@ async def test_web_search_no_results():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("xyzabc123nonexistent")
+        result: str = await web_search("xyzabc123nonexistent")
 
     assert "No results found" in result or "xyzabc123nonexistent" in result
 
@@ -89,7 +89,7 @@ async def test_web_search_no_results():
     },
     clear=False,
 )
-async def test_web_search_with_custom_count():
+async def test_web_search_with_custom_count() -> None:
     """Test web search creates agent with web search tool."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -108,7 +108,7 @@ async def test_web_search_with_custom_count():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("test query")
+        result: str = await web_search("test query")
 
     assert "Found 2 results" in result
     # Verify agent was created with proper configuration
@@ -125,7 +125,7 @@ async def test_web_search_with_custom_count():
     },
     clear=False,
 )
-async def test_web_search_api_error():
+async def test_web_search_api_error() -> None:
     """Test web search handles API errors gracefully."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -138,7 +138,7 @@ async def test_web_search_api_error():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("test query")
+        result: str = await web_search("test query")
 
     assert "Error performing web search" in result
     assert "Exception" in result
@@ -155,7 +155,7 @@ async def test_web_search_api_error():
     },
     clear=False,
 )
-async def test_web_search_formatting():
+async def test_web_search_formatting() -> None:
     """Test that results are properly formatted for LM consumption."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -180,7 +180,7 @@ async def test_web_search_formatting():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("test")
+        result: str = await web_search("test")
 
     # Check formatting structure
     assert 'Found 1 results for "test"' in result
@@ -199,7 +199,7 @@ async def test_web_search_formatting():
     },
     clear=False,
 )
-async def test_web_search_empty_results_list():
+async def test_web_search_empty_results_list() -> None:
     """Test web search when results list is empty."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -218,7 +218,7 @@ async def test_web_search_empty_results_list():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("empty query")
+        result: str = await web_search("empty query")
 
     assert "No results found" in result or "empty query" in result
 
@@ -233,7 +233,7 @@ async def test_web_search_empty_results_list():
     },
     clear=False,
 )
-async def test_web_search_result_numbering():
+async def test_web_search_result_numbering() -> None:
     """Test that results are properly numbered starting from 1."""
     from spec_to_agents.tools.bing_search import web_search
 
@@ -258,7 +258,7 @@ async def test_web_search_result_numbering():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_factory.return_value = mock_client
 
-        result = await web_search("test")
+        result: str = await web_search("test")
 
     assert "1. " in result
     assert "2. " in result

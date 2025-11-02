@@ -2,6 +2,8 @@
 
 """Supervisor pattern workflow components for dynamic agent orchestration."""
 
+import warnings
+
 from agent_framework import (
     AgentExecutor,
     AgentExecutorRequest,
@@ -304,10 +306,10 @@ class SupervisorWorkflowBuilder:
     def __init__(
         self,
         name: str,
+        client: BaseChatClient,
         id: str | None = None,
         description: str | None = None,
         max_iterations: int = 30,
-        client: BaseChatClient | None = None,
     ) -> None:
         """Initialize supervisor workflow builder."""
         self.name = name
@@ -363,9 +365,6 @@ class SupervisorWorkflowBuilder:
         ValueError
             If client was not provided or no participants were added
         """
-        if self._client is None:
-            raise ValueError("Client must be provided to SupervisorWorkflowBuilder")
-
         if not self._participants:
             raise ValueError("At least one participant must be added via .participants()")
 
@@ -382,6 +381,11 @@ class SupervisorWorkflowBuilder:
             description = getattr(agent, "description", None)
             if description is None and hasattr(agent, "chat_options") and agent.chat_options.instructions:
                 # Fallback: use first line of instructions
+                warnings.warn(
+                    f"Agent description for {agent_id} missing; using first line of instructions as fallback. "
+                    "For best results, provide a description attribute for your agent",
+                    stacklevel=1,
+                )
                 description = agent.chat_options.instructions.split("\n")[0]
             else:
                 description = f"Agent responsible for {agent_id}"
