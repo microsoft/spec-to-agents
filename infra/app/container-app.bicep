@@ -11,8 +11,6 @@ param containerRegistryName string
 @allowed(['SystemAssigned', 'UserAssigned'])
 param identityType string = 'UserAssigned'
 
-var abbrs = loadJsonContent('../abbreviations.json')
-
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: applicationInsightsName
 }
@@ -25,7 +23,7 @@ resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' e
 module containerAppsEnvironment 'br/public:avm/res/app/managed-environment:0.8.2' = {
   name: 'container-apps-environment'
   params: {
-    name: '${abbrs.appManagedEnvironments}${resourceToken}'
+    name: 'cae-${resourceToken}'
     location: location
     tags: tags
     logAnalyticsWorkspaceResourceId: applicationInsights.properties.WorkspaceResourceId

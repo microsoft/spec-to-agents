@@ -33,7 +33,7 @@ resource bingAccount 'Microsoft.Bing/accounts@2025-05-01-preview' = {
 
 // Deploy AI Services Account (AI Foundry Hub)
 #disable-next-line BCP081
-resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: accountName
   location: location
   tags: tags
@@ -53,13 +53,13 @@ resource account 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
       ipRules: []
     }
     publicNetworkAccess: 'Enabled'
-    disableLocalAuth: true
+    disableLocalAuth: false  // Enable API key authentication for inference
   }
 }
 
 // Deploy Project under AI Services Account
 #disable-next-line BCP081
-resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
+resource project 'Microsoft.CognitiveServices/accounts/projects@2025-09-01' = {
   parent: account
   name: projectName
   location: location
@@ -94,7 +94,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
 
 // Deploy primary model (gpt-5-mini by default)
 #disable-next-line BCP081
-resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-09-01' = {
   parent: account
   name: modelName
   sku: {
@@ -112,7 +112,7 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-
 
 // Deploy web search model (gpt-4.1-mini by default)
 #disable-next-line BCP081
-resource webSearchModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+resource webSearchModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-09-01' = {
   parent: account
   name: webSearchModelName
   sku: {
