@@ -3,7 +3,6 @@
 from agent_framework import BaseChatClient, ChatAgent, ToolProtocol
 from dependency_injector.wiring import Provide, inject
 
-from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import logistics_manager
 from spec_to_agents.tools import (
     create_calendar_event,
@@ -54,6 +53,5 @@ def create_agent(
         name="LogisticsManager",
         instructions=logistics_manager.SYSTEM_PROMPT,
         tools=agent_tools,
-        response_format=SpecialistOutput,
         store=True,
     )
