@@ -19,9 +19,10 @@ from agent_framework import (
     handler,
     response_handler,
 )
+from agent_framework._workflows._const import DEFAULT_MAX_ITERATIONS
 
 from spec_to_agents.models.messages import HumanFeedbackRequest, SupervisorDecision
-from spec_to_agents.workflow.executors import convert_tool_content_to_text
+from spec_to_agents.workflow.utils import convert_messages_to_text
 
 
 class SupervisorOrchestratorExecutor(Executor):
@@ -105,7 +106,7 @@ class SupervisorOrchestratorExecutor(Executor):
         messages = response.agent_run_response.messages
         if messages:
             # Convert tool content to text for cross-thread compatibility
-            converted_messages = convert_tool_content_to_text(messages)
+            converted_messages = convert_messages_to_text(messages)
             self._conversation_history.extend(converted_messages)
 
         # Get next routing decision from supervisor
@@ -158,11 +159,13 @@ class SupervisorOrchestratorExecutor(Executor):
         if response.messages:
             self._conversation_history.extend(response.messages)
 
+        response.try_parse_value(SupervisorDecision)
+
         # Extract decision from structured output
         if response.value is None:
             raise ValueError("Supervisor agent did not return SupervisorDecision structured output")
 
-        decision: SupervisorDecision = response.value
+        decision: SupervisorDecision = response.value  # type: ignore
 
         # Handle decision
         if decision.user_input_needed:
@@ -281,7 +284,7 @@ class SupervisorWorkflowBuilder:
     description : str, optional
         Description of the workflow's purpose
     max_iterations : int
-        Maximum number of workflow iterations (default: 30)
+        Maximum number of workflow iterations (default: DEFAULT_MAX_ITERATIONS)
     client : BaseChatClient, optional
         Chat client for creating supervisor agent (required for build())
 
@@ -291,7 +294,7 @@ class SupervisorWorkflowBuilder:
     ...     SupervisorWorkflowBuilder(
     ...         name="Event Planning Workflow",
     ...         id="event-planning-workflow",
-    ...         max_iterations=30,
+    ...         max_iterations=DEFAULT_MAX_ITERATIONS,
     ...         client=client,
     ...     )
     ...     .participants(
@@ -309,7 +312,7 @@ class SupervisorWorkflowBuilder:
         client: BaseChatClient,
         id: str | None = None,
         description: str | None = None,
-        max_iterations: int = 30,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
     ) -> None:
         """Initialize supervisor workflow builder."""
         self.name = name
@@ -372,7 +375,7 @@ class SupervisorWorkflowBuilder:
         from spec_to_agents.agents.supervisor import create_supervisor_agent
 
         # Extract participant descriptions for supervisor agent
-        participant_descriptions = []
+        participant_descriptions: list[str] = []
         for agent_id, agent in self._participants.items():
             # Get name from agent.name or fallback to agent_id
             name = getattr(agent, "name", None) or agent_id

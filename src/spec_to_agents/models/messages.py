@@ -46,7 +46,7 @@ class HumanFeedbackRequest:
     context: dict[str, Any]
     request_type: str
     requesting_agent: str
-    conversation: list[ChatMessage] = field(default_factory=list)
+    conversation: list[ChatMessage] = field(default_factory=list)  # type: ignore
 
 
 class SupervisorDecision(BaseModel):

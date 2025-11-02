@@ -53,7 +53,11 @@ def create_agent(
     )
 
     # Agent-specific tools only (Budget Analyst doesn't need MCP tool)
-    agent_tools = [code_interpreter]
+    agent_tools: list[ToolProtocol] = [code_interpreter]
+
+    if global_tools.get("sequential-thinking"):
+        # Include MCP sequential-thinking tool from global tools
+        agent_tools.append(global_tools["sequential-thinking"])
 
     return client.create_agent(
         name="BudgetAnalyst",

@@ -10,6 +10,7 @@ from spec_to_agents.tools import web_search
 @inject
 def create_agent(
     client: BaseChatClient = Provide["client"],
+    global_tools: dict[str, ToolProtocol] = Provide["global_tools"],
 ) -> ChatAgent:
     """
     Create Catering Coordinator agent for event planning workflow.
@@ -40,6 +41,10 @@ def create_agent(
     """
     # Initialize agent-specific tools
     agent_tools: list[ToolProtocol] = [web_search]
+
+    if global_tools.get("sequential-thinking"):
+        # Include MCP sequential-thinking tool from global tools
+        agent_tools.append(global_tools["sequential-thinking"])
 
     return client.create_agent(
         name="CateringCoordinator",

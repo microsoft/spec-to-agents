@@ -49,6 +49,10 @@ def create_agent(
         delete_calendar_event,
     ]
 
+    if global_tools.get("sequential-thinking"):
+        # Include MCP sequential-thinking tool from global tools
+        agent_tools.append(global_tools["sequential-thinking"])
+
     return client.create_agent(
         name="LogisticsManager",
         instructions=logistics_manager.SYSTEM_PROMPT,

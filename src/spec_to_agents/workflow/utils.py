@@ -13,7 +13,7 @@ from agent_framework import (
 )
 
 
-def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessage]:
+def convert_messages_to_text(messages: list[ChatMessage]) -> list[ChatMessage]:
     """
     Convert tool calls and results to text summaries for cross-agent communication.
 
