@@ -76,6 +76,7 @@ When prompted:
 
 **What `azd up` does:**
 - Provisions Azure resources (AI Foundry, Cosmos DB, Storage, App Services, etc.)
+- Automatically generates a `.env` file with infrastructure outputs (via postprovision hook)
 - Builds and deploys the backend API
 - Builds and deploys the frontend application
 - Configures all connections and settings
