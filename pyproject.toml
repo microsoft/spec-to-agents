@@ -21,7 +21,6 @@ dependencies = [
     "pytz>=2024.1",
     "rich>=13.7.0",
     "dependency-injector>=4.48.2",
-    "langchain-core>=1.0.2",
 ]
 
 [project.scripts]
