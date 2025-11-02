@@ -404,20 +404,27 @@ class SupervisorWorkflowBuilder:
         participant_descriptions: list[str] = []
         for agent_id, agent in self._participants.items():
             # Get name from agent.name or fallback to agent_id
-            name = getattr(agent, "name", None) or agent_id
+            name = agent.name or agent_id
 
             # Get description from agent.description or first line of instructions
-            description = getattr(agent, "description", None)
-            if description is None and hasattr(agent, "chat_options") and agent.chat_options.instructions:
-                # Fallback: use first line of instructions
-                warnings.warn(
-                    f"Agent description for {agent_id} missing; using first line of instructions as fallback. "
-                    "For best results, provide a description attribute for your agent",
-                    stacklevel=1,
-                )
-                description = agent.chat_options.instructions.split("\n")[0]
-            else:
-                description = f"Agent responsible for {agent_id}"
+            description = agent.description
+            instructions = agent.chat_options.instructions
+            if description is None:
+                # Fallback: use first line of instructions if they exist
+                if instructions:
+                    warnings.warn(
+                        f"Agent description for {agent_id} missing; using first line of instructions as fallback. "
+                        "For best results, provide a description attribute for your agent",
+                        stacklevel=1,
+                    )
+                    description = instructions.split("\n")[0]
+                else:
+                    warnings.warn(
+                        f"Agent description for {agent_id} missing; using 'Agent responsible for {agent_id}' as fallback. "  # noqa: E501
+                        "For best results, provide a description attribute for your agent",
+                        stacklevel=1,
+                    )
+                    description = f"Agent responsible for {agent_id}"
 
             participant_descriptions.append(f"- **{agent_id}** ({name}): {description}")
 

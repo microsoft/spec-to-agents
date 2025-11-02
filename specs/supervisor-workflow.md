@@ -112,7 +112,7 @@ The dictionary approach allows agents to selectively add only the global tools t
 Add dependency-injector library to dependencies:
 
 ```bash
-uv add dependency-injector langchain-core
+uv add dependency-injector
 ```
 
 **File**: `src/spec_to_agents/tools/mcp_tools.py`

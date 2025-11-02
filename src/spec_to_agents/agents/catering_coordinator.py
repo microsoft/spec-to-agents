@@ -28,6 +28,8 @@ def create_agent(
     ----------
     client : BaseChatClient
         Automatically injected via Provide["client"]
+    global_tools : dict[str, ToolProtocol]
+        Automatically injected via Provide["global_tools"]. Dictionary of shared tools available to all agents.
 
     Returns
     -------
