@@ -72,5 +72,6 @@ def build_event_planning_workflow(
             catering=catering_agent,
             logistics=logistics_agent,
         )
+        .with_standard_manager(store=True)  # optional, allows passing custom ChatOptions to supervisor agent
         .build()
     )

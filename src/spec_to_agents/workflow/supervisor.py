@@ -3,6 +3,7 @@
 """Supervisor pattern workflow components for dynamic agent orchestration."""
 
 import warnings
+from typing import Any
 
 from agent_framework import (
     AgentExecutor,
@@ -22,6 +23,7 @@ from agent_framework import (
 from agent_framework._workflows._const import DEFAULT_MAX_ITERATIONS
 
 from spec_to_agents.models.messages import HumanFeedbackRequest, SupervisorDecision
+from spec_to_agents.prompts.supervisor import SUPERVISOR_SYSTEM_PROMPT_TEMPLATE
 from spec_to_agents.workflow.utils import convert_messages_to_text
 
 
@@ -321,6 +323,33 @@ class SupervisorWorkflowBuilder:
         self.max_iterations = max_iterations
         self._client = client
         self._participants: dict[str, ChatAgent] = {}
+        self._supervisor_agent: ChatAgent | None = None
+        self._supervisor_name = name + " Supervisor"
+
+    def with_standard_manager(self, instructions: str = "", **kwargs: Any) -> "SupervisorWorkflowBuilder":
+        """
+        Configure builder to use standard supervisor agent.
+
+        This method sets up the supervisor agent with default settings.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Additional keyword arguments for supervisor agent creation, if any
+
+        Returns
+        -------
+        SupervisorWorkflowBuilder
+            Self for method chaining
+        """
+        self._supervisor_agent = self._client.create_agent(
+            name=self._supervisor_name,
+            instructions=instructions,  # placeholder, will be set in build()
+            response_format=SupervisorDecision,
+            **kwargs,
+        )
+
+        return self
 
     def participants(self, **participants: ChatAgent) -> "SupervisorWorkflowBuilder":
         """
@@ -371,9 +400,6 @@ class SupervisorWorkflowBuilder:
         if not self._participants:
             raise ValueError("At least one participant must be added via .participants()")
 
-        # Import here to avoid circular dependency
-        from spec_to_agents.agents.supervisor import create_supervisor_agent
-
         # Extract participant descriptions for supervisor agent
         participant_descriptions: list[str] = []
         for agent_id, agent in self._participants.items():
@@ -397,16 +423,20 @@ class SupervisorWorkflowBuilder:
 
         participants_description = "Available participants:\n\n" + "\n".join(participant_descriptions)
 
-        # Create supervisor agent
-        supervisor_agent = create_supervisor_agent(
-            client=self._client,
+        instructions = SUPERVISOR_SYSTEM_PROMPT_TEMPLATE.format(
+            supervisor_name=self._supervisor_name,
             participants_description=participants_description,
-            supervisor_name=self.name + " Supervisor",
         )
+
+        if self._supervisor_agent is None:
+            # Create supervisor agent
+            self.with_standard_manager(instructions=instructions)
+        else:
+            self._supervisor_agent.chat_options.instructions = instructions
 
         # Create SupervisorOrchestratorExecutor
         supervisor_exec = SupervisorOrchestratorExecutor(
-            supervisor_agent=supervisor_agent,
+            supervisor_agent=self._supervisor_agent,  # type: ignore
             participant_ids=list(self._participants.keys()),
         )
 
