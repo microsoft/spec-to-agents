@@ -20,6 +20,7 @@ dependencies = [
     "icalendar>=5.0.11",
     "pytz>=2024.1",
     "rich>=13.7.0",
+    "dependency-injector>=4.48.2",
     # OpenTelemetry packages for observability
     "opentelemetry-api",
     "opentelemetry-sdk",
@@ -146,7 +147,11 @@ ignore = [
 "**/tests/**" = ["D", "INP", "TD", "ERA001", "RUF", "S"]
 "samples/**" = ["D", "INP", "ERA001", "RUF", "S", "T201"]
 "*.ipynb" = ["CPY", "E501"]
-"**/console.py" = ["T201", "ASYNC250", "D401"]  # Allow print and blocking input in CLI
+"**/console.py" = [
+    "T201",
+    "ASYNC250",
+    "D401",
+] # Allow print and blocking input in CLI
 
 
 [tool.ruff.lint.flake8-copyright]
@@ -176,13 +181,7 @@ disallow_untyped_decorators = true
 
 [tool.coverage.run]
 source = ["src/spec_to_agents"]
-omit = [
-    "tests/*",
-    "*/__pycache__/*",
-    "*/migrations/*",
-    "venv/*",
-    ".venv/*",
-]
+omit = ["tests/*", "*/__pycache__/*", "*/migrations/*", "venv/*", ".venv/*"]
 
 [tool.coverage.report]
 exclude_lines = [

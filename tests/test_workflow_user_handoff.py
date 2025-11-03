@@ -2,24 +2,26 @@
 
 """Tests for human-in-the-loop workflow functionality."""
 
-from unittest.mock import Mock
-
 import pytest
 from agent_framework import RequestInfoEvent
 
+from spec_to_agents.container import AppContainer
 from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
-def test_workflow_builds_with_hitl_components():
+def test_workflow_builds_with_hitl_components() -> None:
     """Test that workflow builds successfully with HITL components."""
-    mock_client = Mock()
-    workflow = build_event_planning_workflow(mock_client)
+    # Initialize DI container
+    container = AppContainer()
+    container.wire(modules=[__name__])
+
+    workflow = build_event_planning_workflow()
     assert workflow is not None
 
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_with_detailed_request_no_user_input():
+async def test_workflow_with_detailed_request_no_user_input() -> None:
     """
     Test workflow completes without user input when given detailed context.
 
@@ -58,7 +60,7 @@ async def test_workflow_with_detailed_request_no_user_input():
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_with_ambiguous_request_may_trigger_user_input():
+async def test_workflow_with_ambiguous_request_may_trigger_user_input() -> None:
     """
     Test workflow handles ambiguous requests (may trigger RequestInfoEvent).
 
