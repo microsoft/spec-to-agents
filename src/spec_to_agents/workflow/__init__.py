@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft. All rights reserved.
 from agent_framework import Workflow
 
+from spec_to_agents.workflow.auto_handoff import AutoHandoffBuilder
+
 
 def export_workflow() -> list[Workflow]:
     """
@@ -25,4 +27,4 @@ def export_workflow() -> list[Workflow]:
     return [workflow]
 
 
-__all__ = ["export_workflow"]
+__all__ = ["AutoHandoffBuilder", "export_workflow"]
