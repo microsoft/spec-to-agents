@@ -60,7 +60,7 @@ def create_agent(
         agent_tools.append(global_tools["sequential-thinking"])
 
     return client.create_agent(
-        name="BudgetAnalyst",
+        name="budget_analyst",
         description="Expert in financial planning, budgeting, and cost analysis for events.",
         instructions=budget_analyst.SYSTEM_PROMPT,
         tools=agent_tools,

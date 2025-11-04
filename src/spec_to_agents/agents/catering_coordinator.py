@@ -49,7 +49,7 @@ def create_agent(
         agent_tools.append(global_tools["sequential-thinking"])
 
     return client.create_agent(
-        name="CateringCoordinator",
+        name="catering_coordinator",
         description="Expert in catering services, menu planning, and vendor coordination for events.",
         instructions=catering_coordinator.SYSTEM_PROMPT,
         tools=agent_tools,

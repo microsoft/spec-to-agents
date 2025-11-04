@@ -127,22 +127,13 @@ class AutoHandoffBuilder(HandoffBuilder):
             )
 
         # Extract participant descriptions for coordinator instructions
-        participant_descriptions = []
+        participant_descriptions: list[str] = []
         for exec_id, executor in self._executors.items():
             # Get agent from executor
             agent = getattr(executor, "_agent", None)
-            if agent:
-                name = getattr(agent, "name", exec_id)
-                description = getattr(agent, "description", None)
-                if description is None:
-                    # Fallback: use first line of instructions
-                    chat_options = getattr(agent, "chat_options", None)
-                    instructions = getattr(chat_options, "instructions", None) if chat_options else None
-                    description = instructions.split("\n")[0] if instructions else f"Agent responsible for {exec_id}"
-                participant_descriptions.append(f"- **{exec_id}** ({name}): {description}")
-            else:
-                # Executor without agent - use exec_id
-                participant_descriptions.append(f"- **{exec_id}**: {exec_id}")
+            description = getattr(agent, "description", None) if agent else f"Handoff to the {exec_id} agent."
+
+            participant_descriptions.append(f"- Name: **{exec_id}**, Description: {description}")
 
         participants_description = "Available participants:\n\n" + "\n".join(participant_descriptions)
 
@@ -181,9 +172,6 @@ class AutoHandoffBuilder(HandoffBuilder):
         self.participants(all_participants)
         self.set_coordinator(coordinator)
         self.add_handoff(coordinator, current_participants)
-        # Each specialist can ONLY hand back to coordinator
-        for specialist in current_participants:
-            self.add_handoff(specialist, coordinator)
 
 
 __all__ = ["AutoHandoffBuilder"]

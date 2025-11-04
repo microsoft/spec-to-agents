@@ -76,9 +76,9 @@ def build_event_planning_workflow(
             name="Event Planning Workflow",
             description="Multi-agent event planning with coordinator orchestration",
             client=client,  # Required for auto-coordinator creation
-            coordinator_name="Event Planning Coordinator",  # Optional: customize name
+            coordinator_name="Event Planning Coordinator",  # Optional: customize name,
+            participants=[venue_agent, budget_agent, catering_agent, logistics_agent],
         )
-        .participants([venue_agent, budget_agent, catering_agent, logistics_agent])
         .with_termination_condition(lambda conv: sum(1 for m in conv if m.role.value == "user") >= 10)
         .build()
     )

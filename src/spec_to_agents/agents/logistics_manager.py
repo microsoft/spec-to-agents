@@ -54,7 +54,7 @@ def create_agent(
         agent_tools.append(global_tools["sequential-thinking"])
 
     return client.create_agent(
-        name="LogisticsManager",
+        name="logistics_manager",
         description="Expert in event logistics, scheduling, and weather planning.",
         instructions=logistics_manager.SYSTEM_PROMPT,
         tools=agent_tools,
