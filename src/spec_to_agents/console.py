@@ -28,16 +28,15 @@ from agent_framework import (
     WorkflowRunState,
     WorkflowStatusEvent,
 )
+from agent_framework._workflows._handoff import HandoffUserInputRequest
 from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
 from spec_to_agents.container import AppContainer
-from spec_to_agents.models.messages import HumanFeedbackRequest
 from spec_to_agents.utils.display import (
     console,
     display_agent_run_update,
     display_final_output,
-    display_human_feedback_request,
     display_welcome_header,
     display_workflow_pause,
     prompt_for_event_request,
@@ -118,7 +117,7 @@ async def main() -> None:
             pending_responses = None
 
             # Process events as they stream in
-            human_requests: list[tuple[str, HumanFeedbackRequest]] = []
+            human_requests: list[tuple[str, HandoffUserInputRequest]] = []
 
             async for event in stream:
                 # Display streaming agent updates if enabled
@@ -128,7 +127,7 @@ async def main() -> None:
                     )
 
                 # Collect human-in-the-loop requests
-                elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
+                elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HandoffUserInputRequest):
                     # Workflow is requesting human input
                     human_requests.append((event.request_id, event.data))
 
@@ -148,9 +147,16 @@ async def main() -> None:
             if human_requests:
                 responses: dict[str, str] = {}
 
-                for request_id, feedback_request in human_requests:
-                    user_response = display_human_feedback_request(feedback_request)
-                    if user_response is None:
+                for request_id, handoff_request in human_requests:
+                    # Display prompt from HandoffUserInputRequest
+                    console.print()
+                    console.print(f"[bold cyan]User Input Requested:[/bold cyan] {handoff_request.prompt}")
+                    console.print()
+
+                    # Get user input
+                    user_response = console.input("[bold green]You:[/bold green] ")
+
+                    if not user_response or user_response.strip().lower() in ("exit", "quit"):
                         return
 
                     responses[request_id] = user_response
