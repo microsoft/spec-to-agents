@@ -58,6 +58,18 @@ echo "   - Required roles: 'Cognitive Services OpenAI User' or 'Cognitive Servic
 echo ""
 echo "📖 Next steps:"
 echo "   1. Review the .env file and adjust settings as needed"
-echo "   2. Run 'uv sync --dev' to install dependencies"
-echo "   3. Run 'uv run app' to start the Agent Framework DevUI"
+echo "   2. Installing dependencies with uv sync..."
+echo ""
+
+# Install dependencies with uv
+echo "📦 Running uv sync --extra dev..."
+if GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev; then
+    echo "✅ Dependencies installed successfully!"
+else
+    echo "❌ Failed to install dependencies. You may need to run 'GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev' manually."
+    exit 1
+fi
+
+echo ""
+echo "🚀 Setup complete! Run 'uv run app' to start the Agent Framework DevUI"
 echo ""

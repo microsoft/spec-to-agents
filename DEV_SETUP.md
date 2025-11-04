@@ -1,6 +1,22 @@
 # Development Setup Instructions
 
-## Prerequisites
+## Quick Start with Azure Deployment
+
+The recommended way to set up the project is using `azd provision`, which will:
+1. Create the necessary Azure resources
+2. Generate the `.env` file automatically
+3. Install all dependencies with `uv sync --extra dev`
+
+```bash
+azd provision
+
+# Install pre-commit hooks
+uv run pre-commit install
+```
+
+## Manual Setup (Alternative)
+
+If you prefer to set up manually or are working without Azure resources:
 
 ```bash
 # Windows
@@ -13,9 +29,9 @@ GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev
 uv run pre-commit install
 ```
 
-## Configuration
+### Configuration
 
-Add a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template. Alternatively, run `azd provision` to create the necessary Azure resources and generate the `.env` file automatically.
+Create a `.env` file in the root directory with the necessary environment variables for AI Foundry. You can use the `.env.example` file as a template.
 
 # Running the Workflow
 
