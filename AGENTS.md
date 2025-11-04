@@ -397,6 +397,8 @@ You have a collection of tools available to assist with development and debuggin
 
 - `sequential-thinking-tools`
   - **When to use:** For complex reasoning tasks that require step-by-step analysis. A good rule of thumb is if the task requires more than 25% effort.
+- `microsoft-learn`
+  - **When to use:** For looking up official Microsoft documentation on .NET, C#, Azure, and related technologies. Useful for understanding APIs, libraries, and best practices. Use this over `deepwiki` for Microsoft-specific content (e.g. Microsoft Agent Framework, Azure OpenAI). If you can't find it here, then fall back to `deepwiki`.
 - `deepwiki`
   - **When to use:** Consult for external knowledge or documentation that is not part of the immediate codebase. Can be helpful for system design questions or understanding third-party libraries.
 - `context7`
