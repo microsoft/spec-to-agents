@@ -742,7 +742,7 @@ Update console.py to initialize DI container before building workflow:
                 return
 
             console.print()
-            console.rule("[bold gray]Workflow Execution")
+            console.rule("[bold green]Workflow Execution")
             console.print()
 
             # Configuration: Toggle streaming updates display
