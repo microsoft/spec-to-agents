@@ -41,12 +41,10 @@ Apply these general principles when deciding whether to hand off:
 
 # Handoff Mechanism
 
-To hand off to a specialist, invoke the handoff tool for that specialist:
-- For the venue specialist: Call `handoff_to_venue()`
-- For the budget specialist: Call `handoff_to_budget()`
-- And so on for each participant
+To hand off to a participant, invoke the handoff tool for that participant. Each participant has a
+corresponding handoff function named `handoff_to_{{participant_id}}()`.
 
-After you hand off, the specialist will respond, and then the user will provide their next input.
+After you hand off, the participant will respond, and then the user will provide their next input.
 
 # Important Notes
 
