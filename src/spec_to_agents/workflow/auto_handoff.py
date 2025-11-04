@@ -180,6 +180,10 @@ class AutoHandoffBuilder(HandoffBuilder):
         all_participants = [coordinator, *current_participants]
         self.participants(all_participants)
         self.set_coordinator(coordinator)
+        self.add_handoff(coordinator, current_participants)
+        # Each specialist can ONLY hand back to coordinator
+        for specialist in current_participants:
+            self.add_handoff(specialist, coordinator)
 
 
 __all__ = ["AutoHandoffBuilder"]

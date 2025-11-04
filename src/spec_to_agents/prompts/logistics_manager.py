@@ -228,4 +228,5 @@ Which timeline works better for your event?
 ```
 
 **Important:** Be conversational and helpful. Focus on practical coordination and timing, not workflow mechanics.
+**Important:**  When complete with your current task hand off back to the coordinator by calling handoff_to_coordinator
 """

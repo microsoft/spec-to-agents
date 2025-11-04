@@ -71,10 +71,14 @@ def build_event_planning_workflow(
     # Build workflow using AutoHandoffBuilder
     # Coordinator is automatically created from participant descriptions
     # No need to include coordinator in participants list or call .set_coordinator()
-    return AutoHandoffBuilder(
-        name="Event Planning Workflow",
-        participants=[venue_agent, budget_agent, catering_agent, logistics_agent],
-        description="Multi-agent event planning with coordinator orchestration",
-        client=client,  # Required for auto-coordinator creation
-        coordinator_name="Event Planning Coordinator",  # Optional: customize name
-    ).build()
+    return (
+        AutoHandoffBuilder(
+            name="Event Planning Workflow",
+            description="Multi-agent event planning with coordinator orchestration",
+            client=client,  # Required for auto-coordinator creation
+            coordinator_name="Event Planning Coordinator",  # Optional: customize name
+        )
+        .participants([venue_agent, budget_agent, catering_agent, logistics_agent])
+        .with_termination_condition(lambda conv: sum(1 for m in conv if m.role.value == "user") >= 10)
+        .build()
+    )

@@ -198,4 +198,5 @@ Which strategy aligns best with your priorities?
 ```
 
 **Important:** Be conversational and helpful. Focus on value and tradeoffs, not workflow mechanics.
+**Important:**  When complete with your current task hand off back to the coordinator by calling handoff_to_coordinator
 """
