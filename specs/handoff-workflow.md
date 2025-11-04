@@ -6,18 +6,18 @@ This document must be maintained in accordance with `specs/PLANS.md` (from repos
 
 ## Purpose / Big Picture
 
-Replace the custom SupervisorWorkflowBuilder implementation with Microsoft Agent Framework's built-in **HandoffBuilder**, extending it with automatic coordinator creation from participant descriptions. This migration leverages the framework's native handoff pattern while preserving the valuable auto-configuration logic that made SupervisorWorkflowBuilder developer-friendly.
+Replace the custom SupervisorWorkflowBuilder implementation with an **AutoHandoffBuilder** subclass of Microsoft Agent Framework's HandoffBuilder. The AutoHandoffBuilder extends HandoffBuilder to automatically create a coordinator agent from participant descriptions when `.set_coordinator()` is not called, preserving the valuable auto-configuration logic from SupervisorWorkflowBuilder.
 
-After implementation, the event planning workflow will use HandoffBuilder's proven handoff mechanism (tool-based routing with middleware interception) while maintaining the same clean builder API that automatically creates a coordinator agent from specialist agent descriptions.
+After implementation, the event planning workflow will use HandoffBuilder's proven handoff mechanism (tool-based routing with middleware interception) with automatic coordinator creation, eliminating boilerplate coordinator setup code.
 
 ## Progress
 
-- [ ] Create HandoffBuilderExtensions module with auto-coordinator creation
-- [ ] Update prompts module with coordinator prompt template
-- [ ] Refactor build_event_planning_workflow to use HandoffBuilder
+- [ ] Create AutoHandoffBuilder subclass with auto-coordinator logic
+- [ ] Create coordinator prompt template module
+- [ ] Refactor build_event_planning_workflow to use AutoHandoffBuilder
 - [ ] Remove SupervisorWorkflowBuilder and SupervisorOrchestratorExecutor
 - [ ] Remove SupervisorDecision model (no longer needed)
-- [ ] Update tests to use HandoffBuilder pattern
+- [ ] Update tests to use AutoHandoffBuilder pattern
 - [ ] Update CLAUDE.md documentation
 - [ ] Validate workflow E2E via DevUI and console.py
 
@@ -31,12 +31,12 @@ After implementation, the event planning workflow will use HandoffBuilder's prov
   **Rationale**: HandoffBuilder is built-in to Agent Framework with proven handoff tool synthesis, middleware interception, and conversation management. Reduces custom code maintenance burden.
   **Date/Author**: 2025-01-04 / User requirement
 
-- **Decision**: Extend HandoffBuilder with `.with_auto_coordinator()` method pattern
-  **Rationale**: Preserves the valuable auto-configuration feature while keeping the API extension minimal and focused. Alternative of wrapping HandoffBuilder would create unnecessary abstraction layers.
-  **Date/Author**: 2025-01-04 / Claude with user approval
+- **Decision**: Create AutoHandoffBuilder subclass that auto-creates coordinator if `.set_coordinator()` not called
+  **Rationale**: Stay true to HandoffBuilder conventions while adding auto-coordinator feature. Subclass is cleaner than monkey patching and easier to maintain than wrapper pattern. Coordinator is NOT included in participants list when auto-created.
+  **Date/Author**: 2025-01-04 / User requirement
 
 - **Decision**: Adopt HandoffBuilder's automatic user input pattern
-  **Rationale**: Framework's built-in pattern (request input after every specialist) is battle-tested and eliminates need for custom HITL logic in coordinator.
+  **Rationale**: Framework's built-in pattern (request input after every specialist) is battle-tested and eliminates need for custom human-in-the-loop logic in coordinator.
   **Date/Author**: 2025-01-04 / User requirement
 
 - **Decision**: Big bang replacement (not gradual deprecation)
@@ -58,229 +58,222 @@ This project uses **Microsoft Agent Framework** (Python) to build multi-agent wo
 - Automatically extracts participant descriptions and creates supervisor agent
 - Uses custom `SupervisorOrchestratorExecutor` for routing logic
 
-Microsoft Agent Framework now provides **HandoffBuilder** (built-in, located at `.venv/lib/python3.13/site-packages/agent_framework/_workflows/_handoff.py`) which:
+Microsoft Agent Framework provides **HandoffBuilder** (built-in, located at `.venv/lib/python3.13/site-packages/agent_framework/_workflows/_handoff.py`) which:
 - Uses handoff tools (e.g., `handoff_to_refund_agent`) for routing
 - Automatically synthesizes handoff tools and intercepts them via middleware
 - Maintains full conversation history via `_HandoffCoordinator`
 - Requests user input automatically after each specialist response
 - Supports termination conditions
 
-The migration will replace SupervisorWorkflowBuilder with HandoffBuilder + extension methods.
+The migration will create **AutoHandoffBuilder** (subclass of HandoffBuilder) that automatically creates coordinator when `.set_coordinator()` is not called.
 
 ## Plan of Work
 
-### 1. Create HandoffBuilder Extension Module
+### 1. Create AutoHandoffBuilder Subclass
 
-**File**: `src/spec_to_agents/workflow/handoff_extensions.py` (new file)
+**File**: `src/spec_to_agents/workflow/auto_handoff.py` (new file)
 
-Create extension methods for HandoffBuilder to support automatic coordinator creation:
+Create AutoHandoffBuilder subclass that auto-creates coordinator from participant descriptions:
 
 ```python
-"""Extensions for HandoffBuilder to support automatic coordinator creation."""
+"""AutoHandoffBuilder - HandoffBuilder with automatic coordinator creation."""
 
 from typing import Any
 
-from agent_framework import BaseChatClient, ChatAgent, HandoffBuilder
-from agent_framework._workflows._handoff import HandoffBuilder as _HandoffBuilder
+from agent_framework import BaseChatClient, ChatAgent, Workflow
+from agent_framework._workflows._handoff import HandoffBuilder
 
 
-def with_auto_coordinator(
-    builder: HandoffBuilder,
-    *,
-    client: BaseChatClient,
-    coordinator_name: str | None = None,
-    coordinator_instructions_template: str | None = None,
-    **agent_kwargs: Any,
-) -> HandoffBuilder:
+class AutoHandoffBuilder(HandoffBuilder):
     """
-    Extend HandoffBuilder to automatically create and configure a coordinator agent.
+    Extended HandoffBuilder that automatically creates a coordinator agent if not explicitly set.
 
-    This method analyzes the participants already registered with the builder,
-    extracts their descriptions, and creates a coordinator agent with handoff tools
-    pre-configured for routing to all specialists.
+    This builder extends HandoffBuilder to eliminate boilerplate coordinator setup by:
+    1. Accepting a `client` parameter for creating the coordinator agent
+    2. Auto-generating a coordinator from participant descriptions if `.set_coordinator()` not called
+    3. Maintaining HandoffBuilder's fluent API and conventions
 
-    Usage Pattern (Extension Method Style):
-    ----------------------------------------
+    Key Differences from HandoffBuilder:
+    - Accepts `client` parameter in __init__ for auto-coordinator creation
+    - If `.set_coordinator()` is NOT called before `.build()`, automatically creates coordinator
+    - Auto-created coordinator is NOT included in participants list
+    - Coordinator gets handoff tools for all participants
+    - Coordinator instructions generated from participant descriptions
 
-    >>> from agent_framework import HandoffBuilder
-    >>> from spec_to_agents.workflow.handoff_extensions import with_auto_coordinator
-    >>>
-    >>> # Create specialist agents
-    >>> venue = client.create_agent(name="venue", description="Finds event venues", ...)
-    >>> budget = client.create_agent(name="budget", description="Analyzes budgets", ...)
-    >>>
-    >>> # Build workflow with auto-coordinator
-    >>> workflow = with_auto_coordinator(
-    ...     HandoffBuilder(
-    ...         name="Event Planning",
-    ...         participants=[venue, budget],
-    ...     ),
+    Usage Patterns:
+
+    **Auto-Coordinator (Recommended):**
+
+    >>> workflow = AutoHandoffBuilder(
+    ...     name="Event Planning",
+    ...     participants=[venue, budget, catering, logistics],  # No coordinator!
+    ...     client=client,  # Required for auto-creation
+    ... ).build()  # Coordinator created automatically as "Event Planning Coordinator"
+
+    **Manual Coordinator (Same as HandoffBuilder):**
+
+    >>> coordinator = client.create_agent(name="coordinator", ...)
+    >>> workflow = AutoHandoffBuilder(
+    ...     participants=[coordinator, venue, budget, catering],
+    ...     # No client needed when using explicit coordinator
+    ... ).set_coordinator("coordinator").build()  # Explicit coordinator
+
+    **With Custom Coordinator Name:**
+
+    >>> workflow = AutoHandoffBuilder(
+    ...     name="Support",
+    ...     participants=[tier1, tier2, escalation],
     ...     client=client,
-    ...     coordinator_name="Event Planning Coordinator",
+    ...     coordinator_name="Support Triage Agent",  # Custom name
     ... ).build()
 
     Parameters
     ----------
-    builder : HandoffBuilder
-        HandoffBuilder instance with participants already registered via constructor
-        or .participants() method
-    client : BaseChatClient
-        Chat client for creating the coordinator agent
+    client : BaseChatClient, optional
+        Chat client for creating coordinator agent. Required ONLY if you want auto-coordinator
+        feature (i.e., not calling .set_coordinator()). If you call .set_coordinator()
+        manually, client is not needed. Defaults to None.
     coordinator_name : str, optional
-        Name for the coordinator agent. Defaults to "{workflow_name} Coordinator"
+        Name for auto-created coordinator. Defaults to "{name} Coordinator".
+        Only used if .set_coordinator() not called.
     coordinator_instructions_template : str, optional
-        Custom instructions template. Must include {coordinator_name} and
+        Custom prompt template for coordinator. Must include {coordinator_name} and
         {participants_description} placeholders. If not provided, uses default template.
-    **agent_kwargs : Any
-        Additional keyword arguments passed to client.create_agent() for coordinator
-
-    Returns
-    -------
-    HandoffBuilder
-        The same builder instance with coordinator configured, ready for .build()
+    **kwargs : Any
+        All other HandoffBuilder parameters (name, participants, description)
 
     Raises
     ------
     ValueError
-        If builder has no participants registered
-    RuntimeError
-        If builder._executors or builder._aliases are not accessible (internal API change)
-
-    Notes
-    -----
-    This function accesses HandoffBuilder's private attributes (_executors, _aliases, _name)
-    to extract participant metadata. If Agent Framework changes these internals, this
-    function will need updates.
-
-    The coordinator agent is created with:
-    - Instructions that describe all participants and their roles
-    - Handoff tools automatically registered for each specialist
-    - Description set to coordinator_name for clarity
-
-    Examples
-    --------
-    Minimal usage:
-
-    >>> workflow = with_auto_coordinator(
-    ...     HandoffBuilder(participants=[venue, budget, catering]),
-    ...     client=client,
-    ... ).build()
-
-    With custom coordinator name:
-
-    >>> workflow = with_auto_coordinator(
-    ...     HandoffBuilder(name="Support", participants=[tier1, tier2, escalation]),
-    ...     client=client,
-    ...     coordinator_name="Support Triage Agent",
-    ... ).build()
-
-    With custom instructions template:
-
-    >>> custom_template = '''
-    ... You are {coordinator_name}.
-    ... Route requests to specialists:
-    ... {participants_description}
-    ... Always handoff, never handle directly.
-    ... '''
-    >>> workflow = with_auto_coordinator(
-    ...     HandoffBuilder(participants=[agent1, agent2]),
-    ...     client=client,
-    ...     coordinator_instructions_template=custom_template,
-    ... ).build()
+        If .set_coordinator() not called AND client not provided in __init__
     """
-    # Access private attributes to extract participant metadata
-    # NOTE: This is brittle - if HandoffBuilder internals change, this breaks
-    if not hasattr(builder, '_executors') or not hasattr(builder, '_aliases'):
-        raise RuntimeError(
-            "HandoffBuilder internal API changed. Expected _executors and _aliases attributes."
-        )
 
-    executors = getattr(builder, '_executors')
-    aliases = getattr(builder, '_aliases')
-    workflow_name = getattr(builder, '_name', None)
+    def __init__(
+        self,
+        *,
+        client: BaseChatClient | None = None,
+        coordinator_name: str | None = None,
+        coordinator_instructions_template: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize AutoHandoffBuilder with optional client for auto-coordinator."""
+        super().__init__(**kwargs)
+        self._client = client
+        self._coordinator_name_override = coordinator_name
+        self._coordinator_instructions_template = coordinator_instructions_template
 
-    if not executors:
-        raise ValueError(
-            "with_auto_coordinator() requires participants to be registered first. "
-            "Call HandoffBuilder(participants=[...]) or .participants([...]) before using this extension."
-        )
+    def build(self) -> Workflow:
+        """
+        Build workflow, auto-creating coordinator if not explicitly set.
 
-    # Extract participant descriptions for coordinator instructions
-    participant_descriptions = []
-    for exec_id, executor in executors.items():
-        # Get agent from executor
-        agent = getattr(executor, '_agent', None)
-        if agent:
-            name = getattr(agent, 'name', exec_id)
-            description = getattr(agent, 'description', None)
-            if description is None:
-                # Fallback: use first line of instructions
-                instructions = getattr(agent.chat_options, 'instructions', None)
-                if instructions:
-                    description = instructions.split('\n')[0]
-                else:
-                    description = f"Agent responsible for {exec_id}"
-            participant_descriptions.append(f"- **{exec_id}** ({name}): {description}")
+        Returns
+        -------
+        Workflow
+            Configured workflow ready for execution
+
+        Raises
+        ------
+        ValueError
+            If coordinator not set AND client not provided
+        """
+        # Check if coordinator was explicitly set
+        if self._starting_agent_id is None:
+            # No coordinator set - create automatically
+            if self._client is None:
+                raise ValueError(
+                    "AutoHandoffBuilder requires 'client' parameter in __init__ to auto-create coordinator. "
+                    "Either provide client=... or call .set_coordinator() manually."
+                )
+
+            # Auto-create coordinator from participants
+            self._auto_create_coordinator()
+
+        # Call parent build() method
+        return super().build()
+
+    def _auto_create_coordinator(self) -> None:
+        """Create coordinator agent from participant descriptions and configure builder."""
+        if not self._executors:
+            raise ValueError(
+                "Cannot auto-create coordinator with no participants. "
+                "Call .participants([...]) before .build()."
+            )
+
+        # Extract participant descriptions for coordinator instructions
+        participant_descriptions = []
+        for exec_id, executor in self._executors.items():
+            # Get agent from executor
+            agent = getattr(executor, '_agent', None)
+            if agent:
+                name = getattr(agent, 'name', exec_id)
+                description = getattr(agent, 'description', None)
+                if description is None:
+                    # Fallback: use first line of instructions
+                    instructions = getattr(getattr(agent, 'chat_options', None), 'instructions', None)
+                    if instructions:
+                        description = instructions.split('\n')[0]
+                    else:
+                        description = f"Agent responsible for {exec_id}"
+                participant_descriptions.append(f"- **{exec_id}** ({name}): {description}")
+            else:
+                # Executor without agent - use exec_id
+                participant_descriptions.append(f"- **{exec_id}**: {exec_id}")
+
+        participants_description = "Available participants:\n\n" + "\n".join(participant_descriptions)
+
+        # Determine coordinator name
+        coordinator_name = self._coordinator_name_override
+        if coordinator_name is None:
+            if self._name:
+                coordinator_name = f"{self._name} Coordinator"
+            else:
+                coordinator_name = "Coordinator"
+
+        # Build coordinator instructions
+        if self._coordinator_instructions_template:
+            instructions = self._coordinator_instructions_template.format(
+                coordinator_name=coordinator_name,
+                participants_description=participants_description,
+            )
         else:
-            # Executor without agent - use exec_id
-            participant_descriptions.append(f"- **{exec_id}**: {exec_id}")
+            # Use default template
+            from spec_to_agents.prompts.coordinator import COORDINATOR_SYSTEM_PROMPT_TEMPLATE
+            instructions = COORDINATOR_SYSTEM_PROMPT_TEMPLATE.format(
+                coordinator_name=coordinator_name,
+                participants_description=participants_description,
+            )
 
-    participants_description = "Available participants:\n\n" + "\n".join(participant_descriptions)
-
-    # Determine coordinator name
-    final_coordinator_name = coordinator_name
-    if final_coordinator_name is None:
-        if workflow_name:
-            final_coordinator_name = f"{workflow_name} Coordinator"
-        else:
-            final_coordinator_name = "Coordinator"
-
-    # Build coordinator instructions
-    if coordinator_instructions_template:
-        instructions = coordinator_instructions_template.format(
-            coordinator_name=final_coordinator_name,
-            participants_description=participants_description,
-        )
-    else:
-        # Use default template
-        from spec_to_agents.prompts.coordinator import COORDINATOR_SYSTEM_PROMPT_TEMPLATE
-        instructions = COORDINATOR_SYSTEM_PROMPT_TEMPLATE.format(
-            coordinator_name=final_coordinator_name,
-            participants_description=participants_description,
+        # Create coordinator agent
+        coordinator = self._client.create_agent(  # type: ignore[union-attr]
+            name=coordinator_name.lower().replace(' ', '_'),
+            description=coordinator_name,
+            instructions=instructions,
+            store=True,  # Use service-managed threads
         )
 
-    # Create coordinator agent
-    coordinator = client.create_agent(
-        name=f"{final_coordinator_name.lower().replace(' ', '_')}",
-        description=final_coordinator_name,
-        instructions=instructions,
-        store=True,  # Use service-managed threads
-        **agent_kwargs,
-    )
-
-    # Register coordinator as a participant and set as starting agent
-    # Need to create a new HandoffBuilder with updated participants list
-    all_participants = [coordinator] + list(executors.values())
-    builder.participants(all_participants)
-    builder.set_coordinator(coordinator)
-
-    return builder
+        # Register coordinator and set as starting agent
+        # Note: coordinator is NOT in original participants list
+        current_participants = list(self._executors.values())
+        all_participants = [coordinator] + current_participants
+        self.participants(all_participants)
+        self.set_coordinator(coordinator)
 
 
-__all__ = ["with_auto_coordinator"]
+__all__ = ["AutoHandoffBuilder"]
 ```
 
 **Key Design Decisions**:
-- Extension function pattern (not subclass) for flexibility
-- Accesses HandoffBuilder private attributes with clear warnings about brittleness
-- Extracts descriptions using same fallback logic as SupervisorWorkflowBuilder
-- Returns builder for method chaining
+- Subclass pattern (clean inheritance, no monkey patching)
+- Client passed in `__init__` for auto-coordinator creation
+- Auto-coordinator only created if `.set_coordinator()` NOT called
+- Coordinator NOT included in original participants list
+- Falls back to manual coordinator if `.set_coordinator()` called explicitly
 
 ### 2. Create Coordinator Prompt Template
 
 **File**: `src/spec_to_agents/prompts/coordinator.py` (new file)
 
-Adapt the supervisor prompt template to coordinator terminology:
+Create prompt template for auto-generated coordinator agents:
 
 ```python
 """System prompt template for auto-generated coordinator agents."""
@@ -340,12 +333,12 @@ __all__ = ["COORDINATOR_SYSTEM_PROMPT_TEMPLATE"]
 
 **File**: `src/spec_to_agents/workflow/core.py`
 
-Replace SupervisorWorkflowBuilder usage with HandoffBuilder + extension:
+Replace SupervisorWorkflowBuilder usage with AutoHandoffBuilder:
 
 ```python
 """Event planning multi-agent workflow definition."""
 
-from agent_framework import Workflow, BaseChatClient, HandoffBuilder
+from agent_framework import Workflow, BaseChatClient
 from dependency_injector.wiring import inject, Provide
 
 from spec_to_agents.agents import (
@@ -354,7 +347,7 @@ from spec_to_agents.agents import (
     logistics_manager,
     venue_specialist,
 )
-from spec_to_agents.workflow.handoff_extensions import with_auto_coordinator
+from spec_to_agents.workflow.auto_handoff import AutoHandoffBuilder
 
 __all__ = ["build_event_planning_workflow"]
 
@@ -364,21 +357,21 @@ def build_event_planning_workflow(
     client: BaseChatClient = Provide["client"],
 ) -> Workflow:
     """
-    Build event planning workflow using HandoffBuilder with automatic coordinator creation.
+    Build event planning workflow using AutoHandoffBuilder with automatic coordinator creation.
 
-    Dependencies (client, tools) are injected via DI container.
+    Dependencies (client, tools) are injected via dependency injection container.
     All agent factories use @inject to receive dependencies automatically.
 
     Architecture:
-    - Coordinator agent routes to specialists via handoff tools
+    - Coordinator agent routes to specialists via handoff tools (auto-created from descriptions)
     - HandoffBuilder automatically synthesizes handoff tools and intercepts invocations
     - Full conversation history maintained by _HandoffCoordinator
     - User input automatically requested after each specialist response
-    - Termination condition: stops after 10 user messages (customizable)
+    - Termination condition: stops after 10 user messages (default, customizable)
 
     Handoff Flow:
     1. User provides initial request
-    2. Coordinator analyzes and decides whether to handle or hand off
+    2. Auto-created coordinator analyzes and decides whether to handle or hand off
     3. If handoff: Coordinator invokes handoff tool (e.g., handoff_to_venue)
     4. Specialist receives full conversation and responds
     5. Workflow automatically requests user input
@@ -409,29 +402,25 @@ def build_event_planning_workflow(
     catering_agent = catering_coordinator.create_agent()
     logistics_agent = logistics_manager.create_agent()
 
-    # Build workflow using HandoffBuilder with auto-coordinator extension
-    # Extension automatically:
-    # 1. Extracts participant descriptions from agent properties
-    # 2. Creates coordinator agent with handoff tools for all specialists
-    # 3. Configures coordinator as starting agent
-    # 4. Registers handoff middleware for tool interception
-    workflow = with_auto_coordinator(
-        HandoffBuilder(
-            name="Event Planning Workflow",
-            participants=[venue_agent, budget_agent, catering_agent, logistics_agent],
-            description="Multi-agent event planning with coordinator orchestration",
-        ),
-        client=client,
-        coordinator_name="Event Planning Coordinator",
+    # Build workflow using AutoHandoffBuilder
+    # Coordinator is automatically created from participant descriptions
+    # No need to include coordinator in participants list or call .set_coordinator()
+    workflow = AutoHandoffBuilder(
+        name="Event Planning Workflow",
+        participants=[venue_agent, budget_agent, catering_agent, logistics_agent],
+        description="Multi-agent event planning with coordinator orchestration",
+        client=client,  # Required for auto-coordinator creation
+        coordinator_name="Event Planning Coordinator",  # Optional: customize name
     ).build()
 
     return workflow
 ```
 
 **Key Changes**:
-- Replaced `SupervisorWorkflowBuilder` with `HandoffBuilder`
-- Use `with_auto_coordinator()` extension for automatic coordinator creation
-- Removed manual `SupervisorOrchestratorExecutor` creation
+- Replaced `SupervisorWorkflowBuilder` with `AutoHandoffBuilder`
+- Pass `client` parameter for auto-coordinator creation
+- No coordinator in participants list
+- No `.set_coordinator()` call (happens automatically)
 - Simplified to single fluent chain
 
 ### 4. Remove Obsolete Code
@@ -454,11 +443,11 @@ def build_event_planning_workflow(
 
 Update `__all__` to remove `SupervisorDecision` export.
 
-Keep `HumanFeedbackRequest` and `SpecialistOutput` (still used by specialists for internal routing hints, though coordinator makes final decisions).
+Keep `HumanFeedbackRequest` and `SpecialistOutput` (may be used for future enhancements).
 
 **File**: `src/spec_to_agents/agents/supervisor.py`
 
-**Action**: Delete entire file (no longer needed, coordinator created by extension)
+**Action**: Delete entire file (no longer needed, coordinator created automatically)
 
 **File**: `src/spec_to_agents/prompts/supervisor.py`
 
@@ -468,50 +457,44 @@ Keep `HumanFeedbackRequest` and `SpecialistOutput` (still used by specialists fo
 
 **File**: `src/spec_to_agents/workflow/__init__.py`
 
-Update exports to remove supervisor pattern:
+Update exports to include AutoHandoffBuilder:
 
 ```python
 from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
-from spec_to_agents.workflow.handoff_extensions import with_auto_coordinator
+from spec_to_agents.workflow.auto_handoff import AutoHandoffBuilder
 
 __all__ = [
     "build_event_planning_workflow",
     "workflow",
-    "with_auto_coordinator",
+    "AutoHandoffBuilder",
 ]
 ```
 
 ### 6. Update Tests
 
-**File**: `tests/workflow/test_handoff_workflow.py` (new file, replaces supervisor tests)
+**File**: `tests/workflow/test_auto_handoff.py` (new file, replaces supervisor tests)
 
-Create tests for HandoffBuilder + extension pattern:
+Create tests for AutoHandoffBuilder:
 
 ```python
-"""Tests for event planning workflow using HandoffBuilder."""
+"""Tests for AutoHandoffBuilder with automatic coordinator creation."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
-from agent_framework import (
-    HandoffBuilder,
-    RequestInfoEvent,
-    WorkflowOutputEvent,
-)
-
-from spec_to_agents.workflow.core import build_event_planning_workflow
-from spec_to_agents.workflow.handoff_extensions import with_auto_coordinator
+from agent_framework import RequestInfoEvent, WorkflowOutputEvent
+from spec_to_agents.workflow.auto_handoff import AutoHandoffBuilder
 
 
-class TestHandoffExtensions:
-    """Test with_auto_coordinator extension method."""
+class TestAutoHandoffBuilder:
+    """Test AutoHandoffBuilder auto-coordinator feature."""
 
-    def test_with_auto_coordinator_creates_coordinator(self):
-        """Test that extension creates coordinator from participant descriptions."""
+    def test_auto_creates_coordinator_when_not_set(self):
+        """Test that AutoHandoffBuilder auto-creates coordinator if not explicitly set."""
         # Mock client
         mock_client = MagicMock()
         mock_coordinator = MagicMock()
-        mock_coordinator.name = "coordinator"
+        mock_coordinator.name = "event_planning_coordinator"
         mock_client.create_agent.return_value = mock_coordinator
 
         # Mock participant agents
@@ -523,17 +506,15 @@ class TestHandoffExtensions:
         budget_agent.name = "budget"
         budget_agent.description = "Analyzes budgets"
 
-        # Build workflow with extension
-        builder = HandoffBuilder(
-            name="Test Workflow",
+        # Build workflow without calling .set_coordinator()
+        builder = AutoHandoffBuilder(
+            name="Event Planning",
             participants=[venue_agent, budget_agent],
+            client=mock_client,
         )
 
-        extended_builder = with_auto_coordinator(
-            builder,
-            client=mock_client,
-            coordinator_name="Test Coordinator",
-        )
+        # Should not raise - coordinator created automatically
+        workflow = builder.build()
 
         # Verify coordinator agent was created
         mock_client.create_agent.assert_called_once()
@@ -545,86 +526,85 @@ class TestHandoffExtensions:
         assert "Finds event venues" in call_kwargs["instructions"]
         assert "Analyzes budgets" in call_kwargs["instructions"]
 
-    def test_with_auto_coordinator_requires_participants(self):
-        """Test that extension requires participants to be registered first."""
-        mock_client = MagicMock()
-        empty_builder = HandoffBuilder(name="Empty")
-
-        with pytest.raises(ValueError, match="requires participants"):
-            with_auto_coordinator(empty_builder, client=mock_client)
-
-
-class TestEventPlanningWorkflow:
-    """Test event planning workflow with HandoffBuilder."""
-
-    @pytest.mark.asyncio
-    @patch("spec_to_agents.workflow.core.venue_specialist.create_agent")
-    @patch("spec_to_agents.workflow.core.budget_analyst.create_agent")
-    @patch("spec_to_agents.workflow.core.catering_coordinator.create_agent")
-    @patch("spec_to_agents.workflow.core.logistics_manager.create_agent")
-    async def test_workflow_handoff_flow(
-        self,
-        mock_logistics,
-        mock_catering,
-        mock_budget,
-        mock_venue,
-    ):
-        """Test E2E workflow execution with handoff pattern."""
-        # Mock specialist agents
+    def test_requires_client_for_auto_coordinator(self):
+        """Test that AutoHandoffBuilder requires client if coordinator not set."""
         venue_agent = MagicMock()
         venue_agent.name = "venue"
-        venue_agent.run = AsyncMock(return_value=MagicMock(text="Venue recommendations"))
-        mock_venue.return_value = venue_agent
 
-        budget_agent = MagicMock()
-        budget_agent.name = "budget"
-        budget_agent.run = AsyncMock(return_value=MagicMock(text="Budget analysis"))
-        mock_budget.return_value = budget_agent
+        builder = AutoHandoffBuilder(
+            name="Test",
+            participants=[venue_agent],
+            # No client provided
+        )
 
-        # Build workflow
-        workflow = build_event_planning_workflow()
+        with pytest.raises(ValueError, match="requires 'client' parameter"):
+            builder.build()
 
-        # Execute workflow
-        user_request = "Plan a corporate party for 50 people"
+    def test_manual_coordinator_still_works(self):
+        """Test that explicit .set_coordinator() still works (HandoffBuilder behavior)."""
+        coordinator = MagicMock()
+        coordinator.name = "coordinator"
 
-        # Collect events
-        events = []
-        async for event in workflow.run_stream(user_request):
-            events.append(event)
-            if isinstance(event, WorkflowOutputEvent):
-                break
-            if isinstance(event, RequestInfoEvent):
-                # Simulate user response
-                await workflow.send_response(event.request_id, "Sounds good, continue")
+        venue_agent = MagicMock()
+        venue_agent.name = "venue"
 
-        # Verify workflow executed
-        assert len(events) > 0
+        # Explicitly set coordinator (should NOT auto-create)
+        # No client needed when using explicit coordinator
+        builder = AutoHandoffBuilder(
+            participants=[coordinator, venue_agent],
+        ).set_coordinator("coordinator")
+
+        workflow = builder.build()
+
+        # Should build successfully without client
+
+    def test_custom_coordinator_name(self):
+        """Test custom coordinator_name parameter."""
+        mock_client = MagicMock()
+        mock_coordinator = MagicMock()
+        mock_coordinator.name = "custom_coordinator"
+        mock_client.create_agent.return_value = mock_coordinator
+
+        venue_agent = MagicMock()
+        venue_agent.name = "venue"
+
+        builder = AutoHandoffBuilder(
+            participants=[venue_agent],
+            client=mock_client,
+            coordinator_name="Custom Coordinator",
+        )
+
+        workflow = builder.build()
+
+        # Verify custom name used
+        call_kwargs = mock_client.create_agent.call_args[1]
+        assert "Custom Coordinator" in call_kwargs["instructions"]
 ```
 
 **File**: `tests/workflow/test_supervisor_unit.py`
 
-**Action**: Delete file (replaced by test_handoff_workflow.py)
+**Action**: Delete file (replaced by test_auto_handoff.py)
 
 **File**: `tests/workflow/test_supervisor_integration.py`
 
-**Action**: Delete file (replaced by test_handoff_workflow.py)
+**Action**: Delete file (E2E tests via DevUI and console.py)
 
 ### 7. Update Documentation
 
 **File**: `CLAUDE.md`
 
-Update the Architecture section to reflect HandoffBuilder usage:
+Update the Architecture section to reflect AutoHandoffBuilder usage:
 
 Replace the entire "Workflow Architecture" section with:
 
 ```markdown
 ## Workflow Architecture
 
-**Handoff Pattern with Coordinator Hub:**
+**Handoff Pattern with Auto-Coordinator:**
 ```
 User Request
     ↓
-Event Planning Coordinator (HandoffBuilder)
+Event Planning Coordinator (auto-created from descriptions)
     ↓ (handoff tool invocation)
     ├── Venue Specialist (handoff_to_venue)
     ├── Budget Analyst (handoff_to_budget)
@@ -640,28 +620,11 @@ Event Planning Coordinator
 
 **Key Architectural Patterns:**
 
-1. **HandoffBuilder**: Built-in Microsoft Agent Framework pattern for coordinator-based routing
-2. **Automatic Coordinator Creation**: Extension method (`with_auto_coordinator()`) creates coordinator from specialist descriptions
-3. **Handoff Tool Routing**: Coordinator invokes handoff tools (e.g., `handoff_to_venue`) to transfer control
-4. **Full Conversation History**: All agents receive complete conversation via `_HandoffCoordinator`
-5. **Automatic User Input**: Framework requests user input after each specialist responds (cyclical flow)
-6. **Termination Condition**: Workflow stops after 10 user messages (default, customizable)
-
-![Workflow Architecture](assets/workflow_architecture.png)
-
-## Agents and Tools
-
-Each specialist agent has access to domain-specific tools:
-
-![Agents and Tools](assets/agent_tools.png)
-
-**Tool Integration:**
-- **Custom Web Search**: Used by Venue Specialist and Catering Coordinator
-- **Weather Tool**: Open-Meteo API, used by Logistics Manager
-- **Calendar Tools**: iCalendar (.ics) management, used by Logistics Manager
-- **Code Interpreter**: Python REPL for financial calculations, used by Budget Analyst
-- **MCP Tool Orchestration**: sequential-thinking-tools for complex reasoning (optional, all agents)
-- **Handoff Tools**: Automatically synthesized by HandoffBuilder for coordinator routing
+1. **AutoHandoffBuilder**: Extends HandoffBuilder to automatically create coordinator from specialist descriptions
+2. **Handoff Tool Routing**: Coordinator invokes handoff tools (e.g., `handoff_to_venue`) to transfer control
+3. **Full Conversation History**: All agents receive complete conversation via `_HandoffCoordinator`
+4. **Automatic User Input**: Framework requests user input after each specialist responds (cyclical flow)
+5. **Termination Condition**: Workflow stops after 10 user messages (default, customizable)
 ```
 
 Update the "Key Implementation Patterns" section:
@@ -669,57 +632,25 @@ Update the "Key Implementation Patterns" section:
 ```markdown
 ## Key Implementation Patterns
 
-### 1. HandoffBuilder with Auto-Coordinator Extension
+### 1. AutoHandoffBuilder with Auto-Coordinator
 
-The workflow uses HandoffBuilder with `with_auto_coordinator()` extension for automatic coordinator creation:
-
-- **Receives initial requests** via HandoffBuilder's input normalization
-- **Coordinator routes via handoff tools** (e.g., `handoff_to_venue`)
-- **Automatic user input** after each specialist response
-- **Termination condition** controls workflow completion
-
-**Code Location:** `src/spec_to_agents/workflow/core.py:26-71`
-
-### 2. Handoff Tool Routing
-
-Coordinator routes to specialists by invoking handoff tools:
+The workflow uses AutoHandoffBuilder for automatic coordinator creation:
 
 ```python
-# Coordinator invokes: handoff_to_venue()
-# Framework intercepts via _AutoHandoffMiddleware
-# Routes to venue specialist with full conversation
+workflow = AutoHandoffBuilder(
+    name="Event Planning Workflow",
+    participants=[venue, budget, catering, logistics],  # No coordinator!
+    client=client,  # Required for auto-creation
+).build()  # Coordinator automatically created
 ```
 
 **Benefits:**
-- Framework-native pattern (no custom routing code)
-- Automatic tool synthesis and middleware interception
-- Clean separation: coordinator decides, framework routes
-- Full conversation history preserved
-
-**Code Location:** `agent_framework/_workflows/_handoff.py`
-
-### 3. Auto-Coordinator Extension Pattern
-
-The `with_auto_coordinator()` extension automatically creates coordinator agent:
-
-```python
-workflow = with_auto_coordinator(
-    HandoffBuilder(
-        name="Event Planning Workflow",
-        participants=[venue_agent, budget_agent, catering_agent, logistics_agent],
-    ),
-    client=client,
-    coordinator_name="Event Planning Coordinator",
-).build()
-```
-
-**Benefits:**
-- Extracts participant descriptions automatically
-- Creates coordinator with handoff tools pre-configured
-- No manual coordinator agent creation needed
+- No manual coordinator agent creation
+- Coordinator instructions generated from participant descriptions
 - Clean fluent API
+- Falls back to manual coordinator if `.set_coordinator()` called
 
-**Code Location:** `src/spec_to_agents/workflow/handoff_extensions.py:21-188`
+**Code Location:** `src/spec_to_agents/workflow/auto_handoff.py:19-205`
 ```
 
 Remove all references to:
@@ -728,25 +659,26 @@ Remove all references to:
 - `SupervisorDecision`
 - Supervisor pattern
 
-### 8. Update specs/README.md
+## Validation and Acceptance
 
-Add link to this spec and remove supervisor-workflow.md:
+### Acceptance Criteria
 
-```markdown
-# Specifications
+The implementation is complete when:
 
-This directory contains ExecPlans for major features and refactors.
-
-## Active Specs
-
-- [Handoff Workflow Migration](./handoff-workflow.md) - Migration from SupervisorWorkflowBuilder to HandoffBuilder
-
-## Completed Specs
-
-- ~~[Supervisor Workflow](./supervisor-workflow.md)~~ - Replaced by Handoff Workflow Migration
-```
-
-## Concrete Steps
+1. **AutoHandoffBuilder exists** at `src/spec_to_agents/workflow/auto_handoff.py`
+2. **Coordinator prompt template exists** at `src/spec_to_agents/prompts/coordinator.py`
+3. **Event planning workflow refactored** in `src/spec_to_agents/workflow/core.py` to use AutoHandoffBuilder
+4. **Obsolete code removed**:
+   - `src/spec_to_agents/workflow/supervisor.py` deleted
+   - `src/spec_to_agents/agents/supervisor.py` deleted
+   - `src/spec_to_agents/prompts/supervisor.py` deleted
+   - `SupervisorDecision` model removed from `models/messages.py`
+5. **Tests updated**: New tests for AutoHandoffBuilder pattern, old supervisor tests removed
+6. **All tests pass**: `uv run pytest tests/` completes without errors
+7. **Type checking passes**: `uv run mypy .` reports no errors
+8. **Linting passes**: `uv run ruff .` reports no issues
+9. **DevUI integration works**: Workflow executes end-to-end with visible coordinator handoff routing
+10. **Documentation updated**: `CLAUDE.md` reflects AutoHandoffBuilder architecture
 
 ### Validation Commands
 
@@ -781,82 +713,34 @@ After implementation, developers can:
 1. **Create handoff workflows with automatic coordinator:**
 
 ```python
-workflow = with_auto_coordinator(
-    HandoffBuilder(
-        name="My Workflow",
-        participants=[agent1, agent2, agent3],
-    ),
+workflow = AutoHandoffBuilder(
+    name="My Workflow",
+    participants=[agent1, agent2, agent3],
     client=client,
-    coordinator_name="My Coordinator",
 ).build()
 ```
 
-The extension automatically:
+The builder automatically:
 - Extracts agent descriptions
 - Creates coordinator agent with appropriate instructions
 - Registers handoff tools for all specialists
 - Configures coordinator as starting agent
 
-2. **See coordinator making routing decisions** via handoff tool invocations in DevUI
+2. **Or use manual coordinator (HandoffBuilder behavior):**
 
-3. **Experience automatic user input pattern** - workflow requests user input after each specialist
-
-4. **Customize termination conditions** via `.with_termination_condition()`
-
-5. **Leverage framework-native patterns** - no custom routing executors needed
-
-## Validation and Acceptance
-
-### Acceptance Criteria
-
-The implementation is complete when:
-
-1. **with_auto_coordinator extension exists** at `src/spec_to_agents/workflow/handoff_extensions.py`
-2. **Coordinator prompt template exists** at `src/spec_to_agents/prompts/coordinator.py`
-3. **Event planning workflow refactored** in `src/spec_to_agents/workflow/core.py` to use HandoffBuilder
-4. **Obsolete code removed**:
-   - `src/spec_to_agents/workflow/supervisor.py` deleted
-   - `src/spec_to_agents/agents/supervisor.py` deleted
-   - `src/spec_to_agents/prompts/supervisor.py` deleted
-   - `SupervisorDecision` model removed from `models/messages.py`
-5. **Tests updated**: New tests for HandoffBuilder pattern, old supervisor tests removed
-6. **All tests pass**: `uv run pytest tests/` completes without errors
-7. **Type checking passes**: `uv run mypy .` reports no errors
-8. **Linting passes**: `uv run ruff .` reports no issues
-9. **DevUI integration works**: Workflow executes end-to-end with visible coordinator handoff routing
-10. **Documentation updated**: `CLAUDE.md` reflects HandoffBuilder architecture
-
-### DevUI Testing Scenario
-
-Start the DevUI:
-
-```bash
-uv run app
+```python
+coordinator = client.create_agent(name="coordinator", ...)
+workflow = AutoHandoffBuilder(
+    participants=[coordinator, agent1, agent2],
+    # No client needed when using explicit coordinator
+).set_coordinator("coordinator").build()
 ```
 
-Navigate to http://localhost:8000 in browser. Select "Event Planning Workflow" and submit test prompt:
+3. **See coordinator making routing decisions** via handoff tool invocations in DevUI
 
-```
-"Plan a corporate holiday party for 50 people in Seattle on December 15th"
-```
+4. **Experience automatic user input pattern** - workflow requests user input after each specialist
 
-Expected observable behavior:
-1. Coordinator receives initial request
-2. Coordinator analyzes and invokes handoff tool (e.g., `handoff_to_venue`)
-3. Venue specialist responds with venue options
-4. Workflow automatically requests user input
-5. User provides more input ("That looks good, what about budget?")
-6. Coordinator invokes `handoff_to_budget`
-7. Budget analyst provides cost breakdown
-8. Workflow requests user input again
-9. Continue until user says "that's all" or 10 messages reached
-10. Workflow yields final comprehensive plan
-
-Verify in DevUI:
-- Handoff tool invocations visible in message history
-- Each specialist responds with domain-specific analysis
-- User input requested automatically after each specialist
-- Final output is cohesive event plan
+5. **Customize termination conditions** via `.with_termination_condition()`
 
 ## Idempotence and Recovery
 
@@ -881,102 +765,84 @@ If implementation fails midway:
 
 **Before (SupervisorWorkflowBuilder):**
 ```python
-workflow = (
-    SupervisorWorkflowBuilder(
-        name="Event Planning Workflow",
-        client=client,
-    )
-    .participants(venue=venue, budget=budget, catering=catering, logistics=logistics)
-    .build()
-)
-# Internally:
-# - Creates SupervisorOrchestratorExecutor
-# - Supervisor makes routing decisions via SupervisorDecision structured output
-# - Manual HITL via ctx.request_info() when user_input_needed=True
+workflow = SupervisorWorkflowBuilder(
+    name="Event Planning Workflow",
+    client=client,
+).participants(
+    venue=venue, budget=budget, catering=catering, logistics=logistics
+).build()
 ```
 
-**After (HandoffBuilder + Extension):**
+**After (AutoHandoffBuilder):**
 ```python
-workflow = with_auto_coordinator(
-    HandoffBuilder(
-        name="Event Planning Workflow",
-        participants=[venue, budget, catering, logistics],
-    ),
+workflow = AutoHandoffBuilder(
+    name="Event Planning Workflow",
+    participants=[venue, budget, catering, logistics],
     client=client,
-    coordinator_name="Event Planning Coordinator",
 ).build()
-# Internally:
-# - Uses _HandoffCoordinator (framework built-in)
-# - Coordinator routes via handoff tool invocations
-# - Automatic HITL via _UserInputGateway after each specialist
 ```
 
 **Benefits:**
-- Leverage framework-native patterns (less custom code)
+- Leverage framework-native HandoffBuilder patterns
 - Automatic handoff tool synthesis and middleware interception
-- Proven conversation management via _HandoffCoordinator
-- Automatic user input pattern (no manual HITL logic)
-- Cleaner separation: coordinator decides, framework routes
+- Proven conversation management via `_HandoffCoordinator`
+- Automatic user input pattern (no manual human-in-the-loop logic)
+- Cleaner API (coordinator NOT in participants list)
 
 ### Migration Risk Assessment
 
 **Low Risk Areas:**
-- Extension method pattern is non-invasive
+- Subclass pattern is clean and maintainable
 - HandoffBuilder is well-tested framework code
-- Automatic user input pattern simplifies HITL logic
+- Automatic user input pattern simplifies human-in-the-loop logic
 
 **Medium Risk Areas:**
-- Extension accesses HandoffBuilder private attributes (`_executors`, `_aliases`)
-- If Agent Framework changes these internals, extension breaks
-- Mitigation: Clear warnings in code comments, runtime checks
+- AutoHandoffBuilder accesses HandoffBuilder private attributes (`_executors`, `_starting_agent_id`)
+- If Agent Framework changes these internals, AutoHandoffBuilder may break
+- Mitigation: Clear warnings in code comments, runtime checks, tests
 
 **High Risk Areas:**
-- None identified - this is a straightforward replacement with framework-native patterns
-
-### Performance Considerations
-
-**HandoffBuilder vs SupervisorWorkflowBuilder:**
-- HandoffBuilder maintains full conversation in all agents (vs. global + service-managed threads)
-- May increase token usage for long conversations
-- Mitigation: Use termination conditions to prevent runaway conversations
-- Trade-off: Simpler architecture worth slight token cost increase
+- None identified - this is a straightforward subclass with framework-native patterns
 
 ### Alternative Approaches Considered
 
-1. **Subclass HandoffBuilder**: Rejected - extension method more flexible and less coupling
-2. **Wrap HandoffBuilder**: Rejected - unnecessary abstraction layer
+1. **Monkey patch HandoffBuilder**: Rejected - fragile, breaks on package updates
+2. **Wrapper pattern**: Rejected - unnecessary abstraction layer
 3. **Keep both builders**: Rejected - user requested big bang replacement
-4. **Reimplement handoff pattern**: Rejected - framework provides proven implementation
+4. **Extension function**: Rejected - subclass is cleaner and more pythonic
 
 ## Interfaces and Dependencies
 
 ### Module Dependencies
 
-**New module** `src/spec_to_agents/workflow/handoff_extensions.py` depends on:
-- `agent_framework`: `BaseChatClient`, `ChatAgent`, `HandoffBuilder`
+**New module** `src/spec_to_agents/workflow/auto_handoff.py` depends on:
+- `agent_framework`: `BaseChatClient`, `ChatAgent`, `Workflow`, `HandoffBuilder`
 - `spec_to_agents.prompts.coordinator`: `COORDINATOR_SYSTEM_PROMPT_TEMPLATE`
 
 **New module** `src/spec_to_agents/prompts/coordinator.py`:
 - No dependencies (just string template)
 
 **Updated module** `src/spec_to_agents/workflow/core.py` depends on:
-- `agent_framework`: `Workflow`, `BaseChatClient`, `HandoffBuilder`
-- `spec_to_agents.workflow.handoff_extensions`: `with_auto_coordinator`
+- `agent_framework`: `Workflow`, `BaseChatClient`
+- `spec_to_agents.workflow.auto_handoff`: `AutoHandoffBuilder`
 - `spec_to_agents.agents.*`: Agent factory functions
 
 ### Type Signatures
 
-**with_auto_coordinator:**
+**AutoHandoffBuilder:**
 
 ```python
-def with_auto_coordinator(
-    builder: HandoffBuilder,
-    *,
-    client: BaseChatClient,
-    coordinator_name: str | None = None,
-    coordinator_instructions_template: str | None = None,
-    **agent_kwargs: Any,
-) -> HandoffBuilder: ...
+class AutoHandoffBuilder(HandoffBuilder):
+    def __init__(
+        self,
+        *,
+        client: BaseChatClient | None = None,
+        coordinator_name: str | None = None,
+        coordinator_instructions_template: str | None = None,
+        **kwargs: Any,
+    ) -> None: ...
+
+    def build(self) -> Workflow: ...
 ```
 
 **build_event_planning_workflow:**
@@ -999,18 +865,13 @@ def build_event_planning_workflow(
 Replace:
 ```python
 from spec_to_agents.workflow import SupervisorWorkflowBuilder
-workflow = SupervisorWorkflowBuilder(...).build()
+workflow = SupervisorWorkflowBuilder(client=client, ...).participants(...).build()
 ```
 
 With:
 ```python
-from agent_framework import HandoffBuilder
-from spec_to_agents.workflow import with_auto_coordinator
-
-workflow = with_auto_coordinator(
-    HandoffBuilder(participants=[...]),
-    client=client,
-).build()
+from spec_to_agents.workflow import AutoHandoffBuilder
+workflow = AutoHandoffBuilder(client=client, participants=[...]).build()
 ```
 
 **Note**: This project is early-stage, so no external consumers expected. Breaking changes are acceptable per user decision (big bang replacement).
