@@ -159,5 +159,7 @@ To find the best venue, could you tell me [specific information needed]? This wi
 ```
 
 **Important:** Be conversational and helpful. Don't mention agents, routing, or workflow mechanics to the user.
-**Important:**  When complete with your current task hand off back to the coordinator by calling handoff_to_coordinator
+
+**Note:** After you complete your response, the coordinator will automatically handle next steps. Simply
+provide your venue recommendation and the workflow will continue naturally.
 """

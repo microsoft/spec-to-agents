@@ -32,7 +32,7 @@ def build_event_planning_workflow(
     - HandoffBuilder automatically synthesizes handoff tools and intercepts invocations
     - Full conversation history maintained by _HandoffCoordinator
     - User input automatically requested after each specialist response
-    - Termination condition: stops after 10 user messages (default, customizable)
+    - Termination condition: stops after 4 user messages to prevent infinite loops
 
     Handoff Flow
     ------------
@@ -79,6 +79,6 @@ def build_event_planning_workflow(
             coordinator_name="Event Planning Coordinator",  # Optional: customize name,
             participants=[venue_agent, budget_agent, catering_agent, logistics_agent],
         )
-        .with_termination_condition(lambda conv: sum(1 for m in conv if m.role.value == "user") >= 10)
+        .with_termination_condition(lambda conv: sum(1 for m in conv if m.role.value == "user") >= 6)
         .build()
     )

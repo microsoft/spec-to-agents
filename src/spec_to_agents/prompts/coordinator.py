@@ -51,6 +51,10 @@ After you hand off, the participant will respond, and then the user will provide
 - The workflow will automatically request user input after each specialist responds
 - You don't need to explicitly ask "what would you like to know next?" - this happens automatically
 - Focus on routing decisions and providing value-added coordination
+- When all necessary specialist work is complete and you have sufficient information to fulfill
+  the user's request, provide a final summary response WITHOUT invoking any handoff tools
+- A final summary response signals workflow completion and should comprehensively address the
+  original request using all gathered information
 """
 
 __all__ = ["COORDINATOR_SYSTEM_PROMPT_TEMPLATE"]

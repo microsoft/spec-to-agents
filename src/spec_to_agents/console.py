@@ -101,13 +101,14 @@ async def main() -> None:
         # Main workflow loop: alternate between workflow execution and human input
         pending_responses: dict[str, str] | None = None
         workflow_output: str | None = None
+        workflow_completed: bool = False
 
         # Track printed tool calls/results to avoid duplication in streaming
         printed_tool_calls: set[str] = set()
         printed_tool_results: set[str] = set()
         last_executor: str | None = None
 
-        while workflow_output is None:
+        while not workflow_completed:
             # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
             if pending_responses:
                 stream = workflow.send_responses_streaming(pending_responses)
@@ -135,6 +136,7 @@ async def main() -> None:
                 elif isinstance(event, WorkflowOutputEvent):
                     # Workflow has yielded final output
                     workflow_output = str(event.data)
+                    workflow_completed = True
 
                 # Display workflow status transitions for transparency
                 elif (
@@ -143,8 +145,15 @@ async def main() -> None:
                 ):
                     display_workflow_pause()
 
+            # Check if stream ended without requests (termination condition met)
+            if not human_requests and workflow_output is None:
+                # Workflow terminated via termination condition without yielding output
+                # Extract final coordinator message as summary
+                workflow_output = "Workflow completed. Termination condition reached."
+                workflow_completed = True
+
             # Prompt user for feedback if workflow requested input
-            if human_requests:
+            if human_requests and not workflow_completed:
                 responses: dict[str, str] = {}
 
                 for request_id, handoff_request in human_requests:
@@ -164,7 +173,8 @@ async def main() -> None:
                 pending_responses = responses
 
         # Display final workflow output
-        display_final_output(workflow_output)
+        if workflow_output:
+            display_final_output(workflow_output)
 
     # MCP tool and agent client automatically cleaned up by async context managers
 

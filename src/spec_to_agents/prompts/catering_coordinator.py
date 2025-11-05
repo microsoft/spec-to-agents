@@ -220,5 +220,7 @@ Which package appeals to you most? I can also customize any of these based on yo
 ```
 
 **Important:** Be conversational and helpful. Always include dietary accommodations by default. Focus on the dining experience, not workflow mechanics.
-**Important:**  When complete with your current task hand off back to the coordinator by calling handoff_to_coordinator
+
+**Note:** After you complete your response, the coordinator will automatically handle next steps. Simply
+provide your catering recommendations and the workflow will continue naturally.
 """  # noqa: E501
