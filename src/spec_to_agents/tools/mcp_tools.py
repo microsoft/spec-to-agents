@@ -2,37 +2,43 @@
 
 """MCP (Model Context Protocol) tools integration."""
 
-from agent_framework import MCPStdioTool, ToolProtocol
+import os
+
+from agent_framework import MCPStdioTool
 
 
-def create_global_tools() -> dict[str, ToolProtocol]:
+def create_sequential_thinking_tool() -> MCPStdioTool:
     """
-    Create a global toolset including MCP tools.
+    Create a new sequential-thinking-tools MCP server instance.
 
-    Returns a dict containing ToolProtocol that interface with the
+    Returns an unconnected MCPStdioTool that should be used with
     async context manager pattern for proper lifecycle management.
 
     Returns
     -------
-    dict[str, ToolProtocol]
-        Tools and unconnected MCP tools for advanced reasoning and tool orchestration
+    MCPStdioTool
+        Unconnected MCP tool for advanced reasoning and tool orchestration
+
     Example
     -------
-    >>> async with create_global_tools() as tools:
-    ...     workflow = build_event_planning_workflow(tools)
-    ...     # tools auto-cleanup on exit
+    >>> async with create_sequential_thinking_tool() as tool:
+    ...     workflow = build_event_planning_workflow(tool)
+    ...     # tool auto-cleanup on exit
 
     Notes
     -----
-    The MCP tools must be used within an async context manager to ensure
-    proper connection establishment and cleanup. The tools connect on
-    __aenter__ and close on __aexit__.
+    The MCP tool must be used within an async context manager to ensure
+    proper connection establishment and cleanup. The tool connects on
+    __aenter__ and closes on __aexit__.
     """
-    return {
-        "sequential-thinking": MCPStdioTool(
-            name="sequential-thinking", command="npx", args=["-y", "@modelcontextprotocol/server-sequential-thinking"]
-        )
-    }
+    return MCPStdioTool(
+        name="sequential-thinking-tools",
+        command="npx",
+        args=["-y", "mcp-sequentialthinking-tools"],
+        env={
+            "MAX_HISTORY_SIZE": os.getenv("MAX_HISTORY_SIZE", "1000"),
+        },
+    )
 
 
-__all__ = ["create_global_tools"]
+__all__ = ["create_sequential_thinking_tool"]

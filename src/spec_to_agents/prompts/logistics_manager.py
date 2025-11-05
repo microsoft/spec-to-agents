@@ -138,7 +138,7 @@ You have access to the following tools:
 - Delete events when plans change
 
 ### 3. Sequential Thinking Tool
-- **Tool:** sequential-thinking
+- **Tool:** MCP sequential-thinking-tools
 - **Purpose:** Advanced reasoning for complex coordination tasks, multi-step planning
 - **When to use:** Breaking down complex logistics into steps, orchestrating multiple vendors and timelines
 

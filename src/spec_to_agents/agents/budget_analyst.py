@@ -1,36 +1,23 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from agent_framework import BaseChatClient, ChatAgent, HostedCodeInterpreterTool, ToolProtocol
-from dependency_injector.wiring import Provide, inject
+from agent_framework import ChatAgent, HostedCodeInterpreterTool, MCPStdioTool
+from agent_framework.azure import AzureAIAgentClient
 
+from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import budget_analyst
 
 
-@inject
-def create_agent(
-    client: BaseChatClient = Provide["client"],
-    global_tools: dict[str, ToolProtocol] = Provide["global_tools"],
-) -> ChatAgent:
+def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> ChatAgent:
     """
     Create Budget Analyst agent for event planning workflow.
 
-    IMPORTANT: This function uses dependency injection. ALL parameters are
-    automatically injected via the DI container. DO NOT pass any arguments
-    when calling this function.
-
-    Usage
-    -----
-    After container is wired:
-        agent = budget_analyst.create_agent()  # No arguments - DI handles it!
-
     Parameters
     ----------
-    client : BaseChatClient
-        Automatically injected via Provide["client"]
-    global_tools : dict[str, ToolProtocol]
-        Automatically injected via Provide["global_tools"]
-        Dictionary of globally shared tools. Keys:
-        - "sequential-thinking": MCP sequential thinking tool
+    client : AzureAIAgentClient
+        AI client for agent creation
+    mcp_tool : MCPStdioTool | None, optional
+        Sequential thinking tool for complex reasoning.
+        If None, coordinator operates without MCP tool assistance.
 
     Returns
     -------
@@ -40,29 +27,30 @@ def create_agent(
     Notes
     -----
     MCP sequential-thinking tool was removed because it interferes with
-    structured output generation. The agent would complete its thinking
-    process but fail to return a final structured response, causing
-    ValueError in the workflow.
+    structured output generation (SpecialistOutput). The agent would complete
+    its thinking process but fail to return a final structured response,
+    causing ValueError in the workflow.
+
+    User input is handled through SpecialistOutput.user_input_needed field,
+    not through a separate tool.
     """
-    # Initialize agent-specific tools
+    # Create hosted tools
     code_interpreter = HostedCodeInterpreterTool(
         description=(
             "Execute Python code for complex financial calculations, budget analysis, "
-            "cost projections, and data visualization."
+            "cost projections, and data visualization. Creates a scratchpad for "
+            "intermediate calculations and maintains calculation history."
         ),
     )
 
-    # Agent-specific tools only (Budget Analyst doesn't need MCP tool)
-    agent_tools: list[ToolProtocol] = [code_interpreter]
-
-    if global_tools.get("sequential-thinking"):
-        # Include MCP sequential-thinking tool from global tools
-        agent_tools.append(global_tools["sequential-thinking"])
+    tools = [code_interpreter]
+    if mcp_tool is not None:
+        tools.append(mcp_tool)  # type: ignore
 
     return client.create_agent(
         name="BudgetAnalyst",
-        description="Expert in financial planning, budgeting, and cost analysis for events.",
         instructions=budget_analyst.SYSTEM_PROMPT,
-        tools=agent_tools,
+        tools=tools,
+        response_format=SpecialistOutput,
         store=True,
     )

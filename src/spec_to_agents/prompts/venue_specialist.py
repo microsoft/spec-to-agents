@@ -105,7 +105,7 @@ You have access to the following tools:
   - Search for specific venue types based on event requirements
 
 ### 2. Sequential Thinking Tool
-- **Tool:** sequential-thinking
+- **Tool:** MCP sequential-thinking-tools
 - **Purpose:** Advanced reasoning for venue evaluation, comparing multiple options
 - **When to use:** Breaking down complex venue requirements, comparing pros/cons of multiple venues
 

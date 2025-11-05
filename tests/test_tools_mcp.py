@@ -4,21 +4,21 @@
 
 from agent_framework import MCPStdioTool
 
-from spec_to_agents.tools.mcp_tools import create_global_tools
+from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
 
 
-def test_create_global_tools_returns_dict() -> None:
-    """Test that factory returns dict of tools."""
-    tools = create_global_tools()
+def test_create_sequential_thinking_tool_returns_mcp_stdio_tool():
+    """Test that factory returns MCPStdioTool instance."""
+    tool = create_sequential_thinking_tool()
 
-    assert isinstance(tools, dict)
-    assert "sequential-thinking" in tools
-    assert isinstance(tools["sequential-thinking"], MCPStdioTool)
+    assert isinstance(tool, MCPStdioTool)
+    assert tool.name == "sequential-thinking-tools"
 
 
-def test_create_global_tools_sequential_thinking_config() -> None:
-    """Test sequential-thinking tool configuration."""
-    tools = create_global_tools()
-    tool = tools["sequential-thinking"]
+def test_create_sequential_thinking_tool_returns_new_instance():
+    """Test that factory returns new instances (not singleton)."""
+    tool1 = create_sequential_thinking_tool()
+    tool2 = create_sequential_thinking_tool()
 
-    assert tool.name == "sequential-thinking"
+    # Should be different instances
+    assert tool1 is not tool2

@@ -121,7 +121,7 @@ You have access to the following tools:
   - Document all assumptions in calculations
 
 ### 2. Sequential Thinking Tool
-- **Tool:** sequential-thinking
+- **Tool:** MCP sequential-thinking-tools
 - **Purpose:** Advanced reasoning for budget optimization, trade-off analysis
 - **When to use:** Breaking down complex budget decisions, comparing allocation strategies
 

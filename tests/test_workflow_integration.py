@@ -11,7 +11,7 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_execution_basic() -> None:
+async def test_workflow_execution_basic():
     """Test basic workflow execution with a simple event planning request."""
     from spec_to_agents.utils.clients import create_agent_client
 
@@ -34,7 +34,7 @@ async def test_workflow_execution_basic() -> None:
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_execution_contains_sections() -> None:
+async def test_workflow_execution_contains_sections():
     """Test that workflow output contains expected sections from all agents."""
     from spec_to_agents.utils.clients import create_agent_client
 
@@ -74,7 +74,7 @@ async def test_workflow_execution_contains_sections() -> None:
 
 @pytest.mark.skip(reason="Integration test requires real Azure credentials and agent setup")
 @pytest.mark.asyncio
-async def test_workflow_execution_different_event_types() -> None:
+async def test_workflow_execution_different_event_types():
     """Test workflow with different event types to ensure adaptability."""
     from spec_to_agents.utils.clients import create_agent_client
 

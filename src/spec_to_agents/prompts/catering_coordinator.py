@@ -119,7 +119,7 @@ You have access to the following tools:
   - Verify pricing and availability information
 
 ### 2. Sequential Thinking Tool
-- **Tool:** sequential-thinking
+- **Tool:** MCP sequential-thinking-tools
 - **Purpose:** Advanced reasoning for menu planning, dietary accommodation analysis
 - **When to use:** Breaking down complex dietary requirements, comparing menu options, budget optimization
 

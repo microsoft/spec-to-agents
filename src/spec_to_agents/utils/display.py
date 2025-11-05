@@ -386,7 +386,6 @@ def display_agent_run_update(
 
         # Format arguments for display
         args = call.arguments
-        args_display: Syntax | Text
         if isinstance(args, dict):
             args_display = Syntax(
                 json.dumps(args, indent=2, ensure_ascii=False),
@@ -423,7 +422,6 @@ def display_agent_run_update(
 
         # Format result for display
         result_text = result.result
-        result_display: Syntax | str
         if not isinstance(result_text, str):
             result_display = Syntax(
                 json.dumps(result_text, indent=2, ensure_ascii=False),
@@ -440,17 +438,16 @@ def display_agent_run_update(
 
         # Build panel content with proper Rich renderable handling
         call_id_text = f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]"
-        result_panel_content: Group | str
         if isinstance(result_display, Syntax):
             # Use Group to combine text and Syntax object
-            result_panel_content = Group(call_id_text, "", result_display)
+            panel_content = Group(call_id_text, "", result_display)
         else:
             # For string results, use f-string as normal
-            result_panel_content = f"{call_id_text}\n\n{result_display}"
+            panel_content = f"{call_id_text}\n\n{result_display}"
 
         console.print(
             Panel(
-                result_panel_content,
+                panel_content,
                 title=f"[{agent_color}]Tool Result[/{agent_color}]",
                 border_style="dim",
                 padding=(0, 1),

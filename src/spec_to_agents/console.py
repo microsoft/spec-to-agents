@@ -18,8 +18,6 @@ This follows the human-in-the-loop pattern from guessing_game_with_human_input.p
 """
 
 import asyncio
-import logging
-import os
 
 from agent_framework import (
     AgentRunUpdateEvent,
@@ -31,8 +29,9 @@ from agent_framework import (
 from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
-from spec_to_agents.container import AppContainer
 from spec_to_agents.models.messages import HumanFeedbackRequest
+from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
+from spec_to_agents.utils.clients import create_agent_client
 from spec_to_agents.utils.display import (
     console,
     display_agent_run_update,
@@ -47,41 +46,41 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 # Load environment variables at module import
 load_dotenv()
 
-if os.getenv("ENABLE_OTEL", "false").lower() == "true":
-    setup_observability()
-
-logging.getLogger("agent_framework._workflows._validation").setLevel(logging.ERROR)
+# Enable observability (reads from environment variables)
+setup_observability()
 
 
 async def main() -> None:
     """
-    Run the event planning workflow with DI and interactive CLI HITL.
+    Run the event planning workflow with interactive CLI human-in-the-loop.
 
-    This function implements the main event loop pattern:
-    1. Initialize DI container and wire modules
-    2. Build the workflow with injected dependencies
-    3. Loop until workflow completes:
+    This function implements the main event loop pattern from
+    guessing_game_with_human_input.py, adapted for event planning:
+
+    1. Build the workflow with connected MCP tool
+    2. Loop until workflow completes:
        - Stream workflow events (run_stream or send_responses_streaming)
        - Collect RequestInfoEvents for human feedback
        - Collect WorkflowOutputEvents for final result
        - Prompt user for input when needed
        - Send responses back to workflow
-    4. Display final event plan
+    3. Display final event plan
+    4. MCP tool cleanup handled automatically by async context manager
+
+    The workflow alternates between executing agent logic and pausing
+    for human input via the request_info/response_handler pattern.
     """
     # Display welcome header
     display_welcome_header()
 
-    # Initialize DI container and wire modules for dependency injection
-    container = AppContainer()
-    container.wire(modules=[__name__])
-
-    # Use async context manager for client lifecycle only
-    # global_tools dict is automatically injected into agent factories via @inject
-    # MCP tools are automatically connected by agent framework when agents are created
-    async with container.client():
-        # Build workflow - ALL dependencies (client, global_tools) injected automatically
+    # Use async context managers for both MCP tool and agent client lifecycle
+    async with (
+        create_sequential_thinking_tool() as mcp_tool,
+        create_agent_client() as client,
+    ):
+        # Build workflow with connected MCP tool and agent client
         with console.status("[bold green]Loading workflow...", spinner="dots"):
-            workflow = build_event_planning_workflow()  # No parameters needed!
+            workflow = build_event_planning_workflow(client, mcp_tool)
         console.print("[green]✓[/green] Workflow loaded successfully")
         console.print()
 
