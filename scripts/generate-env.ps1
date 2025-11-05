@@ -10,8 +10,9 @@ $envValues = azd env get-values | Out-String
 # Extract values using regex
 $azureOpenAIApiVersion = ($envValues | Select-String 'AZURE_OPENAI_API_VERSION="([^"]*)"').Matches.Groups[1].Value
 $azureAIProjectEndpoint = ($envValues | Select-String 'AZURE_AI_PROJECT_ENDPOINT="([^"]*)"').Matches.Groups[1].Value
-$azureAIModelDeploymentName = ($envValues | Select-String 'AZURE_AI_MODEL_DEPLOYMENT_NAME="([^"]*)"').Matches.Groups[1].Value
+# Override to use gpt-4.1-mini for all agent tasks (web search model has higher quota)
 $webSearchModel = ($envValues | Select-String 'WEB_SEARCH_MODEL="([^"]*)"').Matches.Groups[1].Value
+$azureAIModelDeploymentName = $webSearchModel
 $bingConnectionName = ($envValues | Select-String 'BING_CONNECTION_NAME="([^"]*)"').Matches.Groups[1].Value
 $appInsightsConnectionString = ($envValues | Select-String 'APPLICATIONINSIGHTS_CONNECTION_STRING="([^"]*)"').Matches.Groups[1].Value
 

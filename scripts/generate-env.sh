@@ -7,7 +7,8 @@ echo ""
 echo "Getting environment values from azd..."
 AZURE_OPENAI_API_VERSION=$(azd env get-values | grep AZURE_OPENAI_API_VERSION | cut -d'"' -f2)
 AZURE_AI_PROJECT_ENDPOINT=$(azd env get-values | grep AZURE_AI_PROJECT_ENDPOINT | cut -d'"' -f2)
-AZURE_AI_MODEL_DEPLOYMENT_NAME=$(azd env get-values | grep AZURE_AI_MODEL_DEPLOYMENT_NAME | cut -d'"' -f2)
+# Override to use gpt-4.1-mini for all agent tasks (web search model has higher quota)
+AZURE_AI_MODEL_DEPLOYMENT_NAME=$(azd env get-values | grep WEB_SEARCH_MODEL | cut -d'"' -f2)
 WEB_SEARCH_MODEL=$(azd env get-values | grep WEB_SEARCH_MODEL | cut -d'"' -f2)
 BING_CONNECTION_NAME=$(azd env get-values | grep BING_CONNECTION_NAME | cut -d'"' -f2)
 APPLICATIONINSIGHTS_CONNECTION_STRING=$(azd env get-values | grep APPLICATIONINSIGHTS_CONNECTION_STRING | cut -d'"' -f2)
@@ -58,6 +59,18 @@ echo "   - Required roles: 'Cognitive Services OpenAI User' or 'Cognitive Servic
 echo ""
 echo "📖 Next steps:"
 echo "   1. Review the .env file and adjust settings as needed"
-echo "   2. Run 'uv sync --dev' to install dependencies"
-echo "   3. Run 'uv run app' to start the Agent Framework DevUI"
+echo "   2. Installing dependencies with uv sync..."
+echo ""
+
+# Install dependencies with uv
+echo "📦 Running uv sync --extra dev..."
+if GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev; then
+    echo "✅ Dependencies installed successfully!"
+else
+    echo "❌ Failed to install dependencies. You may need to run 'GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev' manually."
+    exit 1
+fi
+
+echo ""
+echo "🚀 Setup complete! Run 'uv run app' to start the Agent Framework DevUI"
 echo ""

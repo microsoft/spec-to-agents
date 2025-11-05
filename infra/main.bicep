@@ -295,7 +295,7 @@ output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
 
 @description('The full project endpoint URL for Azure AI Foundry.')
-output AZURE_AI_PROJECT_ENDPOINT string = '${aiFoundry.outputs.accountEndpoint}/projects/${aiFoundry.outputs.projectName}'
+output AZURE_AI_PROJECT_ENDPOINT string = '${aiFoundry.outputs.accountEndpoint}api/projects/${aiFoundry.outputs.projectName}'
 
 @description('The name of the model deployment for primary agent tasks.')
 output AZURE_AI_MODEL_DEPLOYMENT_NAME string = aiFoundry.outputs.modelDeploymentName
