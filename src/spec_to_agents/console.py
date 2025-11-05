@@ -49,6 +49,7 @@ load_dotenv()
 if os.getenv("ENABLE_OTEL", "false").lower() == "true":
     setup_observability()
 
+logging.getLogger("agent_framework._clients").setLevel(logging.ERROR)
 logging.getLogger("agent_framework._workflows._validation").setLevel(logging.ERROR)
 logging.getLogger("mcp").setLevel(logging.ERROR)
 

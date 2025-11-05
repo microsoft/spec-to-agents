@@ -5,7 +5,7 @@
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from agent_framework import AgentProtocol
+from agent_framework import AgentProtocol, BaseChatClient
 
 from spec_to_agents.workflow.auto_handoff import AutoHandoffBuilder
 
@@ -23,8 +23,8 @@ class TestAutoHandoffBuilder:
 
     def test_auto_creates_coordinator_when_not_set(self) -> None:
         """Test that AutoHandoffBuilder auto-creates coordinator if not explicitly set."""
-        # Mock client
-        mock_client = MagicMock()
+        # Mock client (must be an instance of BaseChatClient)
+        mock_client = MagicMock(spec=BaseChatClient)
         mock_coordinator = create_mock_agent("event_planning_coordinator")
         mock_client.create_agent.return_value = mock_coordinator
 
@@ -32,12 +32,11 @@ class TestAutoHandoffBuilder:
         venue_agent = create_mock_agent("venue", "Finds event venues")
         budget_agent = create_mock_agent("budget", "Analyzes budgets")
 
-        # Build workflow without calling .set_coordinator()
+        # Build workflow - calling set_coordinator(client) triggers auto-creation
         builder = AutoHandoffBuilder(
             name="Event Planning",
             participants=[venue_agent, budget_agent],
-            client=mock_client,
-        )
+        ).set_coordinator(mock_client)
 
         # Should not raise - coordinator created automatically
         builder.build()
@@ -53,17 +52,18 @@ class TestAutoHandoffBuilder:
         assert "Analyzes budgets" in call_kwargs["instructions"]
 
     def test_requires_client_for_auto_coordinator(self) -> None:
-        """Test that AutoHandoffBuilder requires client if coordinator not set."""
-        venue_agent = create_mock_agent("venue")
+        """Test that AutoHandoffBuilder requires participants when auto-creating coordinator."""
+        mock_client = MagicMock(spec=BaseChatClient)
 
+        # Create builder with NO participants
         builder = AutoHandoffBuilder(
             name="Test",
-            participants=[venue_agent],
-            # No client provided
+            participants=[],
         )
 
-        with pytest.raises(ValueError, match="requires 'client' parameter"):
-            builder.build()
+        # Should raise when trying to auto-create coordinator without participants
+        with pytest.raises(ValueError, match="Cannot auto-create coordinator with no participants"):
+            builder.set_coordinator(mock_client)
 
     def test_manual_coordinator_still_works(self) -> None:
         """Test that explicit .set_coordinator() still works (HandoffBuilder behavior)."""
@@ -81,18 +81,17 @@ class TestAutoHandoffBuilder:
         # Should build successfully without client
 
     def test_custom_coordinator_name(self) -> None:
-        """Test custom coordinator_name parameter."""
-        mock_client = MagicMock()
+        """Test custom coordinator name via name parameter."""
+        mock_client = MagicMock(spec=BaseChatClient)
         mock_coordinator = create_mock_agent("custom_coordinator")
         mock_client.create_agent.return_value = mock_coordinator
 
         venue_agent = create_mock_agent("venue")
 
         builder = AutoHandoffBuilder(
+            name="Custom Coordinator",
             participants=[venue_agent],
-            client=mock_client,
-            coordinator_name="Custom Coordinator",
-        )
+        ).set_coordinator(mock_client)
 
         builder.build()
 
