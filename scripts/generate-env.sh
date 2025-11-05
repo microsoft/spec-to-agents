@@ -7,7 +7,8 @@ echo ""
 echo "Getting environment values from azd..."
 AZURE_OPENAI_API_VERSION=$(azd env get-values | grep AZURE_OPENAI_API_VERSION | cut -d'"' -f2)
 AZURE_AI_PROJECT_ENDPOINT=$(azd env get-values | grep AZURE_AI_PROJECT_ENDPOINT | cut -d'"' -f2)
-AZURE_AI_MODEL_DEPLOYMENT_NAME=$(azd env get-values | grep AZURE_AI_MODEL_DEPLOYMENT_NAME | cut -d'"' -f2)
+# Override to use gpt-4.1-mini for all agent tasks (web search model has higher quota)
+AZURE_AI_MODEL_DEPLOYMENT_NAME=$(azd env get-values | grep WEB_SEARCH_MODEL | cut -d'"' -f2)
 WEB_SEARCH_MODEL=$(azd env get-values | grep WEB_SEARCH_MODEL | cut -d'"' -f2)
 BING_CONNECTION_NAME=$(azd env get-values | grep BING_CONNECTION_NAME | cut -d'"' -f2)
 APPLICATIONINSIGHTS_CONNECTION_STRING=$(azd env get-values | grep APPLICATIONINSIGHTS_CONNECTION_STRING | cut -d'"' -f2)

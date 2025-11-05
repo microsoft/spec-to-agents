@@ -10,12 +10,12 @@ param modelName string = 'gpt-5-mini'
 param modelFormat string = 'OpenAI'
 param modelVersion string = '2025-08-07'
 param modelSkuName string = 'GlobalStandard'
-param modelCapacity int = 30
+param modelCapacity int = 300
 
 // Second model deployment parameters (for web search)
 param webSearchModelName string = 'gpt-4.1-mini'
 param webSearchModelVersion string = '2025-04-14'
-param webSearchModelCapacity int = 30
+param webSearchModelCapacity int = 2000  // 2M TPM (2000 units = 2,000,000 tokens per minute)
 
 // Bing grounding parameters
 param bingAccountName string
