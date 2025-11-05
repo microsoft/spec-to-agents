@@ -50,6 +50,7 @@ if os.getenv("ENABLE_OTEL", "false").lower() == "true":
     setup_observability()
 
 logging.getLogger("agent_framework._workflows._validation").setLevel(logging.ERROR)
+logging.getLogger("mcp").setLevel(logging.ERROR)
 
 
 async def main() -> None:
@@ -90,7 +91,7 @@ async def main() -> None:
             return
 
         console.print()
-        console.rule("[bold green]Workflow Execution")
+        console.rule("[bold gray]Workflow Execution")
         console.print()
 
         # Configuration: Toggle to display streaming agent run updates
@@ -102,7 +103,7 @@ async def main() -> None:
         pending_responses: dict[str, str] | None = None
         workflow_output: str | None = None
 
-        # Track printed tool calls/results to avoid duplication in streaming
+        # Track printed tool calls/results/code blocks to avoid duplication in streaming
         printed_tool_calls: set[str] = set()
         printed_tool_results: set[str] = set()
         last_executor: str | None = None

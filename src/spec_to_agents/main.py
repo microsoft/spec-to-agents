@@ -1,13 +1,16 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import os
+
 from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
 # Load environment variables at module import
 load_dotenv()
 
-# Enable observability (reads from environment variables)
-setup_observability()
+# Enable observability conditionally based on ENABLE_OTEL env var
+if os.getenv("ENABLE_OTEL", "false").lower() == "true":
+    setup_observability()
 
 
 def main() -> None:
