@@ -26,8 +26,8 @@ def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> C
 
     Notes
     -----
-    Venue specialist returns natural text responses, not structured output.
-    The coordinator agent will analyze the text to make routing decisions.
+    Venue specialist returns natural text responses. The coordinator agent
+    analyzes these responses and makes routing decisions.
 
     Uses custom web_search @ai_function instead of HostedWebSearchTool for
     better control over response formatting for language models.

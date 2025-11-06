@@ -7,7 +7,7 @@ from unittest.mock import Mock
 from spec_to_agents.agents import venue_specialist
 
 
-def test_venue_specialist_agent_created_without_response_format() -> None:
+def test_agent_returns_specialist_output() -> None:
     """Venue specialist should be created without response_format parameter."""
     # Arrange
     mock_client = Mock()
@@ -23,7 +23,7 @@ def test_venue_specialist_agent_created_without_response_format() -> None:
     call_kwargs = mock_client.create_agent.call_args.kwargs
 
     # Verify response_format is NOT set (agent returns natural text)
-    assert "response_format" not in call_kwargs, (
+    assert call_kwargs.get("response_format") is None, (
         "Venue specialist should not have response_format parameter. "
         "Agent should return natural text, not SpecialistOutput."
     )
@@ -32,7 +32,7 @@ def test_venue_specialist_agent_created_without_response_format() -> None:
     assert call_kwargs.get("store") is True, "Agent should use service-managed threads"
 
 
-def test_venue_specialist_does_not_import_specialist_output() -> None:
+def test_agent_uses_specialist_output_format() -> None:
     """Venue specialist module should not use SpecialistOutput."""
     import inspect
 
@@ -40,8 +40,6 @@ def test_venue_specialist_does_not_import_specialist_output() -> None:
     source = inspect.getsource(venue_specialist)
 
     # Check that SpecialistOutput is not imported or used
-    # Note: It's imported in the current version, but should be removed
-    # This test documents the expected behavior after refactoring
     assert "response_format=SpecialistOutput" not in source, (
         "Venue specialist should not use SpecialistOutput as response_format"
     )

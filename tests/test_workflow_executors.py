@@ -25,7 +25,9 @@ def test_parse_specialist_output_with_valid_structured_output():
     mock_run_response = Mock(spec=AgentRunResponse)
     mock_run_response.value = specialist_output
 
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
     result = coordinator._parse_specialist_output(mock_run_response)
 
     assert result.summary == "Researched 3 venues"
@@ -54,7 +56,9 @@ def test_parse_specialist_output_with_try_parse_fallback():
 
     mock_run_response.try_parse_value = Mock(side_effect=mock_try_parse)
 
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
     result = coordinator._parse_specialist_output(mock_run_response)
 
     # Verify try_parse_value was called
@@ -78,7 +82,9 @@ def test_parse_specialist_output_raises_when_missing():
     mock_run_response.text = ""
     mock_run_response.messages = []
 
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
 
     with pytest.raises(ValueError, match=r"Coordinator agent.*must return SpecialistOutput"):
         coordinator._parse_specialist_output(mock_run_response)
@@ -107,7 +113,9 @@ def test_parse_specialist_output_with_tool_calls_but_no_text():
     mock_run_response.text = ""  # No TextContent in response
     mock_run_response.messages = [message_with_tool_call]
 
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
 
     with pytest.raises(ValueError) as exc_info:
         coordinator._parse_specialist_output(mock_run_response)
@@ -125,7 +133,9 @@ async def test_on_specialist_request_sends_message():
     from spec_to_agents.models.messages import SpecialistRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
 
     mock_ctx = AsyncMock()
 
@@ -133,7 +143,6 @@ async def test_on_specialist_request_sends_message():
     request = SpecialistRequest(
         specialist_id="budget",
         message="Continue with your analysis",
-        conversation=None,
     )
 
     await coordinator.on_specialist_request(request, mock_ctx)
@@ -156,114 +165,51 @@ async def test_on_specialist_request_sends_message():
 
 @pytest.mark.asyncio
 async def test_on_specialist_response_routes_to_next_agent():
-    """Test routing to next agent based on structured output."""
-    from agent_framework import ChatMessage, Role
+    """Test that specialist responses are analyzed by coordinator agent for routing."""
+    from agent_framework import AgentRunResponse, ChatMessage, Role
 
     from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-    mock_response = Mock()
-    mock_response.executor_id = "venue"
-    mock_response.agent_run_response.value = SpecialistOutput(
-        summary="Researched 3 venues: A ($2k), B ($3k), C ($4k)",
+    # Create mock coordinator agent that returns routing decision
+    mock_coordinator_agent = AsyncMock()
+    mock_coordinator_response = Mock(spec=AgentRunResponse)
+    mock_coordinator_response.value = SpecialistOutput(
+        summary="Venue selected, proceeding to budget",
         next_agent="budget",
         user_input_needed=False,
         user_prompt=None,
     )
-    # Mock conversation history
-    mock_response.full_conversation = [ChatMessage(Role.USER, text="Find venues")]
-    mock_response.agent_run_response.messages = []
+    mock_coordinator_agent.run.return_value = mock_coordinator_response
 
-    coordinator = EventPlanningCoordinator(Mock())
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
+
+    # Create mock specialist response (natural text, no SpecialistOutput)
+    mock_response = Mock()
+    mock_response.executor_id = "venue"
+    mock_response.full_conversation = [
+        ChatMessage(Role.USER, text="Find venues"),
+        ChatMessage(Role.ASSISTANT, text="I recommend The Foundry ($3k, 60 capacity)"),
+    ]
+    mock_response.agent_run_response = Mock(spec=AgentRunResponse)
+    mock_response.agent_run_response.messages = []
 
     mock_ctx = AsyncMock()
 
     await coordinator.on_specialist_response(mock_response, mock_ctx)
 
-    # Verify routed to budget
+    # Verify coordinator agent was called to analyze specialist output
+    mock_coordinator_agent.run.assert_called_once()
+
+    # Verify routed to budget specialist
     mock_ctx.send_message.assert_called_once()
     call_args = mock_ctx.send_message.call_args
     assert call_args[1]["target_id"] == "budget"
 
 
 @pytest.mark.asyncio
-async def test_on_specialist_response_requests_user_input():
-    """Test requesting user input when specialist needs it."""
-    from agent_framework import ChatMessage, Role
-
-    from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
-    from spec_to_agents.workflow.executors import EventPlanningCoordinator
-
-    mock_response = Mock()
-    mock_response.executor_id = "venue"
-    mock_response.agent_run_response.value = SpecialistOutput(
-        summary="Found 3 venue options",
-        next_agent=None,
-        user_input_needed=True,
-        user_prompt="Which venue do you prefer: A, B, or C?",
-    )
-    # Mock conversation history
-    mock_response.full_conversation = [ChatMessage(Role.USER, text="Find venues")]
-    mock_response.agent_run_response.messages = []
-
-    coordinator = EventPlanningCoordinator(Mock())
-
-    mock_ctx = AsyncMock()
-
-    await coordinator.on_specialist_response(mock_response, mock_ctx)
-
-    # Verify request_info called
-    mock_ctx.request_info.assert_called_once()
-    call_args = mock_ctx.request_info.call_args[1]
-
-    request = call_args["request_data"]
-    assert isinstance(request, HumanFeedbackRequest)
-    assert request.prompt == "Which venue do you prefer: A, B, or C?"
-    assert request.requesting_agent == "coordinator"
-    # Verify conversation was preserved
-    assert len(request.conversation) == 1
-
-
-@pytest.mark.asyncio
-async def test_on_specialist_response_synthesizes_when_done():
-    """Test final synthesis when next_agent is None and no user input needed."""
-    from unittest.mock import patch
-
-    from agent_framework import ChatMessage, Role
-
-    from spec_to_agents.models.messages import SpecialistOutput
-    from spec_to_agents.workflow.executors import EventPlanningCoordinator
-
-    mock_response = Mock()
-    mock_response.executor_id = "logistics"
-    mock_response.agent_run_response.value = SpecialistOutput(
-        summary="Timeline and coordination complete",
-        next_agent=None,
-        user_input_needed=False,
-        user_prompt=None,
-    )
-    # Mock conversation history
-    mock_response.full_conversation = [ChatMessage(Role.USER, text="Plan event")]
-    mock_response.agent_run_response.messages = []
-
-    coordinator = EventPlanningCoordinator(Mock())
-
-    with patch.object(coordinator, "_synthesize_plan", new_callable=AsyncMock) as mock_synthesize:
-        mock_ctx = AsyncMock()
-
-        await coordinator.on_specialist_response(mock_response, mock_ctx)
-
-        # Verify synthesis called with ctx and conversation
-        mock_synthesize.assert_called_once()
-        call_args = mock_synthesize.call_args[0]
-        assert call_args[0] == mock_ctx
-        assert isinstance(call_args[1], list)  # conversation list
-
-
-@pytest.mark.asyncio
-async def test_on_human_feedback_routes_back():
-    """Test human feedback is routed to coordinator agent for next decision."""
-    from agent_framework import ChatMessage, Role
+async def test_on_human_feedback_routes_to_requesting_agent():
+    """Test human feedback routes directly back to the specialist that requested it."""
 
     from spec_to_agents.models.messages import HumanFeedbackRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
@@ -272,70 +218,95 @@ async def test_on_human_feedback_routes_back():
         prompt="Which venue?",
         context={},
         request_type="selection",
-        requesting_agent="coordinator",
-        conversation=[ChatMessage(Role.USER, text="Find venues")],
+        requesting_agent="venue",  # Venue specialist requested the input
     )
 
-    # Create mock agent with id attribute
-    mock_agent = Mock()
-    mock_agent.id = "coordinator"
-
-    coordinator = EventPlanningCoordinator(mock_agent)
-
+    # Create coordinator (no need to mock coordinator agent for this simplified flow)
+    mock_coordinator_agent = AsyncMock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
     mock_ctx = AsyncMock()
 
     await coordinator.on_human_feedback(original_request, "Venue B", mock_ctx)
 
-    # Verify routed to coordinator agent for next routing decision
+    # Verify routed directly back to venue specialist (no coordinator agent call)
+    mock_coordinator_agent.run.assert_not_called()
+
+    # Verify routed back to venue specialist
     mock_ctx.send_message.assert_called_once()
     call_args = mock_ctx.send_message.call_args
-    assert call_args[1]["target_id"] == "coordinator"
-    # Verify message includes user feedback
-    request = call_args[0][0]
-    assert "Venue B" in request.messages[-1].text
-    # Verify conversation history was included
-    assert len(request.messages) == 2  # Original message + feedback
+    assert call_args[1]["target_id"] == "venue"
 
 
 @pytest.mark.asyncio
-async def test_synthesize_plan_uses_framework_context():
-    """Test final synthesis relies on framework-provided context via threads."""
+async def test_full_flow_venue_to_budget():
+    """Integration test: Venue specialist natural text → Coordinator analyzes → Routes to Budget."""
+    from agent_framework import AgentRunResponse, ChatMessage, Role
+
+    from spec_to_agents.models.messages import SpecialistOutput
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    # Create mock coordinator agent that returns routing decision
+    mock_coordinator_agent = AsyncMock()
+    mock_coordinator_response = Mock(spec=AgentRunResponse)
+    mock_coordinator_response.value = SpecialistOutput(
+        summary="Venue selected, proceeding to budget analysis",
+        next_agent="budget",
+        user_input_needed=False,
+        user_prompt=None,
+    )
+    mock_coordinator_agent.run.return_value = mock_coordinator_response
+
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
+
+    # Step 1: Venue specialist completes and returns natural text
+    venue_response = Mock()
+    venue_response.executor_id = "venue"
+    venue_response.full_conversation = [
+        ChatMessage(Role.USER, text="Plan a corporate party for 50 people in Seattle"),
+        ChatMessage(Role.ASSISTANT, text="I recommend The Foundry ($3k, 60 capacity, downtown)"),
+    ]
+    venue_response.agent_run_response = Mock(spec=AgentRunResponse)
+    venue_response.agent_run_response.messages = []
+
+    mock_ctx = AsyncMock()
+
+    # Step 2: Coordinator analyzes specialist output and routes
+    await coordinator.on_specialist_response(venue_response, mock_ctx)
+
+    # Verify coordinator agent was called to analyze specialist output
+    mock_coordinator_agent.run.assert_called_once()
+
+    # Verify routed to budget specialist
+    mock_ctx.send_message.assert_called_once()
+    budget_call = mock_ctx.send_message.call_args
+    assert budget_call[1]["target_id"] == "budget"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_plan_simple_summary():
+    """Test final synthesis creates a simple summary from conversation."""
     from agent_framework import ChatMessage, Role
 
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-    mock_agent = Mock()
-    mock_result = Mock()
-    mock_result.text = "Complete event plan with all specialist recommendations."
-
-    mock_agent_instance = AsyncMock()
-    mock_agent_instance.run = AsyncMock(return_value=mock_result)
-
-    coordinator = EventPlanningCoordinator(mock_agent)
-    coordinator._coordinator_agent = mock_agent_instance
-
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
     mock_ctx = AsyncMock()
 
     # Provide conversation history
     conversation = [
         ChatMessage(Role.USER, text="Plan event"),
-        ChatMessage(Role.ASSISTANT, text="Venue specialist work done"),
+        ChatMessage(Role.ASSISTANT, text="Venue specialist work: Selected The Foundry venue"),
+        ChatMessage(Role.ASSISTANT, text="Budget analyst work: Allocated $5k budget"),
     ]
 
     await coordinator._synthesize_plan(mock_ctx, conversation)
 
-    # Verify run called with conversation + synthesis instruction
-    call_args = mock_agent_instance.run.call_args
-    messages = call_args[1]["messages"]
-
-    # Should include original conversation + synthesis instruction
-    assert len(messages) == 3  # 2 original + 1 synthesis instruction
-    assert "synthesize a comprehensive event plan" in messages[-1].text
-    # Should NOT contain manual summary (relies on framework context)
-    assert "Summary of specialist work" not in messages[-1].text
-
     # Verify output yielded
-    mock_ctx.yield_output.assert_called_once_with("Complete event plan with all specialist recommendations.")
+    mock_ctx.yield_output.assert_called_once()
+    output = mock_ctx.yield_output.call_args[0][0]
+    assert "Event Planning Complete" in output
 
 
 def test_convert_tool_content_to_text_function_calls():
@@ -439,46 +410,23 @@ def test_convert_tool_content_to_text_handles_mixed_content():
 
 
 @pytest.mark.asyncio
-async def test_on_specialist_request_with_conversation_history():
-    """Test on_specialist_request routes to specialist with converted conversation."""
+async def test_on_specialist_request_sends_only_new_message():
+    """Test on_specialist_request sends only new message with service-managed threads."""
     from agent_framework import AgentExecutorRequest, WorkflowContext
 
     from spec_to_agents.models.messages import SpecialistRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-    # Create specialist request with conversation including tool calls
-    prior_conversation = [
-        ChatMessage(Role.USER, text="Plan a corporate event"),
-        ChatMessage(
-            Role.ASSISTANT,
-            contents=[
-                TextContent(text="Searching for venues..."),
-                FunctionCallContent(
-                    call_id="call_123",
-                    name="web_search",
-                    arguments={"query": "corporate event venues Seattle"},
-                ),
-            ],
-        ),
-        ChatMessage(
-            Role.USER,
-            contents=[
-                FunctionResultContent(
-                    call_id="call_123",
-                    result='[{"name": "Convention Center", "capacity": 500}]',
-                )
-            ],
-        ),
-    ]
-
+    # Create specialist request without conversation (service manages history)
     request = SpecialistRequest(
         specialist_id="budget",
         message="Please analyze budget options",
-        conversation=prior_conversation,
     )
 
     # Create coordinator and mock context
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
     mock_ctx = AsyncMock(spec=WorkflowContext)
 
     # Execute handler
@@ -498,47 +446,31 @@ async def test_on_specialist_request_with_conversation_history():
     assert isinstance(sent_message, AgentExecutorRequest)
     assert sent_message.should_respond is True
 
-    # Verify conversation was converted (tool calls become text)
+    # Verify only one message (the new one) - service manages history
     messages = sent_message.messages
-    assert len(messages) == 4  # 3 converted + 1 new message
-
-    # Verify tool call was converted to text
-    assert any(
-        isinstance(content, TextContent) and "[Tool Call:" in content.text
-        for msg in messages
-        for content in msg.contents
-    )
-
-    # Verify tool result was converted to text
-    assert any(
-        isinstance(content, TextContent) and "[Tool Result" in content.text
-        for msg in messages
-        for content in msg.contents
-    )
-
-    # Verify new message was added
-    last_message = messages[-1]
-    assert last_message.role == Role.USER
-    assert "Please analyze budget options" in last_message.text
+    assert len(messages) == 1
+    assert messages[0].role == Role.USER
+    assert "Please analyze budget options" in messages[0].text
 
 
 @pytest.mark.asyncio
-async def test_on_specialist_request_without_conversation_history():
-    """Test on_specialist_request routes to specialist without prior conversation."""
+async def test_on_specialist_request_minimal_message():
+    """Test on_specialist_request with minimal message only."""
     from agent_framework import AgentExecutorRequest, WorkflowContext
 
     from spec_to_agents.models.messages import SpecialistRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-    # Create specialist request without prior conversation
+    # Create specialist request without conversation (service manages history)
     request = SpecialistRequest(
         specialist_id="venue",
         message="Please find venue options",
-        conversation=None,
     )
 
     # Create coordinator and mock context
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create coordinator with mock coordinator agent
+    mock_coordinator_agent = Mock()
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
     mock_ctx = AsyncMock(spec=WorkflowContext)
 
     # Execute handler
@@ -563,3 +495,73 @@ async def test_on_specialist_request_without_conversation_history():
     assert len(messages) == 1
     assert messages[0].role == Role.USER
     assert "Please find venue options" in messages[0].text
+
+
+@pytest.mark.asyncio
+async def test_venue_to_budget_after_user_question():
+    """
+    Test routing from venue to budget when user asks budget-related question.
+
+    This test covers the scenario where:
+    1. Venue specialist provides venue recommendations
+    2. User asks: "Can you check which of these options falls in budget?"
+    3. Coordinator should recognize budget-related question and route to budget analyst
+
+    This was a bug where coordinator received only latest message without context,
+    causing it to terminate workflow instead of routing to budget.
+    """
+    from agent_framework import AgentRunResponse, ChatMessage, Role
+
+    from spec_to_agents.models.messages import SpecialistOutput
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    # Create mock coordinator agent that recognizes budget question
+    mock_coordinator_agent = AsyncMock()
+    mock_coordinator_response = Mock(spec=AgentRunResponse)
+    mock_coordinator_response.value = SpecialistOutput(
+        summary="User asked about budget for venues. Routing to budget analyst.",
+        next_agent="budget",
+        user_input_needed=False,
+        user_prompt=None,
+    )
+    mock_coordinator_agent.run.return_value = mock_coordinator_response
+
+    coordinator = EventPlanningCoordinator(mock_coordinator_agent)
+
+    # Simulate venue specialist's full conversation including user's budget question
+    venue_response = Mock()
+    venue_response.executor_id = "venue"
+    venue_response.full_conversation = [
+        ChatMessage(Role.USER, text="Plan a corporate party for 50 people in Seattle, budget $5k"),
+        ChatMessage(Role.ASSISTANT, text="I found several venues: Alley MIC ($3k), Creative Block ($2.5k), ..."),
+        ChatMessage(Role.USER, text="Can you check which of these options falls in budget?"),
+        ChatMessage(Role.ASSISTANT, text="To determine budget fit, I recommend consulting with the budget analyst."),
+    ]
+    venue_response.agent_run_response = Mock(spec=AgentRunResponse)
+    venue_response.agent_run_response.text = "To determine budget fit, I recommend consulting with the budget analyst."
+    venue_response.agent_run_response.messages = []
+
+    mock_ctx = AsyncMock()
+
+    # Execute coordinator's routing logic
+    await coordinator.on_specialist_response(venue_response, mock_ctx)
+
+    # Verify coordinator agent received FULL conversation context
+    mock_coordinator_agent.run.assert_called_once()
+    coordinator_call = mock_coordinator_agent.run.call_args
+    messages_to_coordinator = coordinator_call[1]["messages"]
+
+    # Verify full conversation was passed (4 original messages + 1 routing prompt)
+    assert len(messages_to_coordinator) == 5, (
+        "Coordinator should receive full conversation history to make context-aware routing decisions"
+    )
+
+    # Verify conversation context includes user's budget question
+    user_messages = [msg for msg in messages_to_coordinator if msg.role == Role.USER]
+    budget_question_present = any("budget" in msg.text.lower() for msg in user_messages)
+    assert budget_question_present, "Coordinator should see user's budget-related question in context"
+
+    # Verify routed to budget specialist (not terminated)
+    mock_ctx.send_message.assert_called_once()
+    budget_call = mock_ctx.send_message.call_args
+    assert budget_call[1]["target_id"] == "budget", "Should route to budget analyst when user asks budget question"

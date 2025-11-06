@@ -39,14 +39,16 @@ def build_event_planning_workflow(
     Architecture
     ------------
     Uses coordinator-centric star topology with 5 executors:
-    - EventPlanningCoordinator: Manages routing and human-in-the-loop using service-managed threads
-    - VenueSpecialist: Venue research via custom web_search tool
-    - BudgetAnalyst: Financial planning via Code Interpreter
-    - CateringCoordinator: Food planning via custom web_search tool
-    - LogisticsManager: Scheduling, weather, calendar management
+    - EventPlanningCoordinator: Manages routing using coordinator agent (store=False for manual conversation management)
+    - VenueSpecialist: Venue research via custom web_search tool (store=True for service-managed threads)
+    - BudgetAnalyst: Financial planning via Code Interpreter (store=True for service-managed threads)
+    - CateringCoordinator: Food planning via custom web_search tool (store=True for service-managed threads)
+    - LogisticsManager: Scheduling, weather, calendar management (store=True for service-managed threads)
 
-    Conversation history is managed automatically by service-managed threads (store=True).
-    No manual message tracking or summarization overhead.
+    The coordinator agent uses store=False because it receives full conversation history
+    from specialists (who maintain their own service-managed threads). This prevents
+    conversation duplication that would occur if the coordinator stored its own thread
+    while also receiving full conversation context from specialists.
 
     Workflow Pattern
     ----------------
@@ -98,7 +100,7 @@ def build_event_planning_workflow(
     catering_agent = catering_coordinator.create_agent(client, mcp_tool)
     logistics_agent = logistics_manager.create_agent(client, mcp_tool)
 
-    # Create coordinator executor with routing logic
+    # Create coordinator executor with coordinator agent for routing
     coordinator = EventPlanningCoordinator(coordinator_agent)
 
     # Create specialist executors

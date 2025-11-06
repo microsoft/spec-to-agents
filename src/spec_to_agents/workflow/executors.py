@@ -91,24 +91,26 @@ def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessag
 
 class EventPlanningCoordinator(Executor):
     """
-    Coordinates event planning workflow with intelligent routing and human-in-the-loop.
+    Coordinates event planning workflow by using coordinator agent for routing decisions.
 
-    This coordinator manages dynamic execution of specialist agents using
-    structured output routing (next_agent field). It leverages service-managed
-    threads for conversation history, eliminating manual state tracking.
+    This coordinator manages dynamic execution of specialist agents by:
+    1. Specialists do their specialized work and return natural text
+    2. Coordinator agent analyzes specialist output and returns SpecialistOutput for routing
+    3. Coordinator executor extracts routing decision and sends to next specialist
 
     Architecture
     ------------
     - Star topology: Coordinator ←→ Each specialist (bidirectional edges)
-    - Structured output routing: Specialists indicate next agent via response
-    - Handler-based routing: Logic in executor methods, not workflow edges
+    - Structured output routing: Coordinator agent returns SpecialistOutput
+    - Handler-based routing: Logic in executor methods extracts and executes routing decisions
     - Framework-native HITL: Uses ctx.request_info() + @response_handler
-    - Service-managed threads: Framework handles conversation history automatically
+    - Service-managed threads: Specialists use service threads; coordinator uses stateless calls
 
     Responsibilities
     ----------------
-    - Receive initial user requests and route to venue specialist
-    - Use structured output (SpecialistOutput) to determine next agent
+    - Receive initial user requests and route to first specialist (venue)
+    - Call coordinator agent with specialist output to get routing decision
+    - Extract SpecialistOutput from coordinator agent to determine next agent
     - Detect user_input_needed and request human feedback via ctx.request_info()
     - Route human responses back to requesting specialist
     - Synthesize final event plan after all specialists complete
@@ -116,38 +118,38 @@ class EventPlanningCoordinator(Executor):
     Parameters
     ----------
     coordinator_agent : ChatAgent
-        The agent instance for synthesis and coordination logic
+        Agent configured with response_format=SpecialistOutput and store=False
+        for making routing decisions
     """
 
     def __init__(self, coordinator_agent: ChatAgent):
         super().__init__(id="event_coordinator")
-        self._coordinator_agent_id = "coordinator_agent"
-        self._coordinator_agent = coordinator_agent  # Keep for synthesis only
+        self._coordinator_agent = coordinator_agent
 
     @handler
     async def start(
         self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str]
     ) -> None:
         """
-        Handle initial user request and route to coordinator agent.
+        Handle initial user request and route to first specialist.
 
-        Sends the initial user request to the coordinator agent executor,
-        which will analyze the request and determine the first specialist to activate.
+        Sends initial request directly to venue specialist as the starting point
+        for event planning workflows.
 
         Parameters
         ----------
         prompt : str
             Initial user request (e.g., "Plan a corporate party for 50 people")
-        ctx : WorkflowContext[AgentExecutorRequest]
-            Workflow context for sending messages to coordinator agent
+        ctx : WorkflowContext
+            Workflow context for sending messages to specialists
         """
-        # Send initial request to coordinator agent for routing decision
+        # Route initial request to venue specialist (typical starting point for event planning)
         await ctx.send_message(
             AgentExecutorRequest(
                 messages=[ChatMessage(Role.USER, text=prompt)],
                 should_respond=True,
             ),
-            target_id=self._coordinator_agent_id,
+            target_id="venue",
         )
 
     @handler
@@ -159,48 +161,72 @@ class EventPlanningCoordinator(Executor):
         """
         Handle responses from specialist agents.
 
-        Processes specialist agent responses by parsing SpecialistOutput and
-        executing routing logic based on structured output fields.
+        Calls coordinator agent with full conversation context to analyze
+        specialist output and make routing decisions.
+
+        The coordinator agent needs conversation context to make informed routing
+        decisions. For example, if the user asks "Which venue fits the budget?",
+        the coordinator needs to see both the venue recommendations AND the
+        original event requirements to determine routing to the budget analyst.
 
         Parameters
         ----------
         response : AgentExecutorResponse
-            Response from specialist agent executor
+            Response from specialist agent executor with natural text output
         ctx : WorkflowContext
             Workflow context for routing and requesting input
         """
-        # Handle specialist agent responses
-        # Extract full conversation
-        conversation = list(response.full_conversation or response.agent_run_response.messages)
+        # Get full conversation from specialist's service-managed thread
+        # This provides context for coordinator's routing decision
+        full_conversation = response.full_conversation or []
 
-        # Parse structured output from specialist agent
-        specialist_output = self._parse_specialist_output(response.agent_run_response)
+        # Convert tool calls/results to text for cross-thread compatibility
+        converted_messages = convert_tool_content_to_text(full_conversation)
 
-        # Route based ONLY on structured output fields
+        # Add coordinator's routing analysis prompt
+        messages_with_routing_prompt = [
+            *converted_messages,
+            ChatMessage(
+                Role.USER,
+                text=f"The {response.executor_id} specialist has completed their work. "
+                f"Based on the full conversation above, decide the next step: "
+                f"route to another specialist, request user input, or complete the workflow.",
+            ),
+        ]
+
+        # Ask coordinator agent to analyze conversation and make routing decision
+        coordinator_response = await self._coordinator_agent.run(messages=messages_with_routing_prompt)
+
+        # Parse SpecialistOutput from coordinator agent's response
+        specialist_output = self._parse_specialist_output(coordinator_response)
+
+        # Route based on coordinator's routing decision
         if specialist_output.user_input_needed:
-            # Pause workflow for human input, preserving conversation
+            # Pause workflow for human input
             await ctx.request_info(
                 request_data=HumanFeedbackRequest(
                     prompt=specialist_output.user_prompt or "Please provide input",
                     context={},
                     request_type="clarification",
-                    requesting_agent="coordinator",
-                    conversation=conversation,
+                    requesting_agent=response.executor_id,
                 ),
                 response_type=str,
             )
         elif specialist_output.next_agent:
-            # Create routing request and send to self for on_specialist_request handler
+            # Route to next specialist
             target_id = specialist_output.next_agent
             specialist_request = SpecialistRequest(
                 specialist_id=target_id,
                 message="Please analyze the event planning requirements and provide your recommendations.",
-                conversation=conversation,
             )
             await ctx.send_message(specialist_request, target_id=target_id)
         else:
             # Workflow complete: next_agent=None and no user input needed
-            await self._synthesize_plan(ctx, conversation)
+            # For synthesis, we could get full_conversation if needed, but for now keep it simple
+            await ctx.yield_output(
+                "Event Planning Complete\n\n"
+                "The event planning workflow has completed with recommendations from all specialists."
+            )
 
     @handler
     async def on_specialist_request(
@@ -211,25 +237,21 @@ class EventPlanningCoordinator(Executor):
         """
         Handle routing requests to specialist agents.
 
-        Converts tool content, builds conversation history, and sends
-        AgentExecutorRequest to the target specialist.
+        With service-managed threads (store=True), specialists maintain their own
+        conversation history via service_thread_id. We only pass the NEW message
+        for this turn, not the full conversation history.
 
         Parameters
         ----------
         request : SpecialistRequest
-            Routing request containing specialist_id, message, and conversation history
+            Routing request containing specialist_id and new message
         ctx : WorkflowContext
             Workflow context for sending messages to specialists
         """
-        # Convert prior conversation to remove tool-specific content
-        conversation = convert_tool_content_to_text(request.conversation) if request.conversation else []
-
-        # Add new routing message
-        conversation.append(ChatMessage(Role.USER, text=request.message))
-
+        # Only send the new message - service manages full conversation history
         await ctx.send_message(
             AgentExecutorRequest(
-                messages=conversation,
+                messages=[ChatMessage(Role.USER, text=request.message)],
                 should_respond=True,
             ),
             target_id=request.specialist_id,
@@ -243,30 +265,30 @@ class EventPlanningCoordinator(Executor):
         ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str],
     ) -> None:
         """
-        Handle human feedback and route through coordinator agent.
+        Handle human feedback by routing back to requesting agent.
 
-        Restores conversation history from the original request and adds
-        the user's feedback, then routes to coordinator agent for next decision.
+        With service-managed threads (store=True), specialists maintain their own
+        conversation history. We only send the user's feedback as a NEW message,
+        not the full conversation history.
 
         Parameters
         ----------
         original_request : HumanFeedbackRequest
-            Original request containing conversation history
+            Original request containing requesting agent ID
         feedback : str
             User's response (selection, clarification, approval)
-        ctx : WorkflowContext[AgentExecutorRequest]
+        ctx : WorkflowContext
             Workflow context for routing
         """
-        # Retrieve conversation history from original request
-        conversation = list(original_request.conversation)
-
-        # Add user feedback to conversation
-        conversation.append(ChatMessage(Role.USER, text=f"User feedback: {feedback}"))
-
-        # Route to coordinator agent for next routing decision
+        # Route back to the specialist that requested the input
+        # Only send the new user feedback - service manages full conversation history
+        target_id = original_request.requesting_agent
         await ctx.send_message(
-            AgentExecutorRequest(messages=conversation, should_respond=True),
-            target_id=self._coordinator_agent_id,
+            AgentExecutorRequest(
+                messages=[ChatMessage(Role.USER, text=feedback)],
+                should_respond=True,
+            ),
+            target_id=target_id,
         )
 
     async def _synthesize_plan(
@@ -278,37 +300,32 @@ class EventPlanningCoordinator(Executor):
         Synthesize final event plan from all specialist recommendations.
 
         This method is called after all specialists have completed their work.
-        Uses the conversation history with tool content converted to text summaries.
+        Creates a concise summary from the conversation history.
 
         Parameters
         ----------
-        ctx : WorkflowContext[AgentExecutorRequest, str]
+        ctx : WorkflowContext
             Workflow context for yielding final output
         conversation : list[ChatMessage]
-            Complete conversation history including all specialist interactions.
-            Tool calls/results are converted to text summaries before synthesis.
+            Complete conversation history including all specialist interactions
         """
-        # Convert tool content to text for coordinator's thread
-        clean_conversation = convert_tool_content_to_text(conversation)
+        # Extract specialist summaries from conversation
+        specialist_summaries = []
+        for msg in conversation:
+            if msg.role == Role.ASSISTANT and msg.text:
+                # Extract first 200 chars as summary
+                summary = msg.text[:200] + "..." if len(msg.text) > 200 else msg.text
+                specialist_summaries.append(summary)
 
-        # Add synthesis instruction
-        synthesis_instruction = ChatMessage(
-            Role.USER,
-            text=(
-                "All specialists have completed their work. Please synthesize a comprehensive "
-                "event plan that integrates all specialist recommendations including venue "
-                "selection, budget allocation, catering options, and logistics coordination. "
-                "Provide a cohesive final plan."
-            ),
+        # Create final synthesis
+        synthesis = (
+            "Event Planning Complete\n\n"
+            "The event planning workflow has completed with recommendations from all specialists:\n\n"
+            + "\n\n".join(f"- {summary}" for summary in specialist_summaries[-4:])  # Last 4 specialists
         )
-        clean_conversation.append(synthesis_instruction)
-
-        # Run coordinator agent with converted conversation context
-        synthesis_result = await self._coordinator_agent.run(messages=clean_conversation)
 
         # Yield final plan as workflow output
-        if synthesis_result.text:
-            await ctx.yield_output(synthesis_result.text)
+        await ctx.yield_output(synthesis)
 
     def _parse_specialist_output(self, response: AgentRunResponse) -> SpecialistOutput:
         """

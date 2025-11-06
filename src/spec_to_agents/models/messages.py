@@ -2,10 +2,9 @@
 
 """Custom message types for workflow human-in-the-loop interactions."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from agent_framework import ChatMessage
 from pydantic import BaseModel, Field
 
 
@@ -17,6 +16,9 @@ class HumanFeedbackRequest:
     This dataclass is used with ctx.request_info() to pause the workflow
     and request clarification, selection, or approval from the user.
 
+    With service-managed threads (store=True), specialists maintain their own
+    conversation history, so we only need to track which agent requested input.
+
     Attributes
     ----------
     prompt : str
@@ -27,9 +29,6 @@ class HumanFeedbackRequest:
         Category of request (e.g., "clarification", "selection", "approval")
     requesting_agent : str
         ID of the specialist agent that requested this input
-    conversation : list[ChatMessage]
-        Full conversation history up to this point, used to restore context
-        when routing back to the requesting agent after human feedback
 
     Examples
     --------
@@ -38,7 +37,6 @@ class HumanFeedbackRequest:
     ...     context={"venues": [{"name": "Venue A", "capacity": 50}]},
     ...     request_type="selection",
     ...     requesting_agent="venue",
-    ...     conversation=[ChatMessage(Role.USER, text="Plan a party")],
     ... )
     """
 
@@ -46,7 +44,6 @@ class HumanFeedbackRequest:
     context: dict[str, Any]
     request_type: str
     requesting_agent: str
-    conversation: list[ChatMessage] = field(default_factory=list)
 
 
 @dataclass
@@ -57,28 +54,26 @@ class SpecialistRequest:
     This message type separates routing decisions (made by coordinator)
     from routing execution (handled by on_specialist_request handler).
 
+    With service-managed threads (store=True), specialists maintain their own
+    conversation history, so we only pass the new message.
+
     Attributes
     ----------
     specialist_id : str
         ID of specialist to route to ("venue", "budget", "catering", "logistics")
     message : str
         New message/context to send to specialist
-    prior_conversation : list[ChatMessage] | None
-        Previous conversation history to preserve. Tool calls/results will be
-        converted to text summaries when routing to avoid thread ID conflicts.
 
     Examples
     --------
     >>> SpecialistRequest(
     ...     specialist_id="venue",
-    ...     message="Please analyze venue options",
-    ...     prior_conversation=[ChatMessage(Role.USER, text="Plan a party")],
+    ...     message="Please analyze venue options for the event",
     ... )
     """
 
     specialist_id: str
     message: str
-    prior_conversation: list[ChatMessage] | None = None
 
 
 class SpecialistOutput(BaseModel):

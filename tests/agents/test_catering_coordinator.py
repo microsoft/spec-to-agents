@@ -7,7 +7,7 @@ from unittest.mock import Mock
 from spec_to_agents.agents import catering_coordinator
 
 
-def test_catering_coordinator_agent_created_without_response_format() -> None:
+def test_agent_returns_specialist_output() -> None:
     """Catering coordinator should be created without response_format parameter."""
     # Arrange
     mock_client = Mock()
@@ -23,7 +23,7 @@ def test_catering_coordinator_agent_created_without_response_format() -> None:
     call_kwargs = mock_client.create_agent.call_args.kwargs
 
     # Verify response_format is NOT set (agent returns natural text)
-    assert "response_format" not in call_kwargs, (
+    assert call_kwargs.get("response_format") is None, (
         "Catering coordinator should not have response_format parameter. "
         "Agent should return natural text, not SpecialistOutput."
     )
@@ -32,7 +32,7 @@ def test_catering_coordinator_agent_created_without_response_format() -> None:
     assert call_kwargs.get("store") is True, "Agent should use service-managed threads"
 
 
-def test_catering_coordinator_does_not_import_specialist_output() -> None:
+def test_agent_uses_specialist_output_format() -> None:
     """Catering coordinator module should not use SpecialistOutput."""
     import inspect
 

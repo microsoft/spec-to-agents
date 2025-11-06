@@ -48,10 +48,11 @@ def test_workflow_uses_star_topology() -> None:
 
 def test_coordinator_uses_service_managed_threads() -> None:
     """
-    Test that coordinator uses service-managed threads (no manual state tracking).
+    Test that coordinator uses coordinator agent for routing decisions.
 
-    After refactoring to use service-managed threads:
-    - Should have _agent (agent for synthesis and coordination)
+    In the new architecture:
+    - Should have _coordinator_agent (agent that analyzes specialist output and returns SpecialistOutput)
+    - Should have _parse_specialist_output (method to parse coordinator agent's routing decisions)
     - Should NOT have _summarizer (removed)
     - Should NOT have _current_summary (removed)
     - Should NOT have _conversation_history (removed)
@@ -71,9 +72,9 @@ def test_coordinator_uses_service_managed_threads() -> None:
 
     assert coordinator is not None, "Coordinator not found in workflow"
 
-    # Should have only the coordinator agent
-    assert hasattr(coordinator, "_coordinator_agent"), "Coordinator should have _coordinator_agent attribute"
-    assert coordinator._coordinator_agent is not None, "Coordinator _coordinator_agent should not be None"
+    # Coordinator should have coordinator agent for routing decisions
+    assert hasattr(coordinator, "_coordinator_agent"), "Coordinator should have _coordinator_agent for routing"
+    assert hasattr(coordinator, "_parse_specialist_output"), "Coordinator should parse SpecialistOutput"
 
     # Should NOT have manual state tracking
     assert not hasattr(coordinator, "_summarizer"), "Coordinator should not have _summarizer (removed)"
