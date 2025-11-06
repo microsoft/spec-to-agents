@@ -12,7 +12,7 @@ from spec_to_agents.workflow.executors import convert_tool_content_to_text
 
 def test_parse_specialist_output_with_valid_structured_output():
     """Test parsing SpecialistOutput from agent response."""
-    from agent_framework import AgentExecutorResponse, AgentRunResponse
+    from agent_framework import AgentRunResponse
 
     from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
@@ -25,11 +25,8 @@ def test_parse_specialist_output_with_valid_structured_output():
     mock_run_response = Mock(spec=AgentRunResponse)
     mock_run_response.value = specialist_output
 
-    mock_response = Mock(spec=AgentExecutorResponse)
-    mock_response.agent_run_response = mock_run_response
-
     coordinator = EventPlanningCoordinator(Mock())
-    result = coordinator._parse_specialist_output(mock_response)
+    result = coordinator._parse_specialist_output(mock_run_response)
 
     assert result.summary == "Researched 3 venues"
     assert result.next_agent == "budget"
@@ -38,7 +35,7 @@ def test_parse_specialist_output_with_valid_structured_output():
 
 def test_parse_specialist_output_with_try_parse_fallback():
     """Test parsing with try_parse_value fallback when value is None."""
-    from agent_framework import AgentExecutorResponse, AgentRunResponse
+    from agent_framework import AgentRunResponse
 
     from spec_to_agents.models.messages import SpecialistOutput
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
@@ -57,11 +54,8 @@ def test_parse_specialist_output_with_try_parse_fallback():
 
     mock_run_response.try_parse_value = Mock(side_effect=mock_try_parse)
 
-    mock_response = Mock(spec=AgentExecutorResponse)
-    mock_response.agent_run_response = mock_run_response
-
     coordinator = EventPlanningCoordinator(Mock())
-    result = coordinator._parse_specialist_output(mock_response)
+    result = coordinator._parse_specialist_output(mock_run_response)
 
     # Verify try_parse_value was called
     mock_run_response.try_parse_value.assert_called_once()
@@ -74,7 +68,7 @@ def test_parse_specialist_output_with_try_parse_fallback():
 
 def test_parse_specialist_output_raises_when_missing():
     """Test error raised when no structured output present even after try_parse_value."""
-    from agent_framework import AgentExecutorResponse, AgentRunResponse
+    from agent_framework import AgentRunResponse
 
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
@@ -84,19 +78,15 @@ def test_parse_specialist_output_raises_when_missing():
     mock_run_response.text = ""
     mock_run_response.messages = []
 
-    mock_response = Mock(spec=AgentExecutorResponse)
-    mock_response.agent_run_response = mock_run_response
-    mock_response.executor_id = "test_specialist"
-
     coordinator = EventPlanningCoordinator(Mock())
 
-    with pytest.raises(ValueError, match=r"Specialist.*must return SpecialistOutput"):
-        coordinator._parse_specialist_output(mock_response)
+    with pytest.raises(ValueError, match=r"Coordinator agent.*must return SpecialistOutput"):
+        coordinator._parse_specialist_output(mock_run_response)
 
 
 def test_parse_specialist_output_with_tool_calls_but_no_text():
     """Test error when agent makes tool calls but doesn't generate final structured output."""
-    from agent_framework import AgentExecutorResponse, AgentRunResponse, ChatMessage, FunctionCallContent, Role
+    from agent_framework import AgentRunResponse, ChatMessage, FunctionCallContent, Role
 
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
@@ -117,45 +107,48 @@ def test_parse_specialist_output_with_tool_calls_but_no_text():
     mock_run_response.text = ""  # No TextContent in response
     mock_run_response.messages = [message_with_tool_call]
 
-    mock_response = Mock(spec=AgentExecutorResponse)
-    mock_response.agent_run_response = mock_run_response
-    mock_response.executor_id = "venue"
-
     coordinator = EventPlanningCoordinator(Mock())
 
     with pytest.raises(ValueError) as exc_info:
-        coordinator._parse_specialist_output(mock_response)
+        coordinator._parse_specialist_output(mock_run_response)
 
     error_msg = str(exc_info.value)
     # Verify error includes debugging info about tool calls
-    assert "venue" in error_msg
     assert "(empty)" in error_msg or "empty" in error_msg.lower()
 
 
 @pytest.mark.asyncio
-async def test_route_to_agent_sends_single_message():
-    """Test routing sends only new message (framework provides history via threads)."""
+async def test_on_specialist_request_sends_message():
+    """Test on_specialist_request sends message to specialist."""
     from agent_framework import AgentExecutorRequest, Role
 
+    from spec_to_agents.models.messages import SpecialistRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
     coordinator = EventPlanningCoordinator(Mock())
 
     mock_ctx = AsyncMock()
 
-    await coordinator._route_to_agent("budget", "Continue with your analysis", mock_ctx)
+    # Create specialist request
+    request = SpecialistRequest(
+        specialist_id="budget",
+        message="Continue with your analysis",
+        conversation=None,
+    )
+
+    await coordinator.on_specialist_request(request, mock_ctx)
 
     mock_ctx.send_message.assert_called_once()
     call_args = mock_ctx.send_message.call_args
 
     # Verify AgentExecutorRequest with single message
-    request = call_args[0][0]
-    assert isinstance(request, AgentExecutorRequest)
+    sent_request = call_args[0][0]
+    assert isinstance(sent_request, AgentExecutorRequest)
     # Should only include new message (framework provides history)
-    assert len(request.messages) == 1
-    assert request.messages[0].text == "Continue with your analysis"
-    assert request.messages[0].role == Role.USER
-    assert request.should_respond is True
+    assert len(sent_request.messages) == 1
+    assert sent_request.messages[0].text == "Continue with your analysis"
+    assert sent_request.messages[0].role == Role.USER
+    assert sent_request.should_respond is True
 
     # Verify target_id
     assert call_args[1]["target_id"] == "budget"
@@ -226,7 +219,9 @@ async def test_on_specialist_response_requests_user_input():
     request = call_args["request_data"]
     assert isinstance(request, HumanFeedbackRequest)
     assert request.prompt == "Which venue do you prefer: A, B, or C?"
-    assert request.requesting_agent == "venue"
+    assert request.requesting_agent == "coordinator"
+    # Verify conversation was preserved
+    assert len(request.conversation) == 1
 
 
 @pytest.mark.asyncio
@@ -267,12 +262,18 @@ async def test_on_specialist_response_synthesizes_when_done():
 
 @pytest.mark.asyncio
 async def test_on_human_feedback_routes_back():
-    """Test human feedback is routed back to requester."""
+    """Test human feedback is routed to coordinator agent for next decision."""
+    from agent_framework import ChatMessage, Role
+
     from spec_to_agents.models.messages import HumanFeedbackRequest
     from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
     original_request = HumanFeedbackRequest(
-        prompt="Which venue?", context={}, request_type="selection", requesting_agent="venue"
+        prompt="Which venue?",
+        context={},
+        request_type="selection",
+        requesting_agent="coordinator",
+        conversation=[ChatMessage(Role.USER, text="Find venues")],
     )
 
     coordinator = EventPlanningCoordinator(Mock())
@@ -281,13 +282,15 @@ async def test_on_human_feedback_routes_back():
 
     await coordinator.on_human_feedback(original_request, "Venue B", mock_ctx)
 
-    # Verify routed back to venue specialist
+    # Verify routed to coordinator agent for next routing decision
     mock_ctx.send_message.assert_called_once()
     call_args = mock_ctx.send_message.call_args
-    assert call_args[1]["target_id"] == "venue"
+    assert call_args[1]["target_id"] == "coordinator_agent"
     # Verify message includes user feedback
     request = call_args[0][0]
-    assert "Venue B" in request.messages[0].text
+    assert "Venue B" in request.messages[-1].text
+    # Verify conversation history was included
+    assert len(request.messages) == 2  # Original message + feedback
 
 
 @pytest.mark.asyncio
@@ -305,7 +308,7 @@ async def test_synthesize_plan_uses_framework_context():
     mock_agent_instance.run = AsyncMock(return_value=mock_result)
 
     coordinator = EventPlanningCoordinator(mock_agent)
-    coordinator._agent = mock_agent_instance
+    coordinator._coordinator_agent = mock_agent_instance
 
     mock_ctx = AsyncMock()
 
