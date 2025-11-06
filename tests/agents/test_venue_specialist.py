@@ -7,7 +7,7 @@ from unittest.mock import Mock
 from spec_to_agents.agents import venue_specialist
 
 
-def test_venue_specialist_agent_created_without_response_format():
+def test_venue_specialist_agent_created_without_response_format() -> None:
     """Venue specialist should be created without response_format parameter."""
     # Arrange
     mock_client = Mock()
@@ -32,7 +32,7 @@ def test_venue_specialist_agent_created_without_response_format():
     assert call_kwargs.get("store") is True, "Agent should use service-managed threads"
 
 
-def test_venue_specialist_does_not_import_specialist_output():
+def test_venue_specialist_does_not_import_specialist_output() -> None:
     """Venue specialist module should not use SpecialistOutput."""
     import inspect
 
