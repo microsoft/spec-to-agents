@@ -429,3 +429,130 @@ def test_convert_tool_content_to_text_handles_mixed_content():
     assert len(converted[2].contents) == 1
     assert isinstance(converted[2].contents[0], TextContent)
     assert converted[2].contents[0].text == "Found results!"
+
+
+@pytest.mark.asyncio
+async def test_on_specialist_request_with_conversation_history():
+    """Test on_specialist_request routes to specialist with converted conversation."""
+    from agent_framework import AgentExecutorRequest, WorkflowContext
+
+    from spec_to_agents.models.messages import SpecialistRequest
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    # Create specialist request with conversation including tool calls
+    prior_conversation = [
+        ChatMessage(Role.USER, text="Plan a corporate event"),
+        ChatMessage(
+            Role.ASSISTANT,
+            contents=[
+                TextContent(text="Searching for venues..."),
+                FunctionCallContent(
+                    call_id="call_123",
+                    name="web_search",
+                    arguments={"query": "corporate event venues Seattle"},
+                ),
+            ],
+        ),
+        ChatMessage(
+            Role.USER,
+            contents=[
+                FunctionResultContent(
+                    call_id="call_123",
+                    result='[{"name": "Convention Center", "capacity": 500}]',
+                )
+            ],
+        ),
+    ]
+
+    request = SpecialistRequest(
+        specialist_id="budget",
+        message="Please analyze budget options",
+        conversation=prior_conversation,
+    )
+
+    # Create coordinator and mock context
+    coordinator = EventPlanningCoordinator(Mock())
+    mock_ctx = AsyncMock(spec=WorkflowContext)
+
+    # Execute handler
+    await coordinator.on_specialist_request(request, mock_ctx)
+
+    # Verify ctx.send_message was called once
+    assert mock_ctx.send_message.call_count == 1
+
+    # Extract the sent message
+    sent_message = mock_ctx.send_message.call_args[0][0]
+    target_id = mock_ctx.send_message.call_args[1]["target_id"]
+
+    # Verify target is correct specialist
+    assert target_id == "budget"
+
+    # Verify sent message is AgentExecutorRequest
+    assert isinstance(sent_message, AgentExecutorRequest)
+    assert sent_message.should_respond is True
+
+    # Verify conversation was converted (tool calls become text)
+    messages = sent_message.messages
+    assert len(messages) == 4  # 3 converted + 1 new message
+
+    # Verify tool call was converted to text
+    assert any(
+        isinstance(content, TextContent) and "[Tool Call:" in content.text
+        for msg in messages
+        for content in msg.contents
+    )
+
+    # Verify tool result was converted to text
+    assert any(
+        isinstance(content, TextContent) and "[Tool Result" in content.text
+        for msg in messages
+        for content in msg.contents
+    )
+
+    # Verify new message was added
+    last_message = messages[-1]
+    assert last_message.role == Role.USER
+    assert "Please analyze budget options" in last_message.text
+
+
+@pytest.mark.asyncio
+async def test_on_specialist_request_without_conversation_history():
+    """Test on_specialist_request routes to specialist without prior conversation."""
+    from agent_framework import AgentExecutorRequest, WorkflowContext
+
+    from spec_to_agents.models.messages import SpecialistRequest
+    from spec_to_agents.workflow.executors import EventPlanningCoordinator
+
+    # Create specialist request without prior conversation
+    request = SpecialistRequest(
+        specialist_id="venue",
+        message="Please find venue options",
+        conversation=None,
+    )
+
+    # Create coordinator and mock context
+    coordinator = EventPlanningCoordinator(Mock())
+    mock_ctx = AsyncMock(spec=WorkflowContext)
+
+    # Execute handler
+    await coordinator.on_specialist_request(request, mock_ctx)
+
+    # Verify ctx.send_message was called once
+    assert mock_ctx.send_message.call_count == 1
+
+    # Extract the sent message
+    sent_message = mock_ctx.send_message.call_args[0][0]
+    target_id = mock_ctx.send_message.call_args[1]["target_id"]
+
+    # Verify target is correct specialist
+    assert target_id == "venue"
+
+    # Verify sent message is AgentExecutorRequest
+    assert isinstance(sent_message, AgentExecutorRequest)
+    assert sent_message.should_respond is True
+
+    # Verify only one message (the new one)
+    messages = sent_message.messages
+    assert len(messages) == 1
+    assert messages[0].role == Role.USER
+    assert "Please find venue options" in messages[0].text
