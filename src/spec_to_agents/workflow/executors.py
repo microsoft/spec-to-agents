@@ -147,30 +147,29 @@ class EventPlanningCoordinator(Executor):
         )
 
     @handler
-    async def on_coordinator_response(
+    async def on_specialist_response(
         self,
         response: AgentExecutorResponse,
         ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str],
     ) -> None:
         """
-        Handle responses from both specialists and coordinator agent.
+        Handle responses from specialist agents.
 
-        Routes based on the executor_id:
-        - Specialists: Forward their work to coordinator agent for routing decision
-        - Coordinator agent: Parse structured output and execute routing logic
+        Processes specialist agent responses by parsing SpecialistOutput and
+        executing routing logic based on structured output fields.
 
         Parameters
         ----------
         response : AgentExecutorResponse
-            Response from any agent executor
-        ctx : WorkflowContext[AgentExecutorRequest, str]
+            Response from specialist agent executor
+        ctx : WorkflowContext
             Workflow context for routing and requesting input
         """
-        # Handle coordinator agent responses
+        # Handle specialist agent responses
         # Extract full conversation
         conversation = list(response.full_conversation or response.agent_run_response.messages)
 
-        # Parse structured output from coordinator agent
+        # Parse structured output from specialist agent
         specialist_output = self._parse_specialist_output(response.agent_run_response)
 
         # Route based ONLY on structured output fields
