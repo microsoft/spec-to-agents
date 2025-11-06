@@ -68,7 +68,7 @@ async def test_coordinator_start_routes_directly():
     # Act
     await coordinator.start("Plan a corporate event", ctx)
 
-    # Assert - should route to venue immediately
+    # Assert - should route to coordinator agent for routing decision
     ctx.send_message.assert_called_once()
     call_kwargs = ctx.send_message.call_args[1]
-    assert call_kwargs["target_id"] == "venue"
+    assert call_kwargs["target_id"] == "coordinator_agent"

@@ -26,7 +26,6 @@ from agent_framework import (
     WorkflowRunState,
     WorkflowStatusEvent,
 )
-from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
 from spec_to_agents.models.messages import HumanFeedbackRequest
@@ -47,7 +46,9 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 load_dotenv()
 
 # Enable observability (reads from environment variables)
-setup_observability()
+# Note: Uncomment the following line to enable observability
+# ruff: noqa: ERA001
+# setup_observability()
 
 
 async def main() -> None:

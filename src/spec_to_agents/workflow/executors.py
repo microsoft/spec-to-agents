@@ -3,6 +3,7 @@
 """Custom executors for event planning workflow with human-in-the-loop."""
 
 import json
+from typing import Any, Mapping
 
 from agent_framework import (
     AgentExecutorRequest,
@@ -10,6 +11,7 @@ from agent_framework import (
     AgentRunResponse,
     ChatAgent,
     ChatMessage,
+    Contents,
     Executor,
     FunctionCallContent,
     FunctionResultContent,
@@ -49,9 +51,9 @@ def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessag
     When routing between agents in a workflow, each agent has its own thread ID, so we must
     convert tool-related content to plain text to avoid thread ID conflicts.
     """
-    converted_messages = []
+    converted_messages: list[ChatMessage] = []
     for message in messages:
-        new_contents = []
+        new_contents: list[Contents | Mapping[str, Any]] = []
         for content in message.contents:
             if isinstance(content, FunctionCallContent):
                 # Convert function call to descriptive text
@@ -189,12 +191,13 @@ class EventPlanningCoordinator(Executor):
             )
         elif specialist_output.next_agent:
             # Create routing request and send to self for on_specialist_request handler
+            target_id = specialist_output.next_agent
             specialist_request = SpecialistRequest(
-                specialist_id=specialist_output.next_agent,
+                specialist_id=target_id,
                 message="Please analyze the event planning requirements and provide your recommendations.",
                 conversation=conversation,
             )
-            await ctx.send_message(specialist_request, target_id=self.id)
+            await ctx.send_message(specialist_request, target_id=target_id)
         else:
             # Workflow complete: next_agent=None and no user input needed
             await self._synthesize_plan(ctx, conversation)

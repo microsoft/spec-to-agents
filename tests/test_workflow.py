@@ -71,9 +71,9 @@ def test_coordinator_uses_service_managed_threads() -> None:
 
     assert coordinator is not None, "Coordinator not found in workflow"
 
-    # Should have only the agent
-    assert hasattr(coordinator, "_agent"), "Coordinator should have _agent attribute"
-    assert coordinator._agent is not None, "Coordinator _agent should not be None"
+    # Should have only the coordinator agent
+    assert hasattr(coordinator, "_coordinator_agent"), "Coordinator should have _coordinator_agent attribute"
+    assert coordinator._coordinator_agent is not None, "Coordinator _coordinator_agent should not be None"
 
     # Should NOT have manual state tracking
     assert not hasattr(coordinator, "_summarizer"), "Coordinator should not have _summarizer (removed)"
