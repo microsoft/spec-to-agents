@@ -150,7 +150,7 @@ class EventPlanningCoordinator(Executor):
     async def on_coordinator_response(
         self,
         response: AgentExecutorResponse,
-        ctx: WorkflowContext[AgentExecutorRequest, str],
+        ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str],
     ) -> None:
         """
         Handle responses from both specialists and coordinator agent.
@@ -187,13 +187,13 @@ class EventPlanningCoordinator(Executor):
                 response_type=str,
             )
         elif specialist_output.next_agent:
-            # Route to next specialist
-            await self._route_to_specialist(
-                specialist_output.next_agent,
-                "Please analyze the event planning requirements and provide your recommendations.",
-                ctx,
+            # Create routing request and send to self for on_specialist_request handler
+            specialist_request = SpecialistRequest(
+                specialist_id=specialist_output.next_agent,
+                message="Please analyze the event planning requirements and provide your recommendations.",
                 prior_conversation=conversation,
             )
+            await ctx.send_message(specialist_request, target_id=self.id)
         else:
             # Workflow complete: next_agent=None and no user input needed
             await self._synthesize_plan(ctx, conversation)
