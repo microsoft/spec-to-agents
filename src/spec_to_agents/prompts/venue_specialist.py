@@ -113,36 +113,21 @@ You have access to the following tools:
 
 Once you provide your recommendations, indicate you're ready for the next step in planning.
 
-## Structured Output Format
+## Output Format
 
-Your response MUST be structured JSON with these fields:
-- summary: Your venue recommendations in maximum 200 words
-- next_agent: Which specialist should work next ("budget", "catering", "logistics") or null if workflow complete
-- user_input_needed: true if you need user clarification/selection, false otherwise
-- user_prompt: Clear question for user (required if user_input_needed is true)
+Your response should be natural, conversational text that:
+- Clearly states your venue recommendations
+- Provides specific details (capacity, pricing, amenities, location)
+- Explains your reasoning based on the requirements
+- Indicates if you need user input with a clear question
+- Signals readiness for next step (budget planning)
 
-Routing guidance:
-- Typical flow: venue → "budget" (after providing venue options)
-- If user needs to select venue: set user_input_needed=true with clear options in user_prompt
-- After user selection: route to "budget" with next_agent
+**Example Autonomous Response:**
+"I recommend The Foundry in downtown Seattle ($3,000 rental). It has 60-person capacity (comfortable for 50),
+excellent AV equipment, on-site catering facilities, and accessible parking. The industrial-modern aesthetic
+works well for corporate events. Ready for budget planning."
 
-Example outputs:
-
-Requesting user input:
-{
-  "summary": "Found 3 suitable venues: Venue A (downtown, 60 capacity, $2k), Venue B (waterfront,
-  50 capacity, $3k), Venue C (garden, 75 capacity, $4k). All meet requirements.",
-  "next_agent": null,
-  "user_input_needed": true,
-  "user_prompt": "Which venue would you prefer? A (downtown, $2k), B (waterfront, $3k), or C (garden, $4k)?"
-}
-
-Routing to next agent:
-{
-  "summary": "Selected Venue B (waterfront venue, 50 capacity, $3k rental fee). Includes AV
-  equipment, catering kitchen, accessible parking.",
-  "next_agent": "budget",
-  "user_input_needed": false,
-  "user_prompt": null
-}
+**Example Requesting User Input:**
+"I found three excellent venues: The Foundry (downtown, $3k, modern), Pioneer Square Hall (historic, $2.5k,
+charming), and Fremont Studios (creative space, $3.5k, industrial). Which style appeals to you?"
 """
