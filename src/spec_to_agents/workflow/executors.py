@@ -123,7 +123,9 @@ class EventPlanningCoordinator(Executor):
         self._coordinator_agent = coordinator_agent  # Keep for synthesis only
 
     @handler
-    async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
+    async def start(
+        self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str]
+    ) -> None:
         """
         Handle initial user request and route to coordinator agent.
 
@@ -190,7 +192,7 @@ class EventPlanningCoordinator(Executor):
             specialist_request = SpecialistRequest(
                 specialist_id=specialist_output.next_agent,
                 message="Please analyze the event planning requirements and provide your recommendations.",
-                prior_conversation=conversation,
+                conversation=conversation,
             )
             await ctx.send_message(specialist_request, target_id=self.id)
         else:
@@ -217,7 +219,7 @@ class EventPlanningCoordinator(Executor):
             Workflow context for sending messages to specialists
         """
         # Convert prior conversation to remove tool-specific content
-        conversation = convert_tool_content_to_text(request.prior_conversation) if request.prior_conversation else []
+        conversation = convert_tool_content_to_text(request.conversation) if request.conversation else []
 
         # Add new routing message
         conversation.append(ChatMessage(Role.USER, text=request.message))
@@ -235,7 +237,7 @@ class EventPlanningCoordinator(Executor):
         self,
         original_request: HumanFeedbackRequest,
         feedback: str,
-        ctx: WorkflowContext[AgentExecutorRequest, str],
+        ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str],
     ) -> None:
         """
         Handle human feedback and route through coordinator agent.
@@ -266,7 +268,7 @@ class EventPlanningCoordinator(Executor):
 
     async def _synthesize_plan(
         self,
-        ctx: WorkflowContext[AgentExecutorRequest, str],
+        ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str],
         conversation: list[ChatMessage],
     ) -> None:
         """
