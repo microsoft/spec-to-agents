@@ -7,6 +7,7 @@ import json
 from agent_framework import (
     AgentExecutorRequest,
     AgentExecutorResponse,
+    AgentRunResponse,
     ChatAgent,
     ChatMessage,
     Executor,
@@ -19,7 +20,7 @@ from agent_framework import (
     response_handler,
 )
 
-from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
+from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput, SpecialistRequest
 
 
 def convert_tool_content_to_text(messages: list[ChatMessage]) -> list[ChatMessage]:
@@ -118,55 +119,59 @@ class EventPlanningCoordinator(Executor):
 
     def __init__(self, coordinator_agent: ChatAgent):
         super().__init__(id="event_coordinator")
-        self._agent = coordinator_agent
+        self._coordinator_agent_id = "coordinator_agent"
+        self._coordinator_agent = coordinator_agent  # Keep for synthesis only
 
     @handler
     async def start(self, prompt: str, ctx: WorkflowContext[AgentExecutorRequest, str]) -> None:
         """
-        Handle initial user request and route to venue specialist.
+        Handle initial user request and route to coordinator agent.
 
-        Creates the initial conversation with the user's request and routes
-        it to the venue specialist to begin the workflow.
+        Sends the initial user request to the coordinator agent executor,
+        which will analyze the request and determine the first specialist to activate.
 
         Parameters
         ----------
         prompt : str
             Initial user request (e.g., "Plan a corporate party for 50 people")
         ctx : WorkflowContext[AgentExecutorRequest]
-            Workflow context for sending messages to specialists
+            Workflow context for sending messages to coordinator agent
         """
-        # Route to venue specialist with user's initial request
-        # _route_to_agent will wrap it in a ChatMessage
-        await self._route_to_agent("venue", prompt, ctx)
+        # Send initial request to coordinator agent for routing decision
+        await ctx.send_message(
+            AgentExecutorRequest(
+                messages=[ChatMessage(Role.USER, text=prompt)],
+                should_respond=True,
+            ),
+            target_id=self._coordinator_agent_id,
+        )
 
     @handler
-    async def on_specialist_response(
+    async def on_coordinator_response(
         self,
         response: AgentExecutorResponse,
         ctx: WorkflowContext[AgentExecutorRequest, str],
     ) -> None:
         """
-        Handle specialist response and route based on structured output.
+        Handle responses from both specialists and coordinator agent.
 
-        Uses SpecialistOutput fields to determine routing:
-        - If user_input_needed=True: Pause for human input
-        - Elif next_agent is set: Route to that specialist
-        - Else: Synthesize final plan (workflow complete)
-
-        Extracts full_conversation from the response to pass context to next agent.
+        Routes based on the executor_id:
+        - Specialists: Forward their work to coordinator agent for routing decision
+        - Coordinator agent: Parse structured output and execute routing logic
 
         Parameters
         ----------
         response : AgentExecutorResponse
-            Response from specialist containing SpecialistOutput
+            Response from any agent executor
         ctx : WorkflowContext[AgentExecutorRequest, str]
             Workflow context for routing and requesting input
         """
-        # Parse structured output from specialist
-        specialist_output = self._parse_specialist_output(response)
-
-        # Extract full conversation from specialist response
+        # Handle coordinator agent responses
+        # Extract full conversation
         conversation = list(response.full_conversation or response.agent_run_response.messages)
+
+        # Parse structured output from coordinator agent
+        specialist_output = self._parse_specialist_output(response.agent_run_response)
 
         # Route based ONLY on structured output fields
         if specialist_output.user_input_needed:
@@ -176,26 +181,55 @@ class EventPlanningCoordinator(Executor):
                     prompt=specialist_output.user_prompt or "Please provide input",
                     context={},
                     request_type="clarification",
-                    requesting_agent=response.executor_id,
+                    requesting_agent="coordinator",
                     conversation=conversation,
                 ),
                 response_type=str,
             )
         elif specialist_output.next_agent:
-            # Route to next specialist with full conversation history
-            next_context = (
-                f"Previous specialist ({response.executor_id}) completed their analysis. "
-                f"Please review the conversation history and continue with your specialized analysis."
-            )
-            await self._route_to_agent(
+            # Route to next specialist
+            await self._route_to_specialist(
                 specialist_output.next_agent,
-                next_context,
+                "Please analyze the event planning requirements and provide your recommendations.",
                 ctx,
                 prior_conversation=conversation,
             )
         else:
             # Workflow complete: next_agent=None and no user input needed
             await self._synthesize_plan(ctx, conversation)
+
+    @handler
+    async def on_specialist_request(
+        self,
+        request: SpecialistRequest,
+        ctx: WorkflowContext[AgentExecutorRequest | SpecialistRequest | HumanFeedbackRequest, str],
+    ) -> None:
+        """
+        Handle routing requests to specialist agents.
+
+        Converts tool content, builds conversation history, and sends
+        AgentExecutorRequest to the target specialist.
+
+        Parameters
+        ----------
+        request : SpecialistRequest
+            Routing request containing specialist_id, message, and conversation history
+        ctx : WorkflowContext
+            Workflow context for sending messages to specialists
+        """
+        # Convert prior conversation to remove tool-specific content
+        conversation = convert_tool_content_to_text(request.prior_conversation) if request.prior_conversation else []
+
+        # Add new routing message
+        conversation.append(ChatMessage(Role.USER, text=request.message))
+
+        await ctx.send_message(
+            AgentExecutorRequest(
+                messages=conversation,
+                should_respond=True,
+            ),
+            target_id=request.specialist_id,
+        )
 
     @response_handler
     async def on_human_feedback(
@@ -205,15 +239,15 @@ class EventPlanningCoordinator(Executor):
         ctx: WorkflowContext[AgentExecutorRequest, str],
     ) -> None:
         """
-        Handle human feedback and route back to requesting specialist.
+        Handle human feedback and route through coordinator agent.
 
         Restores conversation history from the original request and adds
-        the user's feedback to continue the conversation.
+        the user's feedback, then routes to coordinator agent for next decision.
 
         Parameters
         ----------
         original_request : HumanFeedbackRequest
-            Original request containing requesting_agent ID and conversation history
+            Original request containing conversation history
         feedback : str
             User's response (selection, clarification, approval)
         ctx : WorkflowContext[AgentExecutorRequest]
@@ -222,15 +256,13 @@ class EventPlanningCoordinator(Executor):
         # Retrieve conversation history from original request
         conversation = list(original_request.conversation)
 
-        # Route back to specialist with feedback and full conversation history
-        feedback_context = (
-            f"User provided the following input: {feedback}\nPlease continue with your analysis based on this feedback."
-        )
-        await self._route_to_agent(
-            original_request.requesting_agent,
-            feedback_context,
-            ctx,
-            prior_conversation=conversation,
+        # Add user feedback to conversation
+        conversation.append(ChatMessage(Role.USER, text=f"User feedback: {feedback}"))
+
+        # Route to coordinator agent for next routing decision
+        await ctx.send_message(
+            AgentExecutorRequest(messages=conversation, should_respond=True),
+            target_id=self._coordinator_agent_id,
         )
 
     async def _synthesize_plan(
@@ -268,20 +300,20 @@ class EventPlanningCoordinator(Executor):
         clean_conversation.append(synthesis_instruction)
 
         # Run coordinator agent with converted conversation context
-        synthesis_result = await self._agent.run(messages=clean_conversation)
+        synthesis_result = await self._coordinator_agent.run(messages=clean_conversation)
 
         # Yield final plan as workflow output
         if synthesis_result.text:
             await ctx.yield_output(synthesis_result.text)
 
-    def _parse_specialist_output(self, response: AgentExecutorResponse) -> SpecialistOutput:
+    def _parse_specialist_output(self, response: AgentRunResponse) -> SpecialistOutput:
         """
-        Parse SpecialistOutput from agent response.
+        Parse SpecialistOutput from agent run response.
 
         Parameters
         ----------
-        response : AgentExecutorResponse
-            Agent's response containing structured output
+        response : AgentRunResponse
+            Agent's run response containing structured output
 
         Returns
         -------
@@ -294,24 +326,24 @@ class EventPlanningCoordinator(Executor):
             If response does not contain SpecialistOutput, includes actual response text for debugging
         """
         # Try to parse structured output if not already parsed
-        if response.agent_run_response.value is None:
-            response.agent_run_response.try_parse_value(SpecialistOutput)
+        if response.value is None:
+            response.try_parse_value(SpecialistOutput)
 
-        if response.agent_run_response.value and isinstance(response.agent_run_response.value, SpecialistOutput):
-            return response.agent_run_response.value  # type: ignore[no-any-return]
+        if response.value and isinstance(response.value, SpecialistOutput):
+            return response.value  # type: ignore[no-any-return]
 
         # Enhanced error message with debugging information
-        response_text = response.agent_run_response.text if response.agent_run_response.text else "(empty)"
-        num_messages = len(response.agent_run_response.messages) if response.agent_run_response.messages else 0
+        response_text = response.text if response.text else "(empty)"
+        num_messages = len(response.messages) if response.messages else 0
 
         # Analyze message contents to understand what's in the response
-        content_analysis = self._analyze_message_contents(response.agent_run_response.messages)
+        content_analysis = self._analyze_message_contents(response.messages)
 
         error_msg = (
-            f"Specialist '{response.executor_id}' must return SpecialistOutput.\n"
+            f"Coordinator agent must return SpecialistOutput.\n"
             f"Response text: '{response_text}'\n"
             f"Number of messages: {num_messages}\n"
-            f"Value is None: {response.agent_run_response.value is None}\n"
+            f"Value is None: {response.value is None}\n"
             f"\nMessage content analysis:\n{content_analysis}\n"
             f"\nPossible causes:\n"
             f"- Agent made tool calls but didn't generate final structured JSON output\n"
@@ -361,23 +393,23 @@ class EventPlanningCoordinator(Executor):
 
         return "\n".join(analysis_lines)
 
-    async def _route_to_agent(
+    async def _route_to_specialist(
         self,
-        agent_id: str,
+        specialist_id: str,
         message: str,
         ctx: WorkflowContext[AgentExecutorRequest, str],
         prior_conversation: list[ChatMessage] | None = None,
     ) -> None:
         """
-        Route message to specialist agent with conversation history.
+        Route message to specialist with conversation history.
 
         Builds complete conversation by combining prior history with new routing message.
         Converts tool calls and results to text summaries to avoid thread ID conflicts
-        when passing messages between agents with different service threads.
+        when passing messages between specialists with different service threads.
 
         Parameters
         ----------
-        agent_id : str
+        specialist_id : str
             ID of specialist to route to ("venue", "budget", "catering", "logistics")
         message : str
             New message/context for specialist
@@ -389,7 +421,7 @@ class EventPlanningCoordinator(Executor):
 
         Notes
         -----
-        Tool content conversion is necessary because each agent has its own service-managed
+        Tool content conversion is necessary because each specialist has its own service-managed
         thread ID. Passing tool calls/results directly would cause Azure AI to reject the
         request with "No thread ID provided, but chat messages includes tool results."
         """
@@ -404,5 +436,5 @@ class EventPlanningCoordinator(Executor):
                 messages=conversation,
                 should_respond=True,
             ),
-            target_id=agent_id,
+            target_id=specialist_id,
         )
