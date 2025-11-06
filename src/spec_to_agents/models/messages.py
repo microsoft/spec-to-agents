@@ -49,6 +49,38 @@ class HumanFeedbackRequest:
     conversation: list[ChatMessage] = field(default_factory=list)
 
 
+@dataclass
+class SpecialistRequest:
+    """
+    Request to route conversation to a specialist agent.
+
+    This message type separates routing decisions (made by coordinator)
+    from routing execution (handled by on_specialist_request handler).
+
+    Attributes
+    ----------
+    specialist_id : str
+        ID of specialist to route to ("venue", "budget", "catering", "logistics")
+    message : str
+        New message/context to send to specialist
+    prior_conversation : list[ChatMessage] | None
+        Previous conversation history to preserve. Tool calls/results will be
+        converted to text summaries when routing to avoid thread ID conflicts.
+
+    Examples
+    --------
+    >>> SpecialistRequest(
+    ...     specialist_id="venue",
+    ...     message="Please analyze venue options",
+    ...     prior_conversation=[ChatMessage(Role.USER, text="Plan a party")],
+    ... )
+    """
+
+    specialist_id: str
+    message: str
+    prior_conversation: list[ChatMessage] | None = None
+
+
 class SpecialistOutput(BaseModel):
     """
     Structured output from each specialist agent.
@@ -82,4 +114,4 @@ class SpecialistOutput(BaseModel):
     user_prompt: str | None = Field(default=None, description="Question to ask user if user_input_needed=True")
 
 
-__all__ = ["HumanFeedbackRequest", "SpecialistOutput"]
+__all__ = ["HumanFeedbackRequest", "SpecialistOutput", "SpecialistRequest"]
