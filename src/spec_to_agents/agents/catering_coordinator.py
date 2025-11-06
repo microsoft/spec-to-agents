@@ -3,7 +3,6 @@
 from agent_framework import ChatAgent, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import catering_coordinator
 from spec_to_agents.tools import web_search
 
@@ -27,10 +26,8 @@ def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> C
 
     Notes
     -----
-    MCP sequential-thinking tool was removed because it interferes with
-    structured output generation (SpecialistOutput). The agent would complete
-    its thinking process but fail to return a final structured response,
-    causing ValueError in the workflow.
+    Returns natural text responses instead of structured output. The coordinator
+    will parse the catering recommendations and make routing decisions.
 
     Uses custom web_search @ai_function instead of HostedWebSearchTool for
     better control over response formatting for language models.
@@ -44,6 +41,5 @@ def create_agent(client: AzureAIAgentClient, mcp_tool: MCPStdioTool | None) -> C
         name="CateringCoordinator",
         instructions=catering_coordinator.SYSTEM_PROMPT,
         tools=tools,
-        response_format=SpecialistOutput,
         store=True,
     )
