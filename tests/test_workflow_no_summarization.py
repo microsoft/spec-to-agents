@@ -60,6 +60,7 @@ async def test_coordinator_start_routes_directly():
     """Verify coordinator start handler routes without building history."""
     # Arrange
     coordinator_agent = Mock()
+    coordinator_agent.id = "coordinator"
     coordinator = EventPlanningCoordinator(coordinator_agent)
 
     ctx = Mock(spec=WorkflowContext)
@@ -71,4 +72,4 @@ async def test_coordinator_start_routes_directly():
     # Assert - should route to coordinator agent for routing decision
     ctx.send_message.assert_called_once()
     call_kwargs = ctx.send_message.call_args[1]
-    assert call_kwargs["target_id"] == "coordinator_agent"
+    assert call_kwargs["target_id"] == "coordinator"

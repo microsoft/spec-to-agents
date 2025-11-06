@@ -276,7 +276,11 @@ async def test_on_human_feedback_routes_back():
         conversation=[ChatMessage(Role.USER, text="Find venues")],
     )
 
-    coordinator = EventPlanningCoordinator(Mock())
+    # Create mock agent with id attribute
+    mock_agent = Mock()
+    mock_agent.id = "coordinator"
+
+    coordinator = EventPlanningCoordinator(mock_agent)
 
     mock_ctx = AsyncMock()
 
@@ -285,7 +289,7 @@ async def test_on_human_feedback_routes_back():
     # Verify routed to coordinator agent for next routing decision
     mock_ctx.send_message.assert_called_once()
     call_args = mock_ctx.send_message.call_args
-    assert call_args[1]["target_id"] == "coordinator_agent"
+    assert call_args[1]["target_id"] == "coordinator"
     # Verify message includes user feedback
     request = call_args[0][0]
     assert "Venue B" in request.messages[-1].text
