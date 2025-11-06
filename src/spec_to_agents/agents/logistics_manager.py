@@ -3,7 +3,6 @@
 from agent_framework import ChatAgent, MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 
-from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import logistics_manager
 from spec_to_agents.tools import (
     create_calendar_event,
@@ -32,13 +31,6 @@ def create_agent(
     -------
     ChatAgent
         Configured logistics manager agent with weather and calendar capabilities
-
-    Notes
-    -----
-    MCP sequential-thinking tool was removed because it interferes with
-    structured output generation (SpecialistOutput). The agent would complete
-    its thinking process but fail to return a final structured response,
-    causing ValueError in the workflow.
     """
     tools = [
         get_weather_forecast,
@@ -54,6 +46,5 @@ def create_agent(
         name="LogisticsManager",
         instructions=logistics_manager.SYSTEM_PROMPT,
         tools=tools,
-        response_format=SpecialistOutput,
         store=True,
     )
