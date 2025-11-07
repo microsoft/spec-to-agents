@@ -29,9 +29,8 @@ from agent_framework import (
 from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
+from spec_to_agents.container import AppContainer
 from spec_to_agents.models.messages import HumanFeedbackRequest
-from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
-from spec_to_agents.utils.clients import create_agent_client
 from spec_to_agents.utils.display import (
     console,
     display_agent_run_update,
@@ -46,7 +45,7 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 # Load environment variables at module import
 load_dotenv()
 
-# Enable observability (reads from environment variables)
+# Enable observability
 setup_observability()
 
 
@@ -73,14 +72,15 @@ async def main() -> None:
     # Display welcome header
     display_welcome_header()
 
+    # Initialize DI container and wire modules for dependency injection
+    container = AppContainer()
+    container.wire(modules=[__name__])
+
     # Use async context managers for both MCP tool and agent client lifecycle
-    async with (
-        create_sequential_thinking_tool() as mcp_tool,
-        create_agent_client() as client,
-    ):
+    async with container.client():
         # Build workflow with connected MCP tool and agent client
         with console.status("[bold green]Loading workflow...", spinner="dots"):
-            workflow = build_event_planning_workflow(client, mcp_tool)
+            workflow = build_event_planning_workflow()
         console.print("[green]✓[/green] Workflow loaded successfully")
         console.print()
 

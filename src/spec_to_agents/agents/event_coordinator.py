@@ -1,13 +1,16 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from agent_framework import ChatAgent
-from agent_framework.azure import AzureAIAgentClient
+from agent_framework import BaseChatClient, ChatAgent, ToolProtocol
+from dependency_injector.wiring import Provide, inject
 
+from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import event_coordinator
 
 
+@inject
 def create_agent(
-    client: AzureAIAgentClient,
+    client: BaseChatClient = Provide["client"],
+    global_tools: dict[str, ToolProtocol] = Provide["global_tools"],
 ) -> ChatAgent:
     """
     Create Event Coordinator agent for workflow orchestration.
@@ -22,8 +25,15 @@ def create_agent(
     ChatAgent
         Configured event coordinator agent for workflow orchestration
     """
+    agent_tools: list[ToolProtocol] = []
+
+    if global_tools.get("sequential-thinking"):
+        # Include MCP sequential-thinking tool from global tools
+        agent_tools.append(global_tools["sequential-thinking"])
     return client.create_agent(
-        name="EventCoordinator",
+        name="event_coordinator",
         instructions=event_coordinator.SYSTEM_PROMPT,
+        tools=agent_tools,
+        response_format=SpecialistOutput,
         store=True,
     )
