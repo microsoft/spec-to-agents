@@ -4,6 +4,7 @@
 
 from dependency_injector import containers, providers
 
+from spec_to_agents.config import get_default_model_config
 from spec_to_agents.tools.mcp_tools import create_global_tools
 from spec_to_agents.utils.clients import create_agent_client_for_devui
 
@@ -49,6 +50,10 @@ class AppContainer(containers.DeclarativeContainer):
     # Provides dict[str, ToolProtocol] created once and injected into all agent factories
     global_tools = providers.Singleton(
         create_global_tools,
+    )
+
+    model_config = providers.Singleton(
+        get_default_model_config,
     )
 
     # Wiring configuration: modules that use @inject

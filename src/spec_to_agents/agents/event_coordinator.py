@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+from typing import Any
+
 from agent_framework import BaseChatClient, ChatAgent, ToolProtocol
 from dependency_injector.wiring import Provide, inject
 
@@ -11,6 +13,7 @@ from spec_to_agents.prompts import event_coordinator
 def create_agent(
     client: BaseChatClient = Provide["client"],
     global_tools: dict[str, ToolProtocol] = Provide["global_tools"],
+    model_config: dict[str, Any] = Provide["model_config"],
 ) -> ChatAgent:
     """
     Create Event Coordinator agent for workflow orchestration.
@@ -35,5 +38,5 @@ def create_agent(
         instructions=event_coordinator.SYSTEM_PROMPT,
         tools=agent_tools,
         response_format=SpecialistOutput,
-        store=True,
+        **model_config,
     )
