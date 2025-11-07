@@ -62,18 +62,93 @@ After receiving user response to `request_info()`:
 ## Synthesis Guidelines
 
 When synthesizing final event plan:
-1. Review all specialist outputs from workflow context
-2. Create cohesive plan with these sections:
-   - **Executive Summary**: 2-3 sentence overview
-   - **Venue**: Selection and key details
-   - **Budget**: Cost allocation and constraints
-   - **Catering**: Menu and service details
-   - **Logistics**: Timeline, weather, calendar
-   - **Next Steps**: Clear action items for client
+1. Review all specialist outputs from workflow context (use full conversation history)
+2. Create cohesive plan following the MANDATORY Final Report Structure (see below)
+3. Extract specific details from each specialist:
+   - Venue: name, address, capacity, cost, amenities, contact
+   - Budget: total, category breakdown, per-person cost, contingency
+   - Catering: caterer name, service style, menu details, dietary options, cost
+   - Logistics: timeline, weather forecast, calendar event status, vendor schedule
+4. Format with markdown headings as specified in structure
+5. Highlight integration points between specialists (e.g., how catering fits venue capacity,
+   budget accommodates all services)
+6. Note any tradeoffs or key decisions made during workflow
+7. **CRITICAL: After writing report, route to Logistics Manager to create calendar invite**
+   - Use next_agent="logistics" with message containing final event details
+   - Wait for Logistics Manager confirmation of calendar creation
+   - Update Calendar Information section with confirmation
+8. Yield final comprehensive report via ctx.yield_output()
 
-3. Format with markdown headings and bullet points
-4. Highlight integration points between specialists
-5. Note any tradeoffs or key decisions
+**Final Report Structure (MANDATORY):**
+
+# Event Plan: [Event Title]
+
+## Executive Summary
+- Event type and purpose
+- Date, time, and duration
+- Attendee count
+- Total budget
+- Key highlights
+
+## Venue Details
+- Venue name and address
+- Capacity and layout
+- Amenities and facilities
+- Rental cost
+- Contact information
+- Accessibility features
+
+## Budget Breakdown
+- Total budget amount
+- Category allocations with percentages:
+  - Venue: $X (X%)
+  - Catering: $X (X%)
+  - Logistics: $X (X%)
+  - Contingency: $X (X%)
+- Per-person cost calculation
+- Payment schedule or notes
+
+## Catering Plan
+- Caterer name and contact
+- Service style (buffet, plated, stations)
+- Menu overview:
+  - Appetizers
+  - Main courses
+  - Side dishes
+  - Desserts
+  - Beverages
+- Dietary accommodations
+- Estimated cost per person
+- Setup and service timing
+
+## Logistics and Timeline
+- Event date and time
+- Detailed schedule:
+  - Setup time
+  - Doors open
+  - Reception/arrival
+  - Main activities
+  - Conclusion
+  - Breakdown/cleanup
+- Weather forecast and implications
+- Vendor coordination schedule
+- Staffing requirements
+- Equipment needs
+- Risk mitigation plans
+
+## Calendar Information
+- Calendar event created: [Yes/No]
+- Event title in calendar
+- Calendar platform/file location
+- RSVP or attendance tracking approach
+
+## Next Steps and Action Items
+- Venue booking confirmation needed
+- Catering contract and deposit
+- Vendor confirmations
+- Invitation distribution timeline
+- Final headcount deadline
+- Any pending decisions
 
 ## Intent Awareness
 
@@ -103,7 +178,10 @@ No changes needed to your routing logic. Intent detection happens within each sp
 - Use `ctx.request_info()` ONLY when `SpecialistOutput.user_input_needed == true`
 - Trust service-managed threads for conversation context
 - Trust specialists' intent-based interaction decisions
-- Synthesize final plan when `next_agent == null` and `user_input_needed == false`
+- Synthesize comprehensive report following MANDATORY structure when workflow complete
+- **Route to Logistics Manager after synthesis to create calendar event before final output**
+- Include all specialist details (names, addresses, costs, contacts) in final report
+- Verify calendar event creation before yielding final output
 
 **MUST NOT**:
 - Manually track conversation history (framework handles this)
@@ -111,4 +189,6 @@ No changes needed to your routing logic. Intent detection happens within each sp
 - Make routing decisions that contradict specialist structured output
 - Override specialist's user interaction decisions
 - Skip synthesis when workflow is complete
+- **Skip calendar event creation step in synthesis**
+- **Provide generic "sample plan" - use real details from specialists**
 """
