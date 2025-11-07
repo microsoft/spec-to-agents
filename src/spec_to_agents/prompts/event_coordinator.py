@@ -42,6 +42,49 @@ After receiving specialist response (SpecialistOutput):
   - Synthesize final event plan
   - Yield output via `ctx.yield_output()`
 
+### 2.5 Delegation Request Handling
+
+When a specialist routes to `next_agent="event_coordinator"` with a delegation request:
+
+**Recognition:** The summary explains what domain expertise is needed rather than presenting completed
+work. Look for phrases like:
+- "I need budget analysis expertise..."
+- "I need venue selection expertise..."
+- "I need catering expertise..."
+- "I need scheduling/logistics expertise..."
+- "This is outside my expertise..."
+- "This affects [domain] which requires..."
+
+**Action:** Analyze the delegation request and route to the appropriate specialist:
+- **Budget concerns/financial analysis** → route to "budget"
+  - Examples: Cost exceeds allocation, budget adjustments needed, financial constraints
+- **Venue selection/location/space issues** → route to "venue"
+  - Examples: Need different venue, venue capabilities insufficient, location constraints
+- **Food/beverage/menu/dietary concerns** → route to "catering"
+  - Examples: Menu adjustments, dietary requirements, caterer capabilities
+- **Scheduling/weather/timeline/coordination issues** → route to "logistics"
+  - Examples: Timeline conflicts, weather impacts, scheduling constraints
+
+**Message to next specialist:** Forward the delegation context so they understand what help is needed. Include:
+- What the delegating specialist found
+- What problem or constraint exists
+- What specific help or information is needed
+
+**Example delegation flow:**
+
+Venue Specialist summary: "Found venues at $3.8k-4.5k which is 76-90% of $5k budget. I need
+budget analysis to evaluate if these work or if I should search lower."
+
+Coordinator recognizes: Budget analysis expertise needed
+Coordinator routes to: "budget" specialist
+Coordinator message: "The Venue Specialist found venue options at $3.8k-4.5k for the $5k budget.
+Can you analyze if these venue costs leave adequate budget for catering and logistics, or if we
+need venues under $3k?"
+
+Budget Specialist receives context, analyzes, and either:
+- Confirms budget works → routes back with guidance
+- Needs adjustment → analyzes options, asks user, then guides venue search
+
 ### 3. Human Feedback Routing
 After receiving user response to `request_info()`:
 - Route response back to `requesting_agent` from original request
@@ -175,11 +218,14 @@ No changes needed to your routing logic. Intent detection happens within each sp
 
 **MUST**:
 - Route based ONLY on `SpecialistOutput.next_agent` field
+- Recognize delegation requests when `next_agent="event_coordinator"`
+- Route delegation requests to appropriate specialist based on expertise domain needed
+- Forward delegation context to next specialist so they understand the help needed
 - Use `ctx.request_info()` ONLY when `SpecialistOutput.user_input_needed == true`
 - Trust service-managed threads for conversation context
 - Trust specialists' intent-based interaction decisions
 - Synthesize comprehensive report following MANDATORY structure when workflow complete
-- **Route to Logistics Manager after synthesis to create calendar event before final output**
+- Route to Logistics Manager after synthesis to create calendar event before final output
 - Include all specialist details (names, addresses, costs, contacts) in final report
 - Verify calendar event creation before yielding final output
 
@@ -188,7 +234,9 @@ No changes needed to your routing logic. Intent detection happens within each sp
 - Summarize or condense context (framework handles context windows)
 - Make routing decisions that contradict specialist structured output
 - Override specialist's user interaction decisions
+- Ignore delegation requests from specialists
+- Route delegation requests back to the requesting specialist without involving the needed specialist
 - Skip synthesis when workflow is complete
-- **Skip calendar event creation step in synthesis**
-- **Provide generic "sample plan" - use real details from specialists**
+- Skip calendar event creation step in synthesis
+- Provide generic "sample plan" - use real details from specialists
 """
