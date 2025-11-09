@@ -2,13 +2,13 @@
 
 ## Quick Start with Azure Deployment
 
-The recommended way to set up the project is using `azd provision`, which will:
+The recommended way to set up the project is using `azd up`, which will:
 1. Create the necessary Azure resources
 2. Generate the `.env` file automatically
-3. Install all dependencies with `uv sync --extra dev`
+3. Install all dependencies with `uv sync`
 
 ```bash
-azd provision
+azd up
 
 # Install pre-commit hooks
 uv run pre-commit install
@@ -19,11 +19,8 @@ uv run pre-commit install
 If you prefer to set up manually or are working without Azure resources:
 
 ```bash
-# Windows
-$env:GIT_LFS_SKIP_SMUDGE = "1"; uv sync --extra dev
-
-# MacOS/Linux
-GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev
+# Install dependencies
+uv sync
 
 # Install pre-commit hooks
 uv run pre-commit install
@@ -110,6 +107,6 @@ The following instructions explain how to debug the interactive console using Vi
 
 Run the following command
 
-```powershell
+```bash
 uv run pytest
 ```

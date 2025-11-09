@@ -1,145 +1,156 @@
-# Spec-to-Agent
+<p align="center">
+  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="30%"/>
+</p>
 
-> [!WARNING]
-> **Work in Progress**: This project is under active development and subject to heavy changes. It is not recommended for testing or production use at this time.
+# Event Planning Multi-Agent System
 
-This sample showcases how to generate and orchestrate agents (aided by [spec-kit](https://github.com/github/spec-kit/tree/main)) using **[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)**. It combines the best of:
-
-- **Semantic Kernel**: Enterprise-ready AI orchestration
-- **AutoGen**: Multi-agent conversation patterns
-
-The sample is built around an engaging event planning scenario. It demonstrates concurrent workflow execution and real-time workflow visualization.
-<!-- markdownlint-disable MD041 -->
+A multi-agent event planning workflow built with **[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)** - combining Semantic Kernel's enterprise orchestration with AutoGen's multi-agent patterns.
 
 > [!NOTE]
-> For Ignite 2025 Lab instructions, go to: [LAB513 - Build A2A and MCP Systems Using SWE Agents and Agent Framework](https://github.com/microsoft/ignite25-LAB513-build-a2a-and-mcp-systems-using-swe-agents-and-agent-framework/blob/main/lab/instructions/instructions.md)
+> **Ignite 2025 Lab**: [LAB513 - Build A2A and MCP Systems Using SWE Agents and Agent Framework](https://github.com/microsoft/ignite25-LAB513-build-a2a-and-mcp-systems-using-swe-agents-and-agent-framework/blob/main/lab/instructions/instructions.md)
 
-# 🎯 Project Overview
+## 🎯 What This Demonstrates
 
-## 🎭 Event Planning Sample
+This sample shows you how to build a production-ready multi-agent system with:
 
-### The Scenario
-Plan a comprehensive event using multiple specialized agents working together.
+- **Multi-Agent Orchestration**: 5 specialized agents coordinating event planning
+- **Human-in-the-Loop**: Interactive approval and feedback during workflow execution
+- **Tool Integration**: Web search, weather APIs, calendar management, and code interpreter
+- **Azure Deployment**: One-click deployment with Azure Developer CLI (azd)
 
-### Meet the Agents
-- **Event Coordinator**: Orchestrates the overall planning process
-- **Venue Specialist**: Researches and recommends venues
-- **Budget Analyst**: Manages costs and financial constraints
-- **Catering Coordinator**: Handles food and beverage planning
-- **Logistics Manager**: Coordinates schedules and resources
+## 🏗️ Architecture
 
-### What This Sample Demonstrates
+### Multi-Agent Workflow Design
 
-1. **Spec-to-Agent Generation**: Create specialized agents by using spec-driven development with [spec-kit](https://github.com/github/spec-kit/tree/main)
-2. **Event Planning Orchestration**: Comprehensive event planning with multiple collaborating agents
-3. **Concurrent Workflows**: Agent orchestration with parallel execution paths and fan-in/fan-out patterns
-4. **Interactive Frontend**: Visual representation of agent interactions and workflows with [DevUI](https://github.com/microsoft/agent-framework/tree/main/python/packages/devui)
-5. **Azure Integration**: Full AZD template deployment to Azure Container Apps
+The system uses a **coordinator-centric star topology** where the Event Coordinator routes tasks to specialized agents and synthesizes their outputs into a comprehensive event plan:
 
-# 🏗️ Architecture Overview
+![Event Planning Agent Design](assets/Event%20Planning%20Agent%20Design.png)
 
-## Core Components
-- **Microsoft Agent Framework**: Comprehensive multi-language framework for building, orchestrating, and deploying AI agents with support for both .NET and Python
-- **DevUI**: Interactive UI showing real-time agent orchestration inspired by DevUI in Agent Framework
-- **Concurrent Workflows**: Demonstrates the workflows functionality for orchestrating complex agentic systems
-- **Azure Deployment**: Complete AZD template for one-click deployment
+### Agent Tools & Capabilities
 
-# 🚀 Getting Started
+Each specialist agent has access to domain-specific tools for their area of expertise:
 
-## Prerequisites
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
+![Agent Tools](assets/Agent%20Tools.png)
+
+**Tool Integration:**
+- **Venue Specialist**: Web Search (Bing Grounding)
+- **Budget Analyst**: Code Interpreter (Python REPL)
+- **Catering Coordinator**: Web Search (Bing Grounding)
+- **Logistics Manager**: Weather API (Open-Meteo) + Calendar Tools (iCalendar)
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) - Python package manager
+- [Azure CLI (az)](https://learn.microsoft.com/cli/azure/install-azure-cli)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
-- Azure subscription with appropriate permissions
-- Node.js 18+ and npm
+- Azure subscription
 
-## Quick Start with Azure Developer CLI
-
-The easiest way to deploy this sample is using `azd`:
+### Deploy to Azure
 
 ```bash
-# Clone the repository
+# Clone and navigate to the repository
 git clone https://github.com/microsoft/spec-to-agents.git
 cd spec-to-agents
 
-# Authenticate with Azure
+# Login to Azure
+az login
 azd auth login
 
-# Initialize and deploy everything
+# Deploy everything (provisions resources, generates .env, installs dependencies)
 azd up
 ```
 
-When prompted:
-- **Environment name**: Choose a name (e.g., `dev`, `prod`)
-- **Azure location**: Choose from `eastus2`, `westus`, `westus2`, `westus3`, `eastus`, `uksouth`, `swedencentral`, `australiaeast`, or `japaneast`
-- **Azure subscription**: Select your subscription
+**What happens:**
+- ✅ Provisions Azure AI Foundry + OpenAI models
+- ✅ Generates `.env` with connection details
+- ✅ Installs Python dependencies via `uv sync`
 
-**What `azd up` does:**
-- Provisions Azure resources (AI Foundry, Cosmos DB, Storage, App Services, etc.)
-- Automatically generates a `.env` file with infrastructure outputs (via postprovision hook)
-- Builds and deploys the backend API
-- Builds and deploys the frontend application
-- Configures all connections and settings
+### Run Locally
 
-**Alternative commands:**
+**Interactive Console (Recommended):**
 ```bash
-# Just provision infrastructure
-azd provision
-
-# Just deploy apps (after provisioning)
-azd deploy
-
-# View deployed endpoints
-azd show
-
-# Set environment variables
-azd env set AZURE_LOCATION eastus2
+uv run console
 ```
 
-## Running Locally
-
-Follow the development setup instructions [here](./DEV_SETUP.md).
-
-**Note:** Local development requires an Azure AI Foundry project and Azure OpenAI deployment. Update `backend/.env` with your Azure credentials.
-
-
-# 🛠️ Development
-
-## Key Technologies
-- **Backend**: Python 3.13, FastAPI for High Performance ASGI Server
-- **Frontend**: Vite frontend based on Microsoft Agent Framework DevUI
-- **Infrastructure**: Azure Container Apps, AZD template
-- **AI**: Azure OpenAI, Microsoft Agent Framework
-
-## Development Workflow
-
-1. **Spec-First**: Define agent specifications and capabilities using spec-kit.
-2. **Agent Generation**: Create agents from specifications using the framework
-3. **Orchestration**: Implement concurrent workflow and coordination patterns
-4. **Visualization**: Build interactive frontend to show agent interactions
-5. **Deployment**: Use AZD for one-click Azure deployment
-
-# 🧪 Testing
-
-## Running Tests
-
+**DevUI (Visual Interface):**
 ```bash
-cd tests
+uv run app
+```
+
+Then navigate to the URL shown (typically `http://localhost:8000`)
+
+### Example Input
+
+Try this event planning request:
+
+```
+Plan a corporate holiday party for 50 people on December 6th, 2025 in Seattle 
+with a budget of $5,000. Include venue options, catering for dietary restrictions, 
+and check the weather forecast.
+```
+
+The agents will collaborate to:
+1. Search for suitable venues
+2. Calculate budget breakdown
+3. Recommend catering options
+4. Check weather and create calendar event
+5. Synthesize a comprehensive plan
+
+
+## 🛠️ Project Structure
+
+```
+spec-to-agents/
+├── src/spec_to_agents/
+│   ├── agents/          # Agent definitions (budget_analyst, venue_specialist, etc.)
+│   ├── prompts/         # System prompts for each agent
+│   ├── tools/           # Tool implementations (web search, weather, calendar)
+│   ├── workflow/        # Workflow orchestration logic
+│   └── utils/           # Shared utilities and clients
+├── tests/               # Unit and integration tests
+├── infra/               # Azure infrastructure (Bicep templates)
+└── scripts/             # Post-provisioning hooks
+```
+
+## 🔑 Key Features
+
+### Service-Managed Threads
+All agents use `store=True` for automatic conversation history management via Azure AI Service - no manual message tracking required.
+
+### Human-in-the-Loop
+Framework-native `ctx.request_info()` enables pausing workflows for user input with automatic state preservation.
+
+### Structured Output Routing
+Agents return Pydantic models with explicit routing decisions (`next_agent` field), enabling dynamic workflow orchestration.
+
+### Tool Integration
+- **Web Search**: Bing Search with Grounding for venue and catering research
+- **Code Interpreter**: Python REPL for budget calculations
+- **Weather API**: Open-Meteo for weather forecasts
+- **Calendar Tools**: iCalendar (.ics) management
+
+## 🧪 Development
+
+**Run Tests:**
+```bash
 uv run pytest
 ```
 
-# 📦 Infrastructure
+**Detailed Setup:**
+See [DEV_SETUP.md](./DEV_SETUP.md) for debugging instructions and manual configuration.
 
-The infrastructure is defined in the `infra/` directory using Azure Bicep templates. It includes:
+## 📦 Azure Resources
 
-- **Azure AI Foundry**: AI Account and Project for agent orchestration
-- **Azure Cosmos DB**: NoSQL database for agent state and memory
-- **Azure Storage**: Blob storage for artifacts and data
-- **Azure AI Search**: Vector search capabilities
-- **Azure App Services**: Hosting for backend API and frontend
-- **Azure Application Insights**: Monitoring and telemetry
+Provisioned automatically by `azd up`:
 
-All resources are provisioned automatically when you run `azd provision` or `azd up`.
+- **Azure AI Foundry**: Hub and Project for agent orchestration
+- **Azure OpenAI**: GPT-4o-mini (primary) and GPT-4.1-mini (web search)
+- **Bing Search**: Grounding API for web searches
+- **Container Registry & App**: For deployment (optional)
+- **Application Insights**: Telemetry and monitoring
 
 # 🤝 Contributing
 

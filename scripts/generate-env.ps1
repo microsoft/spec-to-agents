@@ -10,10 +10,11 @@ $envValues = azd env get-values | Out-String
 # Extract values using regex
 $azureOpenAIApiVersion = ($envValues | Select-String 'AZURE_OPENAI_API_VERSION="([^"]*)"').Matches.Groups[1].Value
 $azureAIProjectEndpoint = ($envValues | Select-String 'AZURE_AI_PROJECT_ENDPOINT="([^"]*)"').Matches.Groups[1].Value
-# Override to use gpt-4.1-mini for all agent tasks (web search model has higher quota)
+# Use gpt-5-mini for primary model
+$azureAIModelDeploymentName = ($envValues | Select-String 'AZURE_AI_MODEL_DEPLOYMENT_NAME="([^"]*)"').Matches.Groups[1].Value
+# Use gpt-4.1-mini for web search model
 $webSearchModel = ($envValues | Select-String 'WEB_SEARCH_MODEL="([^"]*)"').Matches.Groups[1].Value
-$azureAIModelDeploymentName = $webSearchModel
-$bingConnectionName = ($envValues | Select-String 'BING_CONNECTION_NAME="([^"]*)"').Matches.Groups[1].Value
+$bingConnectionId = ($envValues | Select-String 'BING_CONNECTION_ID="([^"]*)"').Matches.Groups[1].Value
 $appInsightsConnectionString = ($envValues | Select-String 'APPLICATIONINSIGHTS_CONNECTION_STRING="([^"]*)"').Matches.Groups[1].Value
 
 # Check if .env already exists
@@ -30,7 +31,8 @@ AZURE_AI_MODEL_DEPLOYMENT_NAME=$azureAIModelDeploymentName
 WEB_SEARCH_MODEL=$webSearchModel
 
 # Bing Search (from Azure AI Foundry connected resources)
-BING_CONNECTION_NAME=$bingConnectionName
+# TODO: Change back to BING_CONNECTION_NAME once SDK bug is fixed (currently requires full resource ID)
+BING_CONNECTION_ID=$bingConnectionId
 
 # Calendar Storage
 CALENDAR_STORAGE_PATH=./data/calendars
@@ -56,7 +58,7 @@ Write-Host "   - Azure OpenAI API Version: $azureOpenAIApiVersion" -ForegroundCo
 Write-Host "   - AI Project Endpoint: $azureAIProjectEndpoint" -ForegroundColor Cyan
 Write-Host "   - Model Deployment: $azureAIModelDeploymentName" -ForegroundColor Cyan
 Write-Host "   - Web Search Model: $webSearchModel" -ForegroundColor Cyan
-Write-Host "   - Bing Connection: $bingConnectionName" -ForegroundColor Cyan
+Write-Host "   - Bing Connection ID: $bingConnectionId" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "🔐 Authentication:" -ForegroundColor Yellow
 Write-Host "   - This configuration uses Azure credential authentication (no API key)" -ForegroundColor Yellow
@@ -65,6 +67,23 @@ Write-Host "   - Required roles: 'Cognitive Services OpenAI User' or 'Cognitive 
 Write-Host ""
 Write-Host "📖 Next steps:" -ForegroundColor Green
 Write-Host "   1. Review the .env file and adjust settings as needed" -ForegroundColor Green
-Write-Host "   2. Run 'uv sync --dev' to install dependencies" -ForegroundColor Green
-Write-Host "   3. Run 'uv run app' to start the Agent Framework DevUI" -ForegroundColor Green
+Write-Host "   2. Installing dependencies with uv sync..." -ForegroundColor Green
+Write-Host ""
+
+# Install dependencies with uv
+Write-Host "📦 Running uv sync..." -ForegroundColor Cyan
+try {
+    uv sync
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Dependencies installed successfully!" -ForegroundColor Green
+    } else {
+        throw "uv sync failed with exit code $LASTEXITCODE"
+    }
+} catch {
+    Write-Host "❌ Failed to install dependencies. You may need to run 'uv sync' manually." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "🚀 Setup complete! Run 'uv run app' to start the Agent Framework DevUI" -ForegroundColor Green
 Write-Host ""

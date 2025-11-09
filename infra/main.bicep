@@ -82,7 +82,7 @@ param modelVersion string = '2025-08-07'
 param modelSkuName string = 'GlobalStandard'
 
 @description('The capacity of the model deployment in TPM')
-param modelCapacity int = 30
+param modelCapacity int = 400
 
 // Second model deployment parameters (for web search)
 @description('The name of the secondary OpenAI model to deploy (WEB_SEARCH_MODEL)')
@@ -92,7 +92,7 @@ param webSearchModelName string = 'gpt-4.1-mini'
 param webSearchModelVersion string = '2025-04-14'
 
 @description('The capacity of the web search model deployment in TPM')
-param webSearchModelCapacity int = 30
+param webSearchModelCapacity int = 1000
 
 // --- Load abbreviations and generate unique names ---
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -281,6 +281,9 @@ output AZURE_OPENAI_DEPLOYMENT_NAME string = aiFoundry.outputs.modelDeploymentNa
 
 @description('The name of the Bing grounding connection.')
 output BING_CONNECTION_NAME string = aiFoundry.outputs.bingConnectionName
+
+@description('The resource ID of the Bing grounding connection.')
+output BING_CONNECTION_ID string = aiFoundry.outputs.bingConnectionId
 
 @description('The name of the Bing grounding account.')
 output BING_ACCOUNT_NAME string = aiFoundry.outputs.bingAccountName

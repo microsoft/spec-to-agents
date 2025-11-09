@@ -7,10 +7,11 @@ echo ""
 echo "Getting environment values from azd..."
 AZURE_OPENAI_API_VERSION=$(azd env get-values | grep AZURE_OPENAI_API_VERSION | cut -d'"' -f2)
 AZURE_AI_PROJECT_ENDPOINT=$(azd env get-values | grep AZURE_AI_PROJECT_ENDPOINT | cut -d'"' -f2)
-# Override to use gpt-4.1-mini for all agent tasks (web search model has higher quota)
-AZURE_AI_MODEL_DEPLOYMENT_NAME=$(azd env get-values | grep WEB_SEARCH_MODEL | cut -d'"' -f2)
+# Use gpt-5-mini for primary model
+AZURE_AI_MODEL_DEPLOYMENT_NAME=$(azd env get-values | grep AZURE_AI_MODEL_DEPLOYMENT_NAME | cut -d'"' -f2)
+# Use gpt-4.1-mini for web search model
 WEB_SEARCH_MODEL=$(azd env get-values | grep WEB_SEARCH_MODEL | cut -d'"' -f2)
-BING_CONNECTION_NAME=$(azd env get-values | grep BING_CONNECTION_NAME | cut -d'"' -f2)
+BING_CONNECTION_ID=$(azd env get-values | grep BING_CONNECTION_ID | cut -d'"' -f2)
 APPLICATIONINSIGHTS_CONNECTION_STRING=$(azd env get-values | grep APPLICATIONINSIGHTS_CONNECTION_STRING | cut -d'"' -f2)
 
 # Check if .env already exists
@@ -27,7 +28,8 @@ AZURE_AI_MODEL_DEPLOYMENT_NAME=$AZURE_AI_MODEL_DEPLOYMENT_NAME
 WEB_SEARCH_MODEL=$WEB_SEARCH_MODEL
 
 # Bing Search (from Azure AI Foundry connected resources)
-BING_CONNECTION_NAME=$BING_CONNECTION_NAME
+# TODO: Change back to BING_CONNECTION_NAME once SDK bug is fixed (currently requires full resource ID)
+BING_CONNECTION_ID=$BING_CONNECTION_ID
 
 # Calendar Storage
 CALENDAR_STORAGE_PATH=./data/calendars
@@ -50,7 +52,7 @@ echo "   - Azure OpenAI API Version: $AZURE_OPENAI_API_VERSION"
 echo "   - AI Project Endpoint: $AZURE_AI_PROJECT_ENDPOINT"
 echo "   - Model Deployment: $AZURE_AI_MODEL_DEPLOYMENT_NAME"
 echo "   - Web Search Model: $WEB_SEARCH_MODEL"
-echo "   - Bing Connection: $BING_CONNECTION_NAME"
+echo "   - Bing Connection ID: $BING_CONNECTION_ID"
 echo ""
 echo "🔐 Authentication:"
 echo "   - This configuration uses Azure credential authentication (no API key)"
@@ -63,11 +65,11 @@ echo "   2. Installing dependencies with uv sync..."
 echo ""
 
 # Install dependencies with uv
-echo "📦 Running uv sync --extra dev..."
-if GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev; then
+echo "📦 Running uv sync..."
+if uv sync; then
     echo "✅ Dependencies installed successfully!"
 else
-    echo "❌ Failed to install dependencies. You may need to run 'GIT_LFS_SKIP_SMUDGE=1 uv sync --extra dev' manually."
+    echo "❌ Failed to install dependencies. You may need to run 'uv sync' manually."
     exit 1
 fi
 
