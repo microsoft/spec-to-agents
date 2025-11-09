@@ -21,7 +21,7 @@ from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
 
 @inject
-async def build_event_planning_workflow(
+def build_event_planning_workflow(
     client: BaseChatClient = Provide["client"],
 ) -> Workflow:
     """
@@ -83,11 +83,11 @@ async def build_event_planning_workflow(
     calling code to ensure proper cleanup of agents when the workflow is done.
     """
     # Create agents
-    coordinator_agent = await event_coordinator.create_agent()
-    venue_agent = await venue_specialist.create_agent()
-    budget_agent = await budget_analyst.create_agent()
-    catering_agent = await catering_coordinator.create_agent()
-    logistics_agent = await logistics_manager.create_agent()
+    coordinator_agent = event_coordinator.create_agent()
+    venue_agent = venue_specialist.create_agent()
+    budget_agent = budget_analyst.create_agent()
+    catering_agent = catering_coordinator.create_agent()
+    logistics_agent = logistics_manager.create_agent()
     # Create coordinator executor with routing logic
     coordinator = EventPlanningCoordinator(coordinator_agent)
 
