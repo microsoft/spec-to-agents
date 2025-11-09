@@ -10,12 +10,12 @@ param modelName string = 'gpt-5-mini'
 param modelFormat string = 'OpenAI'
 param modelVersion string = '2025-08-07'
 param modelSkuName string = 'GlobalStandard'
-param modelCapacity int = 300
+param modelCapacity int = 100
 
 // Second model deployment parameters (for web search)
 param webSearchModelName string = 'gpt-4.1-mini'
 param webSearchModelVersion string = '2025-04-14'
-param webSearchModelCapacity int = 2000  // 2M TPM (2000 units = 2,000,000 tokens per minute)
+param webSearchModelCapacity int = 1000  // 1M TPM (1000 units = 1,000,000 tokens per minute)
 
 // Bing grounding parameters
 param bingAccountName string
@@ -139,4 +139,5 @@ output projectId string = project.id
 output modelDeploymentName string = modelDeployment.name
 output webSearchModelDeploymentName string = webSearchModelDeployment.name
 output bingConnectionName string = project::bingGroundingConnection.name
+output bingConnectionId string = '${project.id}/connections/${project::bingGroundingConnection.name}'
 output bingAccountName string = bingAccount.name
