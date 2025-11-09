@@ -18,6 +18,7 @@ from agent_framework import (
     handler,
     response_handler,
 )
+from pydantic import ValidationError
 
 from spec_to_agents.models.messages import HumanFeedbackRequest, SpecialistOutput
 
@@ -297,17 +298,29 @@ class EventPlanningCoordinator(Executor):
         if response.agent_run_response.value is None:
             response.agent_run_response.try_parse_value(SpecialistOutput)
 
+        response_text = response.agent_run_response.text if response.agent_run_response.text else ""
+
         if response.agent_run_response.value and isinstance(response.agent_run_response.value, SpecialistOutput):
             return response.agent_run_response.value  # type: ignore[no-any-return]
 
+        error_msg = ""
+        if response_text:
+            # Attempt to extract JSON from response text for debugging
+            try:
+                json_start = response_text.index("{")
+                json_end = response_text.rindex("}") + 1
+                json_str = response_text[json_start:json_end]
+                return SpecialistOutput.model_validate_json(json_str)
+            except ValidationError as e:
+                error_msg = f"Failed to validate SpecialistOutput model: {e}"
+
         # Enhanced error message with debugging information
-        response_text = response.agent_run_response.text if response.agent_run_response.text else "(empty)"
         num_messages = len(response.agent_run_response.messages) if response.agent_run_response.messages else 0
 
         # Analyze message contents to understand what's in the response
         content_analysis = self._analyze_message_contents(response.agent_run_response.messages)
 
-        error_msg = (
+        full_error_msg = (
             f"Specialist '{response.executor_id}' must return SpecialistOutput.\n"
             f"Response text: '{response_text}'\n"
             f"Number of messages: {num_messages}\n"
@@ -317,9 +330,10 @@ class EventPlanningCoordinator(Executor):
             f"- Agent made tool calls but didn't generate final structured JSON output\n"
             f"- Agent response was truncated or incomplete\n"
             f"- Agent hit token limits before generating structured output\n"
-            f"- Tool execution failed, preventing agent from completing response"
+            f"- Tool execution failed, preventing agent from completing response\n"
+            f"Error message: {error_msg}"
         )
-        raise ValueError(error_msg)
+        raise ValueError(full_error_msg)
 
     def _analyze_message_contents(self, messages: list[ChatMessage] | None) -> str:
         """

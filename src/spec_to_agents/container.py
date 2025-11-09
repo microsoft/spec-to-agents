@@ -15,7 +15,7 @@ class AppContainer(containers.DeclarativeContainer):
 
     Manages lifecycle and injection of:
     - Azure AI agent client (singleton)
-    - Global tools dictionary (MCP tools, singleton)
+    - Global tools dictionary (MCP tools, resource with async context management)
 
     The tools provider returns a dict[str, ToolProtocol] containing globally
     shared tools (currently just MCP sequential-thinking tool). Agent-specific
@@ -28,13 +28,19 @@ class AppContainer(containers.DeclarativeContainer):
     Usage in console.py:
         container = AppContainer()
         container.wire(modules=[...])
-        client = container.client()  # Direct access to singleton client
-        # Dependencies injected into agent factories
-        # MCP tools are automatically connected by agent framework when agents are created
-        workflow = build_event_planning_workflow()
+        async with container.client():
+            await container.init_resources()  # Initialize and connect MCP tools
+            # Dependencies injected into agent factories
+            workflow = build_event_planning_workflow()
+            # Use workflow...
+            await container.shutdown_resources()  # Cleanup MCP tools
+        # Client automatically cleaned up by async context manager
 
-    Note: The client uses create_agent_client_for_devui which doesn't auto-cleanup.
-    For proper cleanup in console.py, manually manage client lifecycle.
+    Notes
+    -----
+    The global_tools Resource provider manages the async context lifecycle
+    of MCP tools. Call container.init_resources() to connect tools and
+    container.shutdown_resources() to properly cleanup connections.
     """
 
     # Configuration
@@ -46,9 +52,9 @@ class AppContainer(containers.DeclarativeContainer):
         create_agent_client_for_devui,
     )
 
-    # Global tools provider (singleton)
-    # Provides dict[str, ToolProtocol] created once and injected into all agent factories
-    global_tools = providers.Singleton(
+    # Global tools provider (async resource with lifecycle management)
+    # Provides dict[str, ToolProtocol] with proper async context management for MCP tools
+    global_tools = providers.Resource(
         create_global_tools,
     )
 

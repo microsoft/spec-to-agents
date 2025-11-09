@@ -14,6 +14,7 @@ setup_observability()
 
 def main() -> None:
     """Launch the branching workflow in DevUI with DI container."""
+    import asyncio
     import logging
 
     from agent_framework.devui import serve
@@ -37,10 +38,19 @@ def main() -> None:
     logger.info("Starting Agent Workflow DevUI...")
     logger.info(f"Available at: http://localhost:{port}")
 
+    # Initialize resources asynchronously before loading entities
+    async def load_entities():
+        await container.init_resources()  # type: ignore
+        workflows = await export_workflow()
+        agents = export_agents()
+        return workflows + agents
+
+    # Load entities synchronously for serve()
+    entities = asyncio.run(load_entities())
+
     # DevUI's serve() handles cleanup via FastAPI lifespan hooks
     # Use localhost for security; override with --host 0.0.0.0 if needed for external access
     # Dependencies (client, global_tools) are injected automatically into workflow/agent builders
-    entities = export_workflow() + export_agents()
     serve(entities=entities, port=port, host="localhost", auto_open=auto_open)
 
 

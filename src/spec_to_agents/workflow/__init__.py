@@ -2,7 +2,7 @@
 from agent_framework import Workflow
 
 
-def export_workflow() -> list[Workflow]:
+async def export_workflow() -> list[Workflow]:
     """
     Export all workflows for registration in DevUI.
 
@@ -21,7 +21,7 @@ def export_workflow() -> list[Workflow]:
     # Dependencies (client, global_tools) are injected automatically via @inject
     from spec_to_agents.workflow.core import build_event_planning_workflow
 
-    workflow = build_event_planning_workflow()
+    workflow = await build_event_planning_workflow()
     return [workflow]
 
 

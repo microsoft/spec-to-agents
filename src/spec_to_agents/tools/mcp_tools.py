@@ -2,37 +2,57 @@
 
 """MCP (Model Context Protocol) tools integration."""
 
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 from agent_framework import MCPStdioTool, ToolProtocol
 
 
-def create_global_tools() -> dict[str, ToolProtocol]:
+@asynccontextmanager
+async def create_global_tools() -> AsyncGenerator[dict[str, ToolProtocol], None]:
     """
-    Create a global toolset including MCP tools.
+    Create and manage a global toolset including MCP tools.
 
-    Returns a dict containing ToolProtocol that interface with the
-    async context manager pattern for proper lifecycle management.
+    This async context manager initializer properly manages the lifecycle
+    of MCP tools by entering their async context on initialization and
+    exiting on cleanup.
 
-    Returns
-    -------
+    Yields
+    ------
     dict[str, ToolProtocol]
-        Tools and unconnected MCP tools for advanced reasoning and tool orchestration
+        Tools dictionary containing connected MCP tools for advanced reasoning
+
     Example
     -------
-    >>> async with create_global_tools() as tools:
-    ...     workflow = build_event_planning_workflow(tools)
-    ...     # tools auto-cleanup on exit
+    Used with Resource provider in DI container::
+
+        class AppContainer(containers.DeclarativeContainer):
+            global_tools = providers.Resource(create_global_tools)
+
+
+        async with container:
+            await container.init_resources()
+            # tools are connected
+            await container.shutdown_resources()
+            # tools are properly cleaned up
 
     Notes
     -----
-    The MCP tools must be used within an async context manager to ensure
-    proper connection establishment and cleanup. The tools connect on
-    __aenter__ and close on __aexit__.
+    The MCP tools require async context management to ensure proper
+    connection establishment via __aenter__ and cleanup via __aexit__.
+    This function wraps the MCPStdioTool instances in an async context
+    manager to handle their lifecycle automatically.
     """
-    return {
-        "sequential-thinking": MCPStdioTool(
-            name="sequential-thinking", command="npx", args=["-y", "@modelcontextprotocol/server-sequential-thinking"]
-        )
-    }
+    # Create MCP tool instances
+    sequential_thinking_tool = MCPStdioTool(
+        name="sequential-thinking", command="npx", args=["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    )
+
+    # Enter async context for each MCP tool
+    async with sequential_thinking_tool:
+        # Yield tools dict for injection
+        yield {"sequential-thinking": sequential_thinking_tool}
+    # Cleanup happens automatically when async context exits
 
 
 __all__ = ["create_global_tools"]
