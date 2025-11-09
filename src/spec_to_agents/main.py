@@ -30,6 +30,10 @@ def main() -> None:
     container = AppContainer()
     container.wire(modules=[__name__])
 
+    # Override global_tools with empty dict since MCP tools cannot be used in DevUI mode
+    # (async context manager lifecycle incompatible with FastAPI's event loop)
+    container.global_tools.override({})  # type: ignore
+
     # Get port from environment (for container deployments) or use default
     port = int(os.getenv("PORT", "8080"))
     # Disable auto_open in container environments
@@ -40,7 +44,6 @@ def main() -> None:
 
     # Initialize resources asynchronously before loading entities
     async def load_entities():
-        await container.init_resources()  # type: ignore
         workflows = await export_workflow()
         agents = export_agents()
         return workflows + agents

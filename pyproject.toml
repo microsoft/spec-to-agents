@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [project.scripts]
-app = "spec_to_agents:main.main"
+app = "spec_to_agents.main:main"
 console = "spec_to_agents.console:cli"
 
 
