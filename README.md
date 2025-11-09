@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="70rem"/>
+  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="150rem"/>
 </p>
 
 # Event Planning Multi-Agent System
