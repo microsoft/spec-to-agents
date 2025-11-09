@@ -83,7 +83,7 @@ async def main() -> None:
         try:
             # Build workflow with connected MCP tools and agent client
             with console.status("[bold green]Loading workflow...", spinner="dots"):
-                workflow = await build_event_planning_workflow()
+                workflow = build_event_planning_workflow()
             console.print("[green]✓[/green] Workflow loaded successfully")
             console.print()
 
