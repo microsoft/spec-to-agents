@@ -5,7 +5,7 @@
 from dependency_injector import containers, providers
 
 from spec_to_agents.config import get_default_model_config
-from spec_to_agents.tools.mcp_tools import create_global_tools
+from spec_to_agents.tools.mcp_tools import create_mcp_tool_instances  # Changed import
 from spec_to_agents.utils.clients import create_agent_client_for_devui
 
 
@@ -15,7 +15,8 @@ class AppContainer(containers.DeclarativeContainer):
 
     Manages lifecycle and injection of:
     - Azure AI agent client (singleton)
-    - Global tools dictionary (MCP tools, resource with async context management)
+    - Global tools dictionary (MCP tools, framework-managed lifecycle)
+    - Model configuration (singleton)
 
     The tools provider returns a dict[str, ToolProtocol] containing globally
     shared tools (currently just MCP sequential-thinking tool). Agent-specific
@@ -25,22 +26,27 @@ class AppContainer(containers.DeclarativeContainer):
     Agent factories can selectively access global tools by key:
         global_tools["sequential-thinking"]
 
-    Usage in console.py:
+    Usage in main.py (DevUI mode):
+        container = AppContainer()
+        container.wire(modules=[...])
+        workflows = export_workflow()
+        agents = export_agents()
+        serve(entities=workflows + agents)
+        # DevUI's _cleanup_entities() handles MCP tool cleanup
+
+    Usage in console.py (CLI mode):
         container = AppContainer()
         container.wire(modules=[...])
         async with container.client():
-            await container.init_resources()  # Initialize and connect MCP tools
-            # Dependencies injected into agent factories
             workflow = build_event_planning_workflow()
-            # Use workflow...
-            await container.shutdown_resources()  # Cleanup MCP tools
-        # Client automatically cleaned up by async context manager
+            # ChatAgent's exit stack handles MCP tool lifecycle
 
     Notes
     -----
-    The global_tools Resource provider manages the async context lifecycle
-    of MCP tools. Call container.init_resources() to connect tools and
-    container.shutdown_resources() to properly cleanup connections.
+    MCP tools connect lazily on first use via __aenter__() and cleanup
+    automatically via framework's exit stack (console.py) or DevUI's
+    _cleanup_entities() (main.py). No manual init_resources() or
+    shutdown_resources() needed.
     """
 
     # Configuration
@@ -52,10 +58,11 @@ class AppContainer(containers.DeclarativeContainer):
         create_agent_client_for_devui,
     )
 
-    # Global tools provider (async resource with lifecycle management)
-    # Provides dict[str, ToolProtocol] with proper async context management for MCP tools
-    global_tools = providers.Resource(
-        create_global_tools,
+    # Global tools provider (singleton factory, framework-managed lifecycle)
+    # Provides dict[str, ToolProtocol] with MCP tool instances
+    # Framework handles async context management (__aenter__/__aexit__)
+    global_tools = providers.Singleton(
+        create_mcp_tool_instances,
     )
 
     model_config = providers.Singleton(
