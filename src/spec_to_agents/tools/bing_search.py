@@ -38,7 +38,6 @@ async def web_search(
     Uses a temporary agent with auto-cleanup via async context manager.
     """
     # Ensure conflicting environment variables are not set
-    os.environ.pop("BING_CONNECTION_ID", None)
     os.environ.pop("BING_CUSTOM_CONNECTION_NAME", None)
     os.environ.pop("BING_CUSTOM_INSTANCE_NAME", None)
     try:
@@ -47,7 +46,7 @@ async def web_search(
         # Use async context manager for proper cleanup
         async with create_agent_client() as client:
             agent = client.create_agent(
-                name="BingWebSearchAgent",
+                name="bing_web_search_agent",
                 tools=[web_search_tool],
                 system_message=(
                     "You are a web search agent that uses the Bing Web Search tool to find information on the web."

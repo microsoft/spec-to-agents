@@ -6,6 +6,7 @@ from agent_framework import (
     AgentRunUpdateEvent,
     FunctionCallContent,
     FunctionResultContent,
+    TextContent,
 )
 from rich.align import Align
 from rich.console import Console, Group
@@ -386,6 +387,7 @@ def display_agent_run_update(
 
         # Format arguments for display
         args = call.arguments
+        args_display: Syntax | Text
         if isinstance(args, dict):
             args_display = Syntax(
                 json.dumps(args, indent=2, ensure_ascii=False),
@@ -422,32 +424,75 @@ def display_agent_run_update(
 
         # Format result for display
         result_text = result.result
-        if not isinstance(result_text, str):
-            result_display = Syntax(
-                json.dumps(result_text, indent=2, ensure_ascii=False),
-                "json",
-                theme="monokai",
-                line_numbers=False,
-                background_color="default",
-            )
-        else:
-            # Truncate very long results for readability
+        result_display: Syntax | str
+
+        # Handle different result types safely
+        if isinstance(result_text, str):
+            # String result - use directly
             if len(result_text) > 500:
                 result_text = result_text[:500] + f"... [dim](truncated, {len(result_text)} chars total)[/dim]"
             result_display = result_text
+        elif isinstance(result_text, list):
+            # List result - could be list of TextContent objects or other types
+            # Try to extract text from TextContent objects if present
+            extracted_texts = []
+            for item in result_text:
+                if isinstance(item, TextContent):
+                    # Extract text attribute from TextContent objects
+                    extracted_texts.append(item.text)
+                elif isinstance(item, str):
+                    extracted_texts.append(item)
+                else:
+                    # For other types, convert to string
+                    extracted_texts.append(str(item))
+
+            # Join all extracted texts
+            combined_text = "\n".join(extracted_texts)
+            if len(combined_text) > 500:
+                combined_text = combined_text[:500] + f"... [dim](truncated, {len(combined_text)} chars total)[/dim]"
+            result_display = combined_text
+        elif isinstance(result_text, dict):
+            # JSON-serializable dict - format as JSON
+            try:
+                result_display = Syntax(
+                    json.dumps(result_text, indent=2, ensure_ascii=False),
+                    "json",
+                    theme="monokai",
+                    line_numbers=False,
+                    background_color="default",
+                )
+            except (TypeError, ValueError):
+                # Fallback if json.dumps fails
+                result_display = str(result_text)
+        elif result_text is None:
+            # None result
+            result_display = "[dim]None[/dim]"
+        elif isinstance(result_text, TextContent):
+            # Single TextContent object - extract text directly
+            result_str = result_text.text
+            if len(result_str) > 500:
+                result_str = result_str[:500] + f"... [dim](truncated, {len(result_str)} chars total)[/dim]"
+            result_display = result_str
+        else:
+            # Complex object (Pydantic models, etc.) - convert to string
+            result_str = str(result_text)
+            if len(result_str) > 500:
+                result_str = result_str[:500] + f"... [dim](truncated, {len(result_str)} chars total)[/dim]"
+            result_display = result_str
 
         # Build panel content with proper Rich renderable handling
         call_id_text = f"[bold]Call ID:[/bold] [dim]{result.call_id}[/dim]"
+        result_panel_content: Group | str
         if isinstance(result_display, Syntax):
             # Use Group to combine text and Syntax object
-            panel_content = Group(call_id_text, "", result_display)
+            result_panel_content = Group(call_id_text, "", result_display)
         else:
             # For string results, use f-string as normal
-            panel_content = f"{call_id_text}\n\n{result_display}"
+            result_panel_content = f"{call_id_text}\n\n{result_display}"
 
         console.print(
             Panel(
-                panel_content,
+                result_panel_content,
                 title=f"[{agent_color}]Tool Result[/{agent_color}]",
                 border_style="dim",
                 padding=(0, 1),

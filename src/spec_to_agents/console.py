@@ -26,12 +26,10 @@ from agent_framework import (
     WorkflowRunState,
     WorkflowStatusEvent,
 )
-from agent_framework.observability import setup_observability
 from dotenv import load_dotenv
 
+from spec_to_agents.container import AppContainer
 from spec_to_agents.models.messages import HumanFeedbackRequest
-from spec_to_agents.tools.mcp_tools import create_sequential_thinking_tool
-from spec_to_agents.utils.clients import create_agent_client
 from spec_to_agents.utils.display import (
     console,
     display_agent_run_update,
@@ -45,9 +43,6 @@ from spec_to_agents.workflow.core import build_event_planning_workflow
 
 # Load environment variables at module import
 load_dotenv()
-
-# Enable observability (reads from environment variables)
-setup_observability()
 
 
 async def main() -> None:
@@ -73,93 +68,105 @@ async def main() -> None:
     # Display welcome header
     display_welcome_header()
 
-    # Use async context managers for both MCP tool and agent client lifecycle
-    async with (
-        create_sequential_thinking_tool() as mcp_tool,
-        create_agent_client() as client,
-    ):
-        # Build workflow with connected MCP tool and agent client
-        with console.status("[bold green]Loading workflow...", spinner="dots"):
-            workflow = build_event_planning_workflow(client, mcp_tool)
-        console.print("[green]✓[/green] Workflow loaded successfully")
-        console.print()
+    # Initialize DI container and wire modules for dependency injection
+    container = AppContainer()
+    container.wire(modules=[__name__])
 
-        # Get initial event planning request from user with suggestions
-        user_request = prompt_for_event_request()
-        if user_request is None:
-            return
+    # Manually manage MCP tools lifecycle to avoid async task boundary issues
+    from spec_to_agents.tools.mcp_tools import create_global_tools
 
-        console.print()
-        console.rule("[bold green]Workflow Execution")
-        console.print()
+    # Use async context managers for agent client and MCP tools lifecycle
+    async with container.client(), create_global_tools() as tools:
+        # Override global_tools provider with connected tools instance
+        container.global_tools.override(tools)  # type: ignore
 
-        # Configuration: Toggle to display streaming agent run updates
-        # Set to True to see real-time tool calls, tool results, and text streaming
-        # Set to False to only see human-in-the-loop prompts and final output
-        display_streaming_updates = True
+        try:
+            # Build workflow with connected MCP tools and agent client
+            with console.status("[bold green]Loading workflow...", spinner="dots"):
+                workflow = build_event_planning_workflow()
+            console.print("[green]✓[/green] Workflow loaded successfully")
+            console.print()
 
-        # Main workflow loop: alternate between workflow execution and human input
-        pending_responses: dict[str, str] | None = None
-        workflow_output: str | None = None
+            # Get initial event planning request from user with suggestions
+            user_request = prompt_for_event_request()
+            if user_request is None:
+                return
 
-        # Track printed tool calls/results to avoid duplication in streaming
-        printed_tool_calls: set[str] = set()
-        printed_tool_results: set[str] = set()
-        last_executor: str | None = None
+            console.print()
+            console.rule("[bold green]Workflow Execution")
+            console.print()
 
-        while workflow_output is None:
-            # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
-            if pending_responses:
-                stream = workflow.send_responses_streaming(pending_responses)
-            else:
-                stream = workflow.run_stream(user_request)
+            # Configuration: Toggle to display streaming agent run updates
+            # Set to True to see real-time tool calls, tool results, and text streaming
+            # Set to False to only see human-in-the-loop prompts and final output
+            display_streaming_updates = True
 
-            pending_responses = None
+            # Main workflow loop: alternate between workflow execution and human input
+            pending_responses: dict[str, str] | None = None
+            workflow_output: str | None = None
 
-            # Process events as they stream in
-            human_requests: list[tuple[str, HumanFeedbackRequest]] = []
+            # Track printed tool calls/results to avoid duplication in streaming
+            printed_tool_calls: set[str] = set()
+            printed_tool_results: set[str] = set()
+            last_executor: str | None = None
 
-            async for event in stream:
-                # Display streaming agent updates if enabled
-                if isinstance(event, AgentRunUpdateEvent) and display_streaming_updates:
-                    last_executor = display_agent_run_update(
-                        event, last_executor, printed_tool_calls, printed_tool_results
-                    )
+            while workflow_output is None:
+                # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
+                if pending_responses:
+                    stream = workflow.send_responses_streaming(pending_responses)
+                else:
+                    stream = workflow.run_stream(user_request)
 
-                # Collect human-in-the-loop requests
-                elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
-                    # Workflow is requesting human input
-                    human_requests.append((event.request_id, event.data))
+                pending_responses = None
 
-                # Capture final workflow output
-                elif isinstance(event, WorkflowOutputEvent):
-                    # Workflow has yielded final output
-                    workflow_output = str(event.data)
+                # Process events as they stream in
+                human_requests: list[tuple[str, HumanFeedbackRequest]] = []
 
-                # Display workflow status transitions for transparency
-                elif (
-                    isinstance(event, WorkflowStatusEvent)
-                    and event.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
-                ):
-                    display_workflow_pause()
+                async for event in stream:
+                    # Display streaming agent updates if enabled
+                    if isinstance(event, AgentRunUpdateEvent) and display_streaming_updates:
+                        last_executor = display_agent_run_update(
+                            event, last_executor, printed_tool_calls, printed_tool_results
+                        )
 
-            # Prompt user for feedback if workflow requested input
-            if human_requests:
-                responses: dict[str, str] = {}
+                    # Collect human-in-the-loop requests
+                    elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
+                        # Workflow is requesting human input
+                        human_requests.append((event.request_id, event.data))
 
-                for request_id, feedback_request in human_requests:
-                    user_response = display_human_feedback_request(feedback_request)
-                    if user_response is None:
-                        return
+                    # Capture final workflow output
+                    elif isinstance(event, WorkflowOutputEvent):
+                        # Workflow has yielded final output
+                        workflow_output = str(event.data)
 
-                    responses[request_id] = user_response
+                    # Display workflow status transitions for transparency
+                    elif (
+                        isinstance(event, WorkflowStatusEvent)
+                        and event.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
+                    ):
+                        display_workflow_pause()
 
-                pending_responses = responses
+                # Prompt user for feedback if workflow requested input
+                if human_requests:
+                    responses: dict[str, str] = {}
 
-        # Display final workflow output
-        display_final_output(workflow_output)
+                    for request_id, feedback_request in human_requests:
+                        user_response = display_human_feedback_request(feedback_request)
+                        if user_response is None:
+                            return
 
-    # MCP tool and agent client automatically cleaned up by async context managers
+                        responses[request_id] = user_response
+
+                    pending_responses = responses
+
+            # Display final workflow output
+            display_final_output(workflow_output)
+
+        finally:
+            # Reset override to avoid affecting other container usages
+            container.global_tools.reset_override()
+
+    # MCP tools and agent client automatically cleaned up by async context managers
 
 
 def cli() -> None:

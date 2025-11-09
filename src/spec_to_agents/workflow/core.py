@@ -4,11 +4,11 @@
 
 from agent_framework import (
     AgentExecutor,
-    MCPStdioTool,
+    BaseChatClient,
     Workflow,
     WorkflowBuilder,
 )
-from agent_framework.azure import AzureAIAgentClient
+from dependency_injector.wiring import Provide, inject
 
 from spec_to_agents.agents import (
     budget_analyst,
@@ -17,21 +17,12 @@ from spec_to_agents.agents import (
     logistics_manager,
     venue_specialist,
 )
-from spec_to_agents.utils.clients import create_agent_client_for_devui
 from spec_to_agents.workflow.executors import EventPlanningCoordinator
 
-# Declare lazy-loaded attribute for type checking
-workflow: Workflow
 
-__all__ = ["build_event_planning_workflow", "workflow"]
-
-# Private cache for lazy initialization
-_workflow_cache: Workflow | None = None
-
-
+@inject
 def build_event_planning_workflow(
-    client: AzureAIAgentClient,
-    mcp_tool: MCPStdioTool | None = None,
+    client: BaseChatClient = Provide["client"],
 ) -> Workflow:
     """
     Build the multi-agent event planning workflow with human-in-the-loop capabilities.
@@ -92,12 +83,11 @@ def build_event_planning_workflow(
     calling code to ensure proper cleanup of agents when the workflow is done.
     """
     # Create agents
-    coordinator_agent = event_coordinator.create_agent(client)
-    venue_agent = venue_specialist.create_agent(client, mcp_tool)
-    budget_agent = budget_analyst.create_agent(client, mcp_tool)
-    catering_agent = catering_coordinator.create_agent(client, mcp_tool)
-    logistics_agent = logistics_manager.create_agent(client, mcp_tool)
-
+    coordinator_agent = event_coordinator.create_agent()
+    venue_agent = venue_specialist.create_agent()
+    budget_agent = budget_analyst.create_agent()
+    catering_agent = catering_coordinator.create_agent()
+    logistics_agent = logistics_manager.create_agent()
     # Create coordinator executor with routing logic
     coordinator = EventPlanningCoordinator(coordinator_agent)
 
@@ -135,43 +125,3 @@ def build_event_planning_workflow(
     # Set stable ID to prevent URL issues on restart
     workflow.id = "event-planning-workflow"
     return workflow
-
-
-def __getattr__(name: str) -> Workflow:
-    """
-    Lazy initialization hook for the workflow module attribute.
-
-    This enables lazy loading of the workflow instance for DevUI integration.
-    The workflow is created with a non-context-managed client, which will be
-    cleaned up by DevUI's FastAPI lifespan hooks.
-
-    Parameters
-    ----------
-    name : str
-        The attribute name being accessed
-
-    Returns
-    -------
-    Workflow
-        The workflow instance
-
-    Raises
-    ------
-    AttributeError
-        If the attribute name is not 'workflow'
-
-    Notes
-    -----
-    For programmatic usage (console.py, tests), prefer using
-    build_event_planning_workflow() with an async context-managed client
-    for proper cleanup. This lazy-loaded instance is intended for DevUI,
-    which handles cleanup through FastAPI lifespan hooks.
-    """
-    if name == "workflow":
-        global _workflow_cache
-        if _workflow_cache is None:
-            # Create client for DevUI - DevUI will handle cleanup via FastAPI lifespan
-            client = create_agent_client_for_devui()
-            _workflow_cache = build_event_planning_workflow(client, mcp_tool=None)
-        return _workflow_cache
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
