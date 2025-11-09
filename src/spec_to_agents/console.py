@@ -52,7 +52,7 @@ async def main() -> None:
     This function implements the main event loop pattern from
     guessing_game_with_human_input.py, adapted for event planning:
 
-    1. Build the workflow with connected MCP tool
+    1. Build the workflow with MCP tools injected via DI
     2. Loop until workflow completes:
        - Stream workflow events (run_stream or send_responses_streaming)
        - Collect RequestInfoEvents for human feedback
@@ -60,10 +60,7 @@ async def main() -> None:
        - Prompt user for input when needed
        - Send responses back to workflow
     3. Display final event plan
-    4. MCP tool cleanup handled automatically by async context manager
-
-    The workflow alternates between executing agent logic and pausing
-    for human input via the request_info/response_handler pattern.
+    4. MCP tool cleanup handled automatically by ChatAgent's exit stack
     """
     # Display welcome header
     display_welcome_header()
@@ -72,16 +69,11 @@ async def main() -> None:
     container = AppContainer()
     container.wire(modules=[__name__])
 
-    # Manually manage MCP tools lifecycle to avoid async task boundary issues
-    from spec_to_agents.tools.mcp_tools import create_global_tools
-
-    # Use async context managers for agent client and MCP tools lifecycle
-    async with container.client(), create_global_tools() as tools:
-        # Override global_tools provider with connected tools instance
-        container.global_tools.override(tools)  # type: ignore
-
+    # Agent client handles async context for itself
+    # MCP tools injected via DI, ChatAgent manages their lifecycle via exit stack
+    async with container.client():
         try:
-            # Build workflow with connected MCP tools and agent client
+            # Build workflow with MCP tools automatically injected
             with console.status("[bold green]Loading workflow...", spinner="dots"):
                 workflow = build_event_planning_workflow()
             console.print("[green]✓[/green] Workflow loaded successfully")
@@ -162,9 +154,9 @@ async def main() -> None:
             # Display final workflow output
             display_final_output(workflow_output)
 
-        finally:
-            # Reset override to avoid affecting other container usages
-            container.global_tools.reset_override()
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise
 
     # MCP tools and agent client automatically cleaned up by async context managers
 

@@ -129,7 +129,8 @@ def test_parse_specialist_output_with_tool_calls_but_no_text():
     error_msg = str(exc_info.value)
     # Verify error includes debugging info about tool calls
     assert "venue" in error_msg
-    assert "(empty)" in error_msg or "empty" in error_msg.lower()
+    # The error message contains "Response text: ''" when empty
+    assert "Response text: ''" in error_msg or "FunctionCallContent" in error_msg
 
 
 @pytest.mark.asyncio

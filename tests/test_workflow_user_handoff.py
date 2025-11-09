@@ -10,10 +10,13 @@ from agent_framework import RequestInfoEvent
 from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
-def test_workflow_builds_with_hitl_components():
+def test_workflow_builds_with_hitl_components(setup_di_container):
     """Test that workflow builds successfully with HITL components."""
+    container = setup_di_container
     mock_client = Mock()
-    workflow = build_event_planning_workflow(mock_client)
+    container.client.override(mock_client)
+
+    workflow = build_event_planning_workflow()
     assert workflow is not None
 
 

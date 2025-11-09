@@ -79,6 +79,7 @@ The system supports custom specialized agents stored in agent-specific directori
 
 ### Agent Selection and Usage
 
+- IMPORTANT: ALWAYS start by invoking the agent-organizer sub-agent, an expert agent organizer specializing in multi-agent orchestration.
 - Custom agents are automatically selected based on the context and task requirements
 - The system analyzes the user's request and matches it with the most appropriate specialized agent
 - Multiple sub-agents can work in parallel on different aspects of a complex task

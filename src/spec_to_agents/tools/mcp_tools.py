@@ -2,57 +2,51 @@
 
 """MCP (Model Context Protocol) tools integration."""
 
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-
 from agent_framework import MCPStdioTool, ToolProtocol
 
 
-@asynccontextmanager
-async def create_global_tools() -> AsyncGenerator[dict[str, ToolProtocol], None]:
+def create_mcp_tool_instances() -> dict[str, ToolProtocol]:
     """
-    Create and manage a global toolset including MCP tools.
+    Create MCP tool instances for framework-managed lifecycle.
 
-    This async context manager initializer properly manages the lifecycle
-    of MCP tools by entering their async context on initialization and
-    exiting on cleanup.
+    Tools are NOT connected when created. They connect lazily on first use
+    via __aenter__() and cleanup automatically via:
+    - DevUI mode: DevUI's _cleanup_entities() calls tool.close()
+    - Console mode: ChatAgent's exit stack manages __aenter__/__aexit__
 
-    Yields
-    ------
+    Returns
+    -------
     dict[str, ToolProtocol]
-        Tools dictionary containing connected MCP tools for advanced reasoning
+        Dictionary of MCP tool instances (not connected yet)
+        Keys:
+        - "sequential-thinking": MCP sequential thinking tool for advanced reasoning
 
     Example
     -------
-    Used with Resource provider in DI container::
+    Used with Singleton provider in DI container::
 
         class AppContainer(containers.DeclarativeContainer):
-            global_tools = providers.Resource(create_global_tools)
+            global_tools = providers.Singleton(create_mcp_tool_instances)
 
 
-        async with container:
-            await container.init_resources()
-            # tools are connected
-            await container.shutdown_resources()
-            # tools are properly cleaned up
+        container = AppContainer()
+        tools = container.global_tools()  # Get tool instances
+        # Framework manages lifecycle from here
 
     Notes
     -----
-    The MCP tools require async context management to ensure proper
-    connection establishment via __aenter__ and cleanup via __aexit__.
-    This function wraps the MCPStdioTool instances in an async context
-    manager to handle their lifecycle automatically.
+    The MCP tools require async context management (__aenter__/__aexit__)
+    for connection establishment and cleanup. This function creates the
+    tool instances but does NOT connect them. The framework (Agent Framework
+    or DevUI) handles the connection lifecycle automatically.
     """
-    # Create MCP tool instances
+    # Create MCP tool instance (not connected)
     sequential_thinking_tool = MCPStdioTool(
         name="sequential-thinking", command="npx", args=["-y", "@modelcontextprotocol/server-sequential-thinking"]
     )
 
-    # Enter async context for each MCP tool
-    async with sequential_thinking_tool:
-        # Yield tools dict for injection
-        yield {"sequential-thinking": sequential_thinking_tool}
-    # Cleanup happens automatically when async context exits
+    # Return tools dict for injection (framework manages lifecycle)
+    return {"sequential-thinking": sequential_thinking_tool}
 
 
-__all__ = ["create_global_tools"]
+__all__ = ["create_mcp_tool_instances"]

@@ -5,30 +5,32 @@
 from agent_framework import Workflow
 
 from spec_to_agents.utils.clients import create_agent_client_for_devui
-from spec_to_agents.workflow.core import build_event_planning_workflow, workflow
+from spec_to_agents.workflow.core import build_event_planning_workflow
 
 
-def test_workflow_builds_successfully() -> None:
+def test_workflow_builds_successfully(setup_di_container) -> None:
     """Test that the workflow can be constructed without errors."""
+    container = setup_di_container
     client = create_agent_client_for_devui()
-    test_workflow = build_event_planning_workflow(client)
+    container.client.override(client)
+
+    test_workflow = build_event_planning_workflow()
     assert test_workflow is not None
     assert isinstance(test_workflow, Workflow)
 
 
-def test_workflow_module_export() -> None:
-    """Test that the workflow module exports a workflow instance."""
-    assert workflow is not None
-    assert isinstance(workflow, Workflow)
-
-
-def test_workflow_has_correct_id() -> None:
+def test_workflow_has_correct_id(setup_di_container) -> None:
     """Test that workflow has the expected ID."""
-    assert workflow is not None
-    assert workflow.id == "event-planning-workflow"
+    container = setup_di_container
+    client = create_agent_client_for_devui()
+    container.client.override(client)
+
+    test_workflow = build_event_planning_workflow()
+    assert test_workflow is not None
+    assert test_workflow.id == "event-planning-workflow"
 
 
-def test_workflow_uses_star_topology() -> None:
+def test_workflow_uses_star_topology(setup_di_container) -> None:
     """
     Test that workflow uses coordinator-centric star topology.
 
@@ -37,8 +39,11 @@ def test_workflow_uses_star_topology() -> None:
     - 4 AgentExecutors (specialists)
     Total: 5 executors (down from 13)
     """
+    container = setup_di_container
     client = create_agent_client_for_devui()
-    test_workflow = build_event_planning_workflow(client)
+    container.client.override(client)
+
+    test_workflow = build_event_planning_workflow()
     assert test_workflow is not None
 
     # Workflow should build successfully with new star topology
@@ -46,7 +51,7 @@ def test_workflow_uses_star_topology() -> None:
     # Routing handled by EventPlanningCoordinator
 
 
-def test_coordinator_uses_service_managed_threads() -> None:
+def test_coordinator_uses_service_managed_threads(setup_di_container) -> None:
     """
     Test that coordinator uses service-managed threads (no manual state tracking).
 
@@ -58,8 +63,11 @@ def test_coordinator_uses_service_managed_threads() -> None:
     - Should NOT have _current_index (obsolete)
     - Should NOT have _specialist_sequence (obsolete)
     """
+    container = setup_di_container
     client = create_agent_client_for_devui()
-    test_workflow = build_event_planning_workflow(client)
+    container.client.override(client)
+
+    test_workflow = build_event_planning_workflow()
     assert test_workflow is not None
 
     # Get the coordinator executor
