@@ -112,7 +112,7 @@ spec-to-agents/
 │   ├── console.py       # Interactive CLI entry point (uv run console)
 │   ├── agents/          # Agent definitions (budget_analyst, venue_specialist, etc.)
 │   ├── prompts/         # System prompts for each agent
-│   ├── tools/           # Tool implementations (web search, weather, calendar)
+│   ├── tools/           # Tool implementations (web search, weather, calendar, mcp)
 │   ├── workflow/        # Workflow orchestration logic
 │   └── utils/           # Shared utilities and clients
 ├── tests/               # Unit and integration tests
@@ -130,12 +130,6 @@ Framework-native `ctx.request_info()` enables pausing workflows for user input w
 
 ### Structured Output Routing
 Agents return Pydantic models with explicit routing decisions (`next_agent` field), enabling dynamic workflow orchestration.
-
-### Tool Integration
-- **Web Search**: Bing Search with Grounding for venue and catering research
-- **Code Interpreter**: Python REPL for budget calculations
-- **Weather API**: Open-Meteo for weather forecasts
-- **Calendar Tools**: iCalendar (.ics) management
 
 ## 🧪 Development
 
