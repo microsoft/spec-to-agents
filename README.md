@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="30%"/>
+  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="10%"/>
 </p>
 
 # Event Planning Multi-Agent System
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/spec-to-agents)
 
 A multi-agent event planning workflow built with **[Microsoft Agent Framework](https://github.com/microsoft/agent-framework)** - combining Semantic Kernel's enterprise orchestration with AutoGen's multi-agent patterns.
 
@@ -37,6 +39,7 @@ Each specialist agent has access to domain-specific tools for their area of expe
 - **Budget Analyst**: Code Interpreter (Python REPL)
 - **Catering Coordinator**: Web Search (Bing Grounding)
 - **Logistics Manager**: Weather API (Open-Meteo) + Calendar Tools (iCalendar)
+- **All Agents**: MCP Sequential Thinking (Model Context Protocol for complex reasoning)
 
 ## 🚀 Quick Start
 
@@ -80,7 +83,7 @@ uv run console
 uv run app
 ```
 
-Then navigate to the URL shown (typically `http://localhost:8000`)
+Then navigate to the URL shown (by default `http://localhost:8080`)
 
 ### Example Input
 
@@ -105,6 +108,8 @@ The agents will collaborate to:
 ```
 spec-to-agents/
 ├── src/spec_to_agents/
+│   ├── main.py          # DevUI entry point (uv run app)
+│   ├── console.py       # Interactive CLI entry point (uv run console)
 │   ├── agents/          # Agent definitions (budget_analyst, venue_specialist, etc.)
 │   ├── prompts/         # System prompts for each agent
 │   ├── tools/           # Tool implementations (web search, weather, calendar)
@@ -147,7 +152,7 @@ See [DEV_SETUP.md](./DEV_SETUP.md) for debugging instructions and manual configu
 Provisioned automatically by `azd up`:
 
 - **Azure AI Foundry**: Hub and Project for agent orchestration
-- **Azure OpenAI**: GPT-4o-mini (primary) and GPT-4.1-mini (web search)
+- **Azure OpenAI**: gpt-5-mini (primary) and gpt-4.1-mini (web search)
 - **Bing Search**: Grounding API for web searches
 - **Container Registry & App**: For deployment (optional)
 - **Application Insights**: Telemetry and monitoring
