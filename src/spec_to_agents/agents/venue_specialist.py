@@ -45,18 +45,5 @@ def create_agent(
     Uses custom web_search @ai_function instead of HostedWebSearchTool for
     better control over response formatting for language models.
     """
-    # Initialize agent-specific tools
-    agent_tools: list[ToolProtocol] = [web_search]
-
-    if global_tools.get("sequential-thinking"):
-        # Include MCP sequential-thinking tool from global tools
-        agent_tools.append(global_tools["sequential-thinking"])
-
-    return client.create_agent(
-        name="venue_specialist",
-        description="Expert in venue selection, site visits, and facility management for events.",
-        instructions=venue_specialist.SYSTEM_PROMPT,
-        tools=agent_tools,
-        response_format=SpecialistOutput,
-        **model_config,
-    )
+    # TODO: Exercise 1 - Create Venue Specialist agent with web search capability
+    pass

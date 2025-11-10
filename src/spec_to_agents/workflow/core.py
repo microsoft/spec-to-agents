@@ -82,46 +82,5 @@ def build_event_planning_workflow(
     The client parameter should be managed as an async context manager in the
     calling code to ensure proper cleanup of agents when the workflow is done.
     """
-    # Create agents
-    coordinator_agent = event_coordinator.create_agent()
-    venue_agent = venue_specialist.create_agent()
-    budget_agent = budget_analyst.create_agent()
-    catering_agent = catering_coordinator.create_agent()
-    logistics_agent = logistics_manager.create_agent()
-    # Create coordinator executor with routing logic
-    coordinator = EventPlanningCoordinator(coordinator_agent)
-
-    # Create specialist executors
-    venue_exec = AgentExecutor(agent=venue_agent, id="venue")
-    budget_exec = AgentExecutor(agent=budget_agent, id="budget")
-    catering_exec = AgentExecutor(agent=catering_agent, id="catering")
-    logistics_exec = AgentExecutor(agent=logistics_agent, id="logistics")
-
-    # Build workflow with bidirectional star topology
-    workflow = (
-        WorkflowBuilder(
-            name="Event Planning Workflow",
-            description=(
-                "Multi-agent event planning workflow with venue selection, budgeting, "
-                "catering, and logistics coordination. Supports human-in-the-loop for "
-                "clarification and approval."
-            ),
-            max_iterations=30,  # Prevent infinite loops
-        )
-        # Set coordinator as start executor
-        .set_start_executor(coordinator)
-        # Bidirectional edges: Coordinator ←→ Each Specialist
-        .add_edge(coordinator, venue_exec)
-        .add_edge(venue_exec, coordinator)
-        .add_edge(coordinator, budget_exec)
-        .add_edge(budget_exec, coordinator)
-        .add_edge(coordinator, catering_exec)
-        .add_edge(catering_exec, coordinator)
-        .add_edge(coordinator, logistics_exec)
-        .add_edge(logistics_exec, coordinator)
-        .build()
-    )
-
-    # Set stable ID to prevent URL issues on restart
-    workflow.id = "event-planning-workflow"
-    return workflow
+    # TODO: Exercise 5 - Build the event planning workflow with agent executors
+    pass

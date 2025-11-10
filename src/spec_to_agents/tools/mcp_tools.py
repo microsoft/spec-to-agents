@@ -40,13 +40,8 @@ def create_mcp_tool_instances() -> dict[str, ToolProtocol]:
     tool instances but does NOT connect them. The framework (Agent Framework
     or DevUI) handles the connection lifecycle automatically.
     """
-    # Create MCP tool instance (not connected)
-    sequential_thinking_tool = MCPStdioTool(
-        name="sequential-thinking", command="npx", args=["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    )
-
-    # Return tools dict for injection (framework manages lifecycle)
-    return {"sequential-thinking": sequential_thinking_tool}
+    # TODO: Exercise 3 - Create MCP sequential thinking tool instance
+    pass
 
 
 __all__ = ["create_mcp_tool_instances"]
