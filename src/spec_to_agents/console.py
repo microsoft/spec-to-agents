@@ -18,6 +18,7 @@ This follows the human-in-the-loop pattern from guessing_game_with_human_input.p
 """
 
 import asyncio
+from contextlib import AsyncExitStack
 
 from agent_framework import (
     AgentRunUpdateEvent,
@@ -75,11 +76,11 @@ async def main() -> None:
         # Get MCP tools from DI container
         mcp_tools = container.global_tools()
 
-        # Enter MCP tools into async context for proper lifecycle management
-        # This ensures clean shutdown even on early exit (user typing "exit")
-        mcp_tool = mcp_tools.get("sequential-thinking")
-        if mcp_tool:
-            async with mcp_tool:
+        if mcp_tools:
+            async with AsyncExitStack() as stack:
+                for name, tool in mcp_tools.items():
+                    console.print(f"[blue]Initializing MCP tool:[/blue] {name}")
+                    await stack.enter_async_context(tool)  # type: ignore
                 await _run_workflow()
         else:
             await _run_workflow()
