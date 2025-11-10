@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="150rem"/>
+  <img src="./assets/spec_logo.png" alt="Spec-to-Agents Logo" width="180rem"/>
 </p>
 
 # Event Planning Multi-Agent System
@@ -145,7 +145,7 @@ See [DEV_SETUP.md](./DEV_SETUP.md) for debugging instructions and manual configu
 
 Provisioned automatically by `azd up`:
 
-- **Azure AI Foundry**: Hub and Project for agent orchestration
+- **Azure AI Foundry**: AIServices resource and Project for service managed agents
 - **Azure OpenAI**: gpt-5-mini (primary) and gpt-4.1-mini (web search)
 - **Bing Search**: Grounding API for web searches
 - **Container Registry & App**: For deployment (optional)
