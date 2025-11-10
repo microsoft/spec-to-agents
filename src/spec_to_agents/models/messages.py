@@ -73,14 +73,8 @@ class SpecialistOutput(BaseModel):
     ... )
     """
 
-    summary: str = Field(description="Concise summary of this specialist's recommendations (max 200 words)")
-    next_agent: Literal["venue", "budget", "catering", "logistics"] | None = Field(
-        description=(
-            "ID of next agent to route to ('venue', 'budget', 'catering', 'logistics'), or None if done/need user input, requests to other sub-agents from a sub-agent should always go through the coordinator (e.g. venue → event_coordinator → budget)"  # noqa: E501
-        )
-    )
-    user_input_needed: bool = Field(default=False, description="Whether user input is required before proceeding")
-    user_prompt: str | None = Field(default=None, description="Question to ask user if user_input_needed=True")
+    # TODO: Exercise 4 - Define structured output fields for agent responses
+    pass
 
 
 __all__ = ["HumanFeedbackRequest", "SpecialistOutput"]
