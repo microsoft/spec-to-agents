@@ -8,6 +8,40 @@ Tasks are organized by user story and include:
 - Clear acceptance criteria for validation
 - Dependencies between tasks
 
+## Prerequisite: Update Data Model
+
+### Task 0.1: Update SpecialistOutput Model
+**File**: `src/spec_to_agents/models/messages.py`  
+**Dependencies**: None (MUST BE DONE FIRST)  
+**Parallel**: No
+
+**Description:**
+Update the `SpecialistOutput` Pydantic model to include "entertainment" in the `next_agent` Literal type. This is required for routing to work.
+
+**Implementation Steps:**
+1. Open `src/spec_to_agents/models/messages.py`
+2. Locate the `SpecialistOutput` class (around line 60-80)
+3. Find the `next_agent` field definition
+4. Update the Literal type from:
+   ```python
+   next_agent: Literal["venue", "budget", "catering", "logistics"] | None
+   ```
+   To:
+   ```python
+   next_agent: Literal["venue", "budget", "catering", "logistics", "entertainment"] | None
+   ```
+5. Update the field description to mention entertainment
+
+**Acceptance Criteria:**
+- [ ] `next_agent` field includes "entertainment" in Literal type
+- [ ] Field description updated to list 5 agents (was 4)
+- [ ] File imports unchanged (no new imports needed)
+- [ ] Code passes type checking (`mypy` or similar)
+
+**Critical Note:** This MUST be completed before any other tasks. Without this change, the workflow will fail at runtime with a Pydantic validation error when logistics tries to route to entertainment.
+
+---
+
 ## User Story 1: Entertainment Research
 
 ### Task 1.1: Create System Prompt
@@ -57,7 +91,7 @@ You are the Entertainment Specialist...
 
 ### Task 1.2: Create Agent Creation Module
 **File**: `src/spec_to_agents/agents/entertainment_specialist.py`  
-**Dependencies**: Task 1.1 (needs system prompt)  
+**Dependencies**: Task 0.1 (model updated), Task 1.1 (needs system prompt)  
 **Parallel**: No
 
 **Description:**
