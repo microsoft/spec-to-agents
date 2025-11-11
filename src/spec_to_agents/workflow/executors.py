@@ -3,6 +3,7 @@
 """Custom executors for event planning workflow with human-in-the-loop."""
 
 import json
+from datetime import datetime
 
 from agent_framework import (
     AgentExecutorRequest,
@@ -138,7 +139,11 @@ class EventPlanningCoordinator(Executor):
         """
         # Route to venue specialist with user's initial request
         # _route_to_agent will wrap it in a ChatMessage
-        await self._route_to_agent("venue", prompt, ctx)
+        context = ChatMessage(
+            Role.ASSISTANT,
+            text=f"Today's date is {datetime.now().strftime('%Y-%m-%d')}.",
+        )
+        await self._route_to_agent("venue", prompt, ctx, prior_conversation=[context])
 
     @handler
     async def on_specialist_response(
