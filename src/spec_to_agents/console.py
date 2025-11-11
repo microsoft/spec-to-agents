@@ -80,7 +80,7 @@ async def main() -> None:
             async with AsyncExitStack() as stack:
                 for name, tool in mcp_tools.items():
                     console.print(f"[blue]Initializing MCP tool:[/blue] {name}")
-                    await stack.enter_async_context(tool)  # type: ignore
+                    await stack.enter_async_context(tool)  # type: ignore[arg-type]
                 await _run_workflow()
         else:
             await _run_workflow()
