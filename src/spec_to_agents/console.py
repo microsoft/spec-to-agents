@@ -18,6 +18,7 @@ This follows the human-in-the-loop pattern from guessing_game_with_human_input.p
 """
 
 import asyncio
+from contextlib import AsyncExitStack
 
 from agent_framework import (
     AgentRunUpdateEvent,
@@ -60,7 +61,7 @@ async def main() -> None:
        - Prompt user for input when needed
        - Send responses back to workflow
     3. Display final event plan
-    4. MCP tool cleanup handled automatically by ChatAgent's exit stack
+    4. MCP tools cleaned up automatically by async context manager
     """
     # Display welcome header
     display_welcome_header()
@@ -70,93 +71,113 @@ async def main() -> None:
     container.wire(modules=[__name__])
 
     # Agent client handles async context for itself
-    # MCP tools injected via DI, ChatAgent manages their lifecycle via exit stack
+    # MCP tools need explicit async context management for proper cleanup
     async with container.client():
-        try:
-            # Build workflow with MCP tools automatically injected
-            with console.status("[bold green]Loading workflow...", spinner="dots"):
-                workflow = build_event_planning_workflow()
-            console.print("[green]✓[/green] Workflow loaded successfully")
-            console.print()
+        # Get MCP tools from DI container
+        mcp_tools = container.global_tools()
 
-            # Get initial event planning request from user with suggestions
-            user_request = prompt_for_event_request()
-            if user_request is None:
-                return
+        if mcp_tools:
+            async with AsyncExitStack() as stack:
+                for name, tool in mcp_tools.items():
+                    console.print(f"[blue]Initializing MCP tool:[/blue] {name}")
+                    await stack.enter_async_context(tool)  # type: ignore[arg-type]
+                await _run_workflow()
+        else:
+            await _run_workflow()
 
-            console.print()
-            console.rule("[bold green]Workflow Execution")
-            console.print()
 
-            # Configuration: Toggle to display streaming agent run updates
-            # Set to True to see real-time tool calls, tool results, and text streaming
-            # Set to False to only see human-in-the-loop prompts and final output
-            display_streaming_updates = True
+async def _run_workflow() -> None:
+    """
+    Execute the event planning workflow.
 
-            # Main workflow loop: alternate between workflow execution and human input
-            pending_responses: dict[str, str] | None = None
-            workflow_output: str | None = None
+    This helper function contains the main workflow execution logic,
+    separated to allow proper MCP tool context management in main().
+    """
+    try:
+        # Build workflow with MCP tools automatically injected
+        with console.status("[bold green]Loading workflow...", spinner="dots"):
+            workflow = build_event_planning_workflow()
+        console.print("[green]✓[/green] Workflow loaded successfully")
+        console.print()
 
-            # Track printed tool calls/results to avoid duplication in streaming
-            printed_tool_calls: set[str] = set()
-            printed_tool_results: set[str] = set()
-            last_executor: str | None = None
+        # Get initial event planning request from user with suggestions
+        user_request = prompt_for_event_request()
+        if user_request is None:
+            return
 
-            while workflow_output is None:
-                # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
-                if pending_responses:
-                    stream = workflow.send_responses_streaming(pending_responses)
-                else:
-                    stream = workflow.run_stream(user_request)
+        console.print()
+        console.rule("[bold green]Workflow Execution")
+        console.print()
 
-                pending_responses = None
+        # Configuration: Toggle to display streaming agent run updates
+        # Set to True to see real-time tool calls, tool results, and text streaming
+        # Set to False to only see human-in-the-loop prompts and final output
+        display_streaming_updates = True
 
-                # Process events as they stream in
-                human_requests: list[tuple[str, HumanFeedbackRequest]] = []
+        # Main workflow loop: alternate between workflow execution and human input
+        pending_responses: dict[str, str] | None = None
+        workflow_output: str | None = None
 
-                async for event in stream:
-                    # Display streaming agent updates if enabled
-                    if isinstance(event, AgentRunUpdateEvent) and display_streaming_updates:
-                        last_executor = display_agent_run_update(
-                            event, last_executor, printed_tool_calls, printed_tool_results
-                        )
+        # Track printed tool calls/results to avoid duplication in streaming
+        printed_tool_calls: set[str] = set()
+        printed_tool_results: set[str] = set()
+        last_executor: str | None = None
 
-                    # Collect human-in-the-loop requests
-                    elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
-                        # Workflow is requesting human input
-                        human_requests.append((event.request_id, event.data))
+        while workflow_output is None:
+            # Execute workflow: first iteration uses run_stream(), subsequent use send_responses_streaming()
+            if pending_responses:
+                stream = workflow.send_responses_streaming(pending_responses)
+            else:
+                stream = workflow.run_stream(user_request)
 
-                    # Capture final workflow output
-                    elif isinstance(event, WorkflowOutputEvent):
-                        # Workflow has yielded final output
-                        workflow_output = str(event.data)
+            pending_responses = None
 
-                    # Display workflow status transitions for transparency
-                    elif (
-                        isinstance(event, WorkflowStatusEvent)
-                        and event.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
-                    ):
-                        display_workflow_pause()
+            # Process events as they stream in
+            human_requests: list[tuple[str, HumanFeedbackRequest]] = []
 
-                # Prompt user for feedback if workflow requested input
-                if human_requests:
-                    responses: dict[str, str] = {}
+            async for event in stream:
+                # Display streaming agent updates if enabled
+                if isinstance(event, AgentRunUpdateEvent) and display_streaming_updates:
+                    last_executor = display_agent_run_update(
+                        event, last_executor, printed_tool_calls, printed_tool_results
+                    )
 
-                    for request_id, feedback_request in human_requests:
-                        user_response = display_human_feedback_request(feedback_request)
-                        if user_response is None:
-                            return
+                # Collect human-in-the-loop requests
+                elif isinstance(event, RequestInfoEvent) and isinstance(event.data, HumanFeedbackRequest):
+                    # Workflow is requesting human input
+                    human_requests.append((event.request_id, event.data))
 
-                        responses[request_id] = user_response
+                # Capture final workflow output
+                elif isinstance(event, WorkflowOutputEvent):
+                    # Workflow has yielded final output
+                    workflow_output = str(event.data)
 
-                    pending_responses = responses
+                # Display workflow status transitions for transparency
+                elif (
+                    isinstance(event, WorkflowStatusEvent)
+                    and event.state == WorkflowRunState.IDLE_WITH_PENDING_REQUESTS
+                ):
+                    display_workflow_pause()
 
-            # Display final workflow output
-            display_final_output(workflow_output)
+            # Prompt user for feedback if workflow requested input
+            if human_requests:
+                responses: dict[str, str] = {}
 
-        except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
-            raise
+                for request_id, feedback_request in human_requests:
+                    user_response = display_human_feedback_request(feedback_request)
+                    if user_response is None:
+                        return
+
+                    responses[request_id] = user_response
+
+                pending_responses = responses
+
+        # Display final workflow output
+        display_final_output(workflow_output)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise
 
     # MCP tools and agent client automatically cleaned up by async context managers
 

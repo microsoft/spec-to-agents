@@ -5,7 +5,6 @@ from typing import Any
 from agent_framework import BaseChatClient, ChatAgent, ToolProtocol
 from dependency_injector.wiring import Provide, inject
 
-from spec_to_agents.models.messages import SpecialistOutput
 from spec_to_agents.prompts import event_coordinator
 
 
@@ -37,6 +36,5 @@ def create_agent(
         name="event_coordinator",
         instructions=event_coordinator.SYSTEM_PROMPT,
         tools=agent_tools,
-        response_format=SpecialistOutput,
         **model_config,
     )
