@@ -88,6 +88,7 @@ def build_event_planning_workflow(
     budget_agent = budget_analyst.create_agent()
     catering_agent = catering_coordinator.create_agent()
     logistics_agent = logistics_manager.create_agent()
+
     # Create coordinator executor with routing logic
     coordinator = EventPlanningCoordinator(coordinator_agent)
 

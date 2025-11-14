@@ -1,6 +1,4 @@
 # Copyright (c) Microsoft. All rights reserved.
-import asyncio
-
 from agent_framework import ChatAgent
 from agent_framework.a2a import A2AAgent
 
@@ -34,9 +32,8 @@ def export_agents() -> list[ChatAgent | A2AAgent]:
     budget_agent = budget_analyst.create_agent()
     catering_agent = catering_coordinator.create_agent()
     logistics_agent = logistics_manager.create_agent()
-    calendar_agent = asyncio.run(calendar.create_agent())
 
-    return [venue_agent, budget_agent, catering_agent, logistics_agent, calendar_agent]
+    return [venue_agent, budget_agent, catering_agent, logistics_agent]
 
 
-__all__ = ["create_agent_client_for_devui", "export_agents"]
+__all__ = ["calendar", "create_agent_client_for_devui", "export_agents"]

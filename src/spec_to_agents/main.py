@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import argparse
 import os
 
 from agent_framework.observability import setup_observability
@@ -29,11 +30,18 @@ def main() -> None:
     container = AppContainer()
     container.wire(modules=[__name__])
 
-    # MCP tools now work in DevUI mode - framework manages lifecycle
-    # No override needed, no init_resources() needed
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Launch the Agent Workflow DevUI")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port to run the server on (default: PORT env var or 8080)",
+    )
+    args = parser.parse_args()
 
     # Get port from environment (for container deployments) or use default
-    port = int(os.getenv("PORT", "8080"))
+    port = args.port or int(os.getenv("PORT", "8080"))
     # Disable auto_open in container environments
     auto_open = os.getenv("ENVIRONMENT") != "production"
 
