@@ -8,8 +8,9 @@ from dotenv import load_dotenv
 # Load environment variables at module import
 load_dotenv()
 
-# Enable observability
-setup_observability()
+# Enable observability (skip in container environments if not configured)
+if not (os.getenv("CONTAINER_ENV") == "true" and not os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")):
+    setup_observability()
 
 
 def main() -> None:
@@ -36,18 +37,20 @@ def main() -> None:
     port = int(os.getenv("PORT", "8080"))
     # Disable auto_open in container environments
     auto_open = os.getenv("ENVIRONMENT") != "production"
+    # Bind to 0.0.0.0 in container environments for external access
+    host = "0.0.0.0" if os.getenv("CONTAINER_ENV") == "true" else "localhost"  # noqa: S104
 
     logger.info("Starting Agent Workflow DevUI...")
-    logger.info(f"Available at: http://localhost:{port}")
+    logger.info(f"Available at: http://{host}:{port}")
 
     # Load entities synchronously (no async context needed)
     workflows = export_workflow()
     agents = export_agents()
 
     # DevUI's serve() handles MCP tool lifecycle via _cleanup_entities()
-    # Use localhost for security; override with --host 0.0.0.0 if needed for external access
+    # Use localhost for local dev security; 0.0.0.0 for container deployments
     # Dependencies (client, global_tools) are injected automatically into workflow/agent builders
-    serve(entities=workflows + agents, port=port, host="localhost", auto_open=auto_open)
+    serve(entities=workflows + agents, port=port, host=host, auto_open=auto_open)
 
 
 if __name__ == "__main__":

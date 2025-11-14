@@ -8,7 +8,7 @@ param identityId string = ''
 param resourceToken string
 param containerRegistryName string
 
-@allowed(['SystemAssigned', 'UserAssigned'])
+@allowed(['SystemAssigned', 'UserAssigned', 'SystemAssigned,UserAssigned'])
 param identityType string = 'UserAssigned'
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = {
@@ -46,13 +46,13 @@ module containerApp 'br/public:avm/res/app/container-app:0.11.0' = {
     tags: union(tags, { 'azd-service-name': serviceName })
     environmentResourceId: containerAppsEnvironment.outputs.resourceId
     managedIdentities: {
-      systemAssigned: identityType == 'SystemAssigned'
-      userAssignedResourceIds: identityType == 'UserAssigned' ? [identityId] : []
+      systemAssigned: contains(identityType, 'SystemAssigned')
+      userAssignedResourceIds: contains(identityType, 'UserAssigned') ? [identityId] : []
     }
     registries: [
       {
         server: containerRegistry.properties.loginServer
-        identity: identityType == 'UserAssigned' ? identityId : ''
+        identity: contains(identityType, 'UserAssigned') ? identityId : ''
       }
     ]
     containers: [
@@ -77,5 +77,5 @@ module containerApp 'br/public:avm/res/app/container-app:0.11.0' = {
 
 output SERVICE_APP_NAME string = containerApp.outputs.name
 output SERVICE_APP_URI string = containerApp.outputs.fqdn
-output SERVICE_APP_IDENTITY_PRINCIPAL_ID string = identityType == 'SystemAssigned' ? containerApp.outputs.?systemAssignedMIPrincipalId ?? '' : ''
+output SERVICE_APP_IDENTITY_PRINCIPAL_ID string = contains(identityType, 'SystemAssigned') ? containerApp.outputs.systemAssignedMIPrincipalId : ''
 output environmentId string = containerAppsEnvironment.outputs.resourceId

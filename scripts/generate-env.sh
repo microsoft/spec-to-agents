@@ -27,12 +27,15 @@ AZURE_AI_PROJECT_ENDPOINT=$AZURE_AI_PROJECT_ENDPOINT
 AZURE_AI_MODEL_DEPLOYMENT_NAME=$AZURE_AI_MODEL_DEPLOYMENT_NAME
 WEB_SEARCH_MODEL=$WEB_SEARCH_MODEL
 
-# Bing Search (from Azure AI Foundry connected resources)
+# Bing Search (from Microsoft Foundry connected resources)
 # TODO: Change back to BING_CONNECTION_NAME once SDK bug is fixed (currently requires full resource ID)
 BING_CONNECTION_ID=$BING_CONNECTION_ID
 
 # Calendar Storage
 CALENDAR_STORAGE_PATH=./data/calendars
+
+# A2A Agent (optional - for calendar integration)
+# A2A_AGENT_HOST=http://localhost:5000
 
 # MCP Sequential Thinking Tools
 MAX_HISTORY_SIZE=1000

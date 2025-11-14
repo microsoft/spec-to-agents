@@ -18,7 +18,7 @@ This is a Python project using **Microsoft Agent Framework** to build a multi-ag
 - **Microsoft Agent Framework** for building and orchestrating agents
 - **uv** for dependency management (NOT pip/poetry/conda)
 - **pytest** for testing with pytest-mock for mocking
-- **Azure AI Foundry** for infrastructure (Managed Identity, no API keys)
+- **Microsoft Foundry** for infrastructure (Managed Identity, no API keys)
 
 ## Project Structure
 

@@ -116,7 +116,7 @@ src/spec_to_agents/
 - **Pydantic**: Data validation and settings management
 - **Microsoft Agent Framework**: Agent orchestration
 - **pytest**: Testing framework with pytest-mock for mocking
-- **Azure AI Foundry**: Infrastructure backend (Managed Identity, no API keys)
+- **Microsoft Foundry**: Infrastructure backend (Managed Identity, no API keys)
 
 #### Configuration
 - `.env`: Contains Azure OpenAI config (refer to `.env.example` if missing)
@@ -418,7 +418,7 @@ def test_new_agent_basic_functionality():
 
 ### Infrastructure Context
 
-#### Azure AI Foundry Setup
+#### Microsoft Foundry Setup
 - **Authentication**: Managed Identity only (no API keys)
 - **Model Deployments**: Configured in AI Foundry project
 - **Connections**: Storage, Cosmos DB, AI Search for agent dependencies
