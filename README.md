@@ -67,7 +67,7 @@ azd up
 ```
 
 **What happens:**
-- ✅ Provisions Azure AI Foundry + OpenAI models
+- ✅ Provisions Microsoft Foundry + OpenAI models
 - ✅ Generates `.env` with connection details
 - ✅ Installs Python dependencies via `uv sync`
 
@@ -145,7 +145,7 @@ See [DEV_SETUP.md](./DEV_SETUP.md) for debugging instructions and manual configu
 
 Provisioned automatically by `azd up`:
 
-- **Azure AI Foundry**: AIServices resource and Project for service managed agents
+- **Microsoft Foundry**: AIServices resource and Project for service managed agents
 - **Azure OpenAI**: gpt-5-mini (primary) and gpt-4.1-mini (web search)
 - **Bing Search**: Grounding API for web searches
 - **Container Registry & App**: For deployment (optional)

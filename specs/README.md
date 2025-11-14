@@ -7,7 +7,7 @@ This document outlines the specifications for the unified components of the proj
 ## Specs
 
 - [Event Planning Workflow](workflow-skeleton.md) - Complete multi-agent workflow with coordinator-centric star topology, service-managed threads, structured output routing, and human-in-the-loop support. **Status: ✅ Implemented**
-- [Agent Tools Integration](agent-tools.md) - Comprehensive specification for integrating custom Web Search, Weather (Open-Meteo), Calendar (iCalendar), Code Interpreter, and MCP sequential-thinking-tools with Azure AI Foundry agents. **Status: ✅ Implemented**
+- [Agent Tools Integration](agent-tools.md) - Comprehensive specification for integrating custom Web Search, Weather (Open-Meteo), Calendar (iCalendar), Code Interpreter, and MCP sequential-thinking-tools with Microsoft Foundry agents. **Status: ✅ Implemented**
 
 ## Key Implementation Patterns
 

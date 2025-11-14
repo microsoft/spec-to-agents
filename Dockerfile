@@ -1,31 +1,59 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Use the official uv image as builder
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies needed for some Python packages
+# Enable bytecode compilation for faster startup
+ENV UV_COMPILE_BYTECODE=1
+
+# Copy uv cache to a predictable location for caching
+ENV UV_LINK_MODE=copy
+
+# Install dependencies first (separate layer for better caching)
+# Copy only dependency files first for better layer caching
+COPY uv.lock pyproject.toml README.md ./
+RUN uv sync --frozen --no-install-project --no-dev
+
+# Copy the project source code
+COPY . /app
+
+# Sync the project itself (now including the source code)
+RUN uv sync --frozen --no-dev
+
+# Final runtime stage - use slim Python image
+FROM python:3.11-slim-bookworm
+
+# Set working directory
+WORKDIR /app
+
+# Install Node.js (required for MCP tools)
 RUN apt-get update && apt-get install -y \
-    gcc \
-    git \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
-COPY pyproject.toml README.md ./
-COPY src/ ./src/
+# Copy uv from the builder stage
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Install uv for fast package management
-RUN pip install --no-cache-dir uv
+# Copy the virtual environment from the builder
+COPY --from=builder /app/.venv /app/.venv
 
-# Install dependencies using uv
-RUN uv pip install --system --no-cache -e .
+# Copy the application code
+COPY --from=builder /app /app
 
-# Expose port 8080 (Azure Container Apps default)
-EXPOSE 8080
+# Add virtual environment to PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
+ENV CONTAINER_ENV=true
+ENV ENVIRONMENT=production
 
-# Run the application
-CMD ["python", "-m", "spec_to_agents.main"]
+# Expose port 8080 (Azure Container Apps default)
+EXPOSE 8080
+
+# Run the application using uv run (just like locally)
+CMD ["uv", "run", "app"]
