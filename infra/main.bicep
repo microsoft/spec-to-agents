@@ -52,7 +52,7 @@ param resourceGroupName string = ''
 param principalId string = ''
 
 // AI Foundry parameters
-@description('The name of the Azure AI Foundry resource.')
+@description('The name of the Microsoft Foundry resource.')
 @maxLength(9)
 param aiFoundryName string = 'foundry'
 
@@ -107,7 +107,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 }
 
 // =================================================================
-// STEP 1: DEPLOY AZURE AI FOUNDRY (SIMPLIFIED)
+// STEP 1: DEPLOY Microsoft Foundry (SIMPLIFIED)
 // Deploys AI Services account, project, and model
 // =================================================================
 
@@ -188,19 +188,8 @@ module acrRoleAssignment 'app/rbac/acr-access.bicep' = {
   }
 }
 
-// Grant Azure AI User role to the Container App managed identity
-var AzureAIUserRole = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
-module aiFoundryRoleAssignmentApp 'app/rbac/ai-foundry-access.bicep' = {
-  name: 'ai-foundry-app-rbac-${resourceToken}'
-  scope: rg
-  params: {
-    aiAccountName: aiFoundry.outputs.accountName
-    roleDefinitionID: AzureAIUserRole
-    principalID: appUserAssignedIdentity.outputs.principalId
-  }
-}
-
 // Grant Azure AI User role to the logged-in user (for development)
+var AzureAIUserRole = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 module aiFoundryRoleAssignmentUser 'app/rbac/ai-foundry-access.bicep' = if (!empty(principalId)) {
   name: 'ai-foundry-user-rbac-${resourceToken}'
   scope: rg
@@ -224,6 +213,7 @@ module app './app/container-app.bicep' = {
     resourceToken: resourceToken
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     identityId: appUserAssignedIdentity.outputs.resourceId
+    identityType: 'SystemAssigned,UserAssigned'
     containerRegistryName: containerRegistry.outputs.name
     appSettings: [
       // AI Project configuration
@@ -237,15 +227,43 @@ module app './app/container-app.bicep' = {
       }
       {
         name: 'AZURE_AI_PROJECT_ENDPOINT'
-        value: aiFoundry.outputs.accountEndpoint
+        value: '${aiFoundry.outputs.accountEndpoint}api/projects/${aiFoundry.outputs.projectName}'
       }
       {
-        name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
+        name: 'AZURE_AI_MODEL_DEPLOYMENT_NAME'
         value: aiFoundry.outputs.modelDeploymentName
       }
       {
-        name: 'BING_CONNECTION_NAME'
-        value: aiFoundry.outputs.bingConnectionName
+        name: 'WEB_SEARCH_MODEL'
+        value: aiFoundry.outputs.webSearchModelDeploymentName
+      }
+      {
+        name: 'AZURE_OPENAI_API_VERSION'
+        value: '2025-01-01-preview'
+      }
+      {
+        name: 'BING_CONNECTION_ID'
+        value: aiFoundry.outputs.bingConnectionId
+      }
+      {
+        name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+        value: monitoring.outputs.applicationInsightsConnectionString
+      }
+      {
+        name: 'CALENDAR_STORAGE_PATH'
+        value: './data/calendars'
+      }
+      {
+        name: 'MAX_HISTORY_SIZE'
+        value: '1000'
+      }
+      {
+        name: 'ENABLE_OTEL'
+        value: 'true'
+      }
+      {
+        name: 'ENABLE_SENSITIVE_DATA'
+        value: 'true'
       }
       // Container environment settings
       {
@@ -256,11 +274,29 @@ module app './app/container-app.bicep' = {
         name: 'PORT'
         value: '8080'
       }
+      {
+        name: 'CONTAINER_ENV'
+        value: 'true'
+      }
     ]
   }
   dependsOn: [
     acrRoleAssignment
-    aiFoundryRoleAssignmentApp
+  ]
+}
+
+// Grant Azure AI User role to the Container App System-Assigned Managed Identity
+// This must come AFTER the app is created since we need its system identity
+module aiFoundryRoleAssignmentSystemIdentity 'app/rbac/ai-foundry-access.bicep' = {
+  name: 'ai-foundry-system-identity-rbac-${resourceToken}'
+  scope: rg
+  params: {
+    aiAccountName: aiFoundry.outputs.accountName
+    roleDefinitionID: AzureAIUserRole
+    principalID: app.outputs.SERVICE_APP_IDENTITY_PRINCIPAL_ID
+  }
+  dependsOn: [
+    app
   ]
 }
 
@@ -297,7 +333,7 @@ output AZURE_APP_NAME string = app.outputs.SERVICE_APP_NAME
 @description('URL of the deployed unified application.')
 output AZURE_APP_URI string = app.outputs.SERVICE_APP_URI
 
-@description('The full project endpoint URL for Azure AI Foundry.')
+@description('The full project endpoint URL for Microsoft Foundry.')
 output AZURE_AI_PROJECT_ENDPOINT string = '${aiFoundry.outputs.accountEndpoint}api/projects/${aiFoundry.outputs.projectName}'
 
 @description('The name of the model deployment for primary agent tasks.')

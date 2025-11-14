@@ -367,7 +367,7 @@ Final Event Plan
 ### Technology Stack
 
 - **Agent Framework Core**: Multi-agent orchestration primitives
-- **Agent Framework Azure AI**: `AzureAIAgentClient` for Azure AI Foundry integration
+- **Agent Framework Azure AI**: `AzureAIAgentClient` for Microsoft Foundry integration
 - **Agent Framework DevUI**: Web interface for testing workflows
 - **Pydantic**: Data validation for structured outputs
 - **Python 3.11+**: Modern Python features
@@ -1222,7 +1222,7 @@ MAX_HISTORY_SIZE=1000
 
 All required packages in `pyproject.toml`:
 - `agent-framework-core`: Core workflow and agent primitives
-- `agent-framework-azure-ai`: Azure AI Foundry client
+- `agent-framework-azure-ai`: Microsoft Foundry client
 - `agent-framework-devui`: DevUI for testing
 - `azure-identity`: Authentication
 - `pydantic`: Data validation for structured outputs

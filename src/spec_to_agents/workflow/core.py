@@ -76,7 +76,7 @@ def build_event_planning_workflow(
     Human-in-the-loop is optional: the workflow can complete autonomously
     if agents have sufficient context and choose not to request user input.
 
-    Requires Azure AI Foundry credentials configured via environment variables
+    Requires Microsoft Foundry credentials configured via environment variables
     or Azure CLI authentication.
 
     The client parameter should be managed as an async context manager in the

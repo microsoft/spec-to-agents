@@ -34,9 +34,20 @@ def export_agents() -> list[ChatAgent | A2AAgent]:
     budget_agent = budget_analyst.create_agent()
     catering_agent = catering_coordinator.create_agent()
     logistics_agent = logistics_manager.create_agent()
-    calendar_agent = asyncio.run(calendar.create_agent())
 
-    return [venue_agent, budget_agent, catering_agent, logistics_agent, calendar_agent]
+    # Calendar agent is optional - only load if A2A_AGENT_HOST is configured
+    agents = [venue_agent, budget_agent, catering_agent, logistics_agent]
+    try:
+        calendar_agent = asyncio.run(calendar.create_agent())
+        agents.append(calendar_agent)
+    except ValueError as e:
+        if "A2A_AGENT_HOST" in str(e):
+            # Calendar agent not configured, skip it
+            pass
+        else:
+            raise
+
+    return agents
 
 
 __all__ = ["create_agent_client_for_devui", "export_agents"]

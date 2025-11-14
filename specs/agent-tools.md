@@ -1,4 +1,4 @@
-# Azure AI Foundry Agent Tools Integration Specification
+# Microsoft Foundry Agent Tools Integration Specification
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
@@ -12,8 +12,8 @@ To verify the implementation works, run `uv run app` to start the Agent Framewor
 
 ## Progress
 
-- [x] Research Agent Framework tool patterns and Azure AI Foundry integration
-- [x] Set up Azure AI Foundry client configuration (already configured in `src/spec_to_agents/clients.py`)
+- [x] Research Agent Framework tool patterns and Microsoft Foundry integration
+- [x] Set up Microsoft Foundry client configuration (already configured in `src/spec_to_agents/clients.py`)
 - [x] Create Open-Meteo API tool with `@ai_function` decorator (`src/spec_to_agents/tools/weather.py`)
 - [x] Create iCalendar tool with `.ics` file storage (`src/spec_to_agents/tools/calendar.py`)
 - [x] Configure Bing Search `HostedWebSearchTool` for Venue and Catering agents (in `workflow/core.py`)
@@ -74,12 +74,12 @@ To verify the implementation works, run `uv run app` to start the Agent Framewor
 
 ## Context and Orientation
 
-This project is a multi-agent event planning workflow built with Microsoft Agent Framework and Azure AI Foundry. The codebase is organized as follows:
+This project is a multi-agent event planning workflow built with Microsoft Agent Framework and Microsoft Foundry. The codebase is organized as follows:
 
 - `src/spec_to_agents/agents/` - Agent definitions (event_coordinator.py, venue_specialist.py, budget_analyst.py, catering_coordinator.py, logistics_manager.py)
 - `src/spec_to_agents/prompts/` - System prompts for each agent
 - `src/spec_to_agents/tools/` - Reusable tool definitions
-- `src/spec_to_agents/clients.py` - Azure AI Foundry client initialization
+- `src/spec_to_agents/clients.py` - Microsoft Foundry client initialization
 - `tests/` - Test suite for agents and tools
 - `.env` - Environment configuration (create from `.env.example`)
 
@@ -88,11 +88,11 @@ The Agent Framework provides:
 - `HostedWebSearchTool` for Bing Search with grounding
 - `HostedCodeInterpreterTool` for sandboxed Python execution
 - `MCPStdioTool` for Model Context Protocol server integration
-- `AzureAIAgentClient` for Azure AI Foundry agent management
+- `AzureAIAgentClient` for Microsoft Foundry agent management
 
 Key terms:
 - **AIFunction**: A Python function decorated with `@ai_function` that becomes available as a tool for agents. The decorator automatically generates JSON schema from type annotations.
-- **HostedTool**: A tool that runs in Azure AI Foundry's infrastructure (e.g., Code Interpreter, Bing Search).
+- **HostedTool**: A tool that runs in Microsoft Foundry's infrastructure (e.g., Code Interpreter, Bing Search).
 - **MCP (Model Context Protocol)**: A protocol for connecting external tools/services to agents via stdio, HTTP, or WebSocket.
 - **Approval Mode**: Controls whether tool execution requires human approval ("always_require", "never_require").
 - **Grounding**: Bing Search integration that provides source citations for search results.
@@ -104,9 +104,9 @@ Current state: Agents are defined with basic prompts but lack tool integration. 
 ### 1. Environment Configuration
 
 Update `.env.example` to include:
-- `AZURE_AI_PROJECT_ENDPOINT` - Azure AI Foundry project endpoint URL
+- `AZURE_AI_PROJECT_ENDPOINT` - Microsoft Foundry project endpoint URL
 - `AZURE_AI_MODEL_DEPLOYMENT_NAME` - Model deployment name (e.g., "gpt-4")
-- `BING_CONNECTION_NAME` - Bing Search connection name from Azure AI Foundry
+- `BING_CONNECTION_NAME` - Bing Search connection name from Microsoft Foundry
 - `CALENDAR_STORAGE_PATH` - Path to directory for storing `.ics` files (default: `./data/calendars`)
 
 ### 2. Tool Implementations
@@ -656,7 +656,7 @@ async def get_agent() -> ChatAgent:
 Update `src/spec_to_agents/clients.py` to support async initialization:
 
 ```python
-"""Azure AI Foundry client initialization."""
+"""Microsoft Foundry client initialization."""
 
 import os
 from azure.identity.aio import AzureCliCredential, DefaultAzureCredential
@@ -667,7 +667,7 @@ _credential: AzureCliCredential | DefaultAzureCredential | None = None
 
 async def get_azure_ai_client() -> AzureAIAgentClient:
     """
-    Get or create the Azure AI Foundry agent client.
+    Get or create the Microsoft Foundry agent client.
     
     Uses environment variables:
     - AZURE_AI_PROJECT_ENDPOINT: Azure AI project endpoint URL
@@ -734,11 +734,11 @@ dependencies = [
 Update `.env.example`:
 
 ```env
-# Azure AI Foundry Configuration
+# Microsoft Foundry Configuration
 AZURE_AI_PROJECT_ENDPOINT=https://your-project.cognitiveservices.azure.com
 AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4
 
-# Bing Search (from Azure AI Foundry connected resources)
+# Bing Search (from Microsoft Foundry connected resources)
 BING_CONNECTION_NAME=your_bing_connection_name
 
 # Calendar Storage
@@ -874,7 +874,7 @@ Use sequential-thinking-tools to break down complex planning tasks and construct
    # Edit .env with your values
    ```
 
-3. Set up Bing Search connection in Azure AI Foundry:
+3. Set up Bing Search connection in Microsoft Foundry:
    - Navigate to https://ai.azure.com
    - Select your project
    - Go to "Connected resources"
@@ -979,8 +979,8 @@ Use sequential-thinking-tools to break down complex planning tasks and construct
    ```
    Expected output: "sequential-thinking-tools"
 
-4. Verify Bing Search connection (requires Azure AI Foundry setup):
-   Check Azure AI Foundry portal shows Bing connection status as "Connected"
+4. Verify Bing Search connection (requires Microsoft Foundry setup):
+   Check Microsoft Foundry portal shows Bing connection status as "Connected"
 
 5. Run full test suite:
    ```powershell
@@ -1286,7 +1286,7 @@ dependencies = [
 AZURE_AI_PROJECT_ENDPOINT: str  # Azure AI project URL
 AZURE_AI_MODEL_DEPLOYMENT_NAME: str  # Model name (e.g., "gpt-4")
 OPENWEATHER_API_KEY: str  # OpenWeather API key
-BING_CONNECTION_NAME: str  # Bing connection from Azure AI Foundry
+BING_CONNECTION_NAME: str  # Bing connection from Microsoft Foundry
 
 # Optional
 CALENDAR_STORAGE_PATH: str = "./data/calendars"  # Calendar file storage
@@ -1571,9 +1571,9 @@ Expected: Agents successfully invoke tools and return relevant responses
 
 ### Azure Resources
 
-- Azure AI Foundry project
+- Microsoft Foundry project
 - Azure OpenAI deployment (GPT-4 or compatible model)
-- Bing Search connection (configured in Azure AI Foundry)
+- Bing Search connection (configured in Microsoft Foundry)
 
 ### Python Packages
 
@@ -1585,7 +1585,7 @@ uv add agent-framework agent-framework-azure-ai azure-identity httpx icalendar p
 ### External APIs
 
 - Open-Meteo API (free, no API key required)
-- Bing Search (via Azure AI Foundry)
+- Bing Search (via Microsoft Foundry)
 
 ## Notes and Considerations
 
@@ -1600,7 +1600,7 @@ uv add agent-framework agent-framework-azure-ai azure-identity httpx icalendar p
 
 - Open-Meteo API is free with reasonable rate limits (no strict limits for normal use)
 - MCP server connection persists to avoid reconnection overhead
-- Azure AI Foundry client uses singleton pattern to reuse connection
+- Microsoft Foundry client uses singleton pattern to reuse connection
 - Calendar operations use file I/O (consider caching for large calendars)
 
 ### Scalability

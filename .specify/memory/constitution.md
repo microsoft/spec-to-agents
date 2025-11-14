@@ -96,7 +96,7 @@ class SpecialistExecutor(AgentExecutor):
 
 ### Required Technologies
 - **Python 3.11+**: For advanced type hints and async features
-- **Azure AI Foundry**: All agents use Azure-hosted models (no local LLMs)
+- **Microsoft Foundry**: All agents use Azure-hosted models (no local LLMs)
 - **Dependency Injection**: `dependency-injector` library for IoC pattern
 - **Pydantic V2**: For structured outputs and validation
 

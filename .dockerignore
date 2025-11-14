@@ -1,6 +1,7 @@
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Python
 __pycache__
@@ -18,16 +19,25 @@ venv
 .pytest_cache
 .mypy_cache
 .ruff_cache
+htmlcov
+.coverage
+*.cover
 
 # IDE
 .vscode
 .idea
 *.swp
 *.swo
+.DS_Store
 
-# Environment
+# Environment (pass these at runtime, not baked into image)
 .env
 .env.local
+.env.*.local
+
+# CI/CD
+.github/
+.gitlab-ci.yml
 
 # Documentation (but keep README.md as it's referenced in pyproject.toml)
 AGENTS.md
@@ -37,6 +47,8 @@ DEV_SETUP.md
 LICENSE
 SECURITY.md
 SUPPORT.md
+*.md
+!README.md
 
 # Infrastructure
 infra/
@@ -55,3 +67,13 @@ specs/
 
 # Scripts
 scripts/
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Misc
+*.log
+tmp/
+temp/
