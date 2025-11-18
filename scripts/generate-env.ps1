@@ -38,7 +38,7 @@ BING_CONNECTION_ID=$bingConnectionId
 CALENDAR_STORAGE_PATH=./data/calendars
 
 # A2A Agent (optional - for calendar integration)
-# A2A_AGENT_HOST=http://localhost:5000
+# A2A_AGENT_HOST=http://localhost:10007
 
 # MCP Sequential Thinking Tools
 MAX_HISTORY_SIZE=1000
