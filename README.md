@@ -45,7 +45,7 @@ Each specialist agent has access to domain-specific tools for their area of expe
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/) - Python package manager
 - [Azure CLI (az)](https://learn.microsoft.com/cli/azure/install-azure-cli)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
