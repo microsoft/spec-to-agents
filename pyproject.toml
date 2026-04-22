@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 dependencies = [
     "agent-framework-core==1.0.0b251111",
     "agent-framework-azure-ai==1.0.0b251111",
-    "agent-framework-a2a==1.0.0b251111",
+    "agent-framework-a2a==1.0.0b260421",
     "agent-framework-devui==1.0.0b251111",
     # Pin a2a-sdk to a compatible version; agent-framework-a2a 1.0.0b251111
     # declares a2a-sdk>=0.3.5 without upper bound, but a2a-sdk>=0.3.24 removes
