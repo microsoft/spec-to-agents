@@ -10,21 +10,30 @@ dependencies = [
     "agent-framework-azure-ai==1.0.0b251111",
     "agent-framework-a2a==1.0.0b251111",
     "agent-framework-devui==1.0.0b251111",
-    "azure-identity>=1.25.0",
-    "python-dotenv>=1.1.1",
-    "httpx>=0.27.0",
-    "aiohttp>=3.9.0",
-    "icalendar>=5.0.11",
+    # Pin a2a-sdk to a compatible version; agent-framework-a2a 1.0.0b251111
+    # declares a2a-sdk>=0.3.5 without upper bound, but a2a-sdk>=0.3.24 removes
+    # FilePart/TextPart/FileWithBytes/FileWithUri causing ImportError.
+    # Upstream agent-framework pins a2a-sdk<0.3.24.
+    "a2a-sdk>=0.3.5,<0.3.24",
+    "azure-identity>=1.25.0,<2",
+    "python-dotenv>=1.1.1,<2",
+    "httpx>=0.27.0,<1",
+    "aiohttp>=3.9.0,<4",
+    "icalendar>=5.0.11,<8",
     "pytz>=2024.1",
-    "rich>=13.7.0",
-    # OpenTelemetry packages for observability
-    "opentelemetry-api",
-    "opentelemetry-sdk",
-    "azure-monitor-opentelemetry",
-    "azure-monitor-opentelemetry-exporter>=1.0.0b41",
-    "opentelemetry-exporter-otlp-proto-grpc",
-    "opentelemetry-semantic-conventions-ai",
-    "dependency-injector>=4.48.2",
+    "rich>=13.7.0,<16",
+    # OpenTelemetry packages for observability.
+    # Stable OTel APIs follow 1.x; pin <2 to avoid a future breaking major.
+    # Instrumentation/semantic-conventions still use 0.x betas; pin <1.
+    "opentelemetry-api>=1.30,<2",
+    "opentelemetry-sdk>=1.30,<2",
+    "azure-monitor-opentelemetry>=1.6,<2",
+    "azure-monitor-opentelemetry-exporter>=1.0.0b41,<2",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.30,<2",
+    "opentelemetry-semantic-conventions-ai>=0.4,<1",
+    "dependency-injector>=4.48.2,<5",
+    # Pydantic 2.x pinned to avoid future v3 breakages.
+    "pydantic>=2.8,<3",
 ]
 
 [project.scripts]
